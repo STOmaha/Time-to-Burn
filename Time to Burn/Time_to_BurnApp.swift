@@ -12,12 +12,14 @@ import WeatherKit
 struct Time_to_BurnApp: App {
     @StateObject private var locationManager = LocationManager()
     @StateObject private var weatherViewModel = WeatherViewModel()
+    @StateObject private var notificationService = NotificationService.shared
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(locationManager)
                 .environmentObject(weatherViewModel)
+                .environmentObject(notificationService)
         }
     }
 }

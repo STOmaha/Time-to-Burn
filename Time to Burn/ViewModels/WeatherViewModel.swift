@@ -64,7 +64,7 @@ class WeatherViewModel: ObservableObject {
             
             // Check if we should send a notification
             if uvIndex >= notificationThreshold && (lastNotifiedUVIndex == nil || lastNotifiedUVIndex! < notificationThreshold) {
-                notificationService.scheduleUVAlert(uvIndex: uvIndex, location: "")
+                await notificationService.scheduleUVAlert(uvIndex: uvIndex, location: "")
                 lastNotifiedUVIndex = uvIndex
                 print("WeatherViewModel: Scheduled UV alert for index \(uvIndex)")
             } else if uvIndex < notificationThreshold {

@@ -138,6 +138,8 @@ struct ContentView: View {
 }
 
 struct NotificationCard: View {
+    @EnvironmentObject private var notificationService: NotificationService
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Notifications")
@@ -149,32 +151,49 @@ struct NotificationCard: View {
                 NotificationRow(
                     title: "High UV Alerts",
                     description: "Get notified when UV index is high",
-                    isEnabled: true
+                    isEnabled: $notificationService.isHighUVAlertsEnabled
                 )
                 
                 NotificationRow(
                     title: "Daily Updates",
                     description: "Receive daily UV index updates",
-                    isEnabled: false
+                    isEnabled: $notificationService.isDailyUpdatesEnabled
                 )
                 
                 NotificationRow(
                     title: "Location Changes",
                     description: "Get notified when you enter a new area",
-                    isEnabled: false
+                    isEnabled: $notificationService.isLocationChangesEnabled
                 )
+            }
+            .onChange(of: notificationService.isHighUVAlertsEnabled) { _ in
+                updateNotificationPreferences()
+            }
+            .onChange(of: notificationService.isDailyUpdatesEnabled) { _ in
+                updateNotificationPreferences()
+            }
+            .onChange(of: notificationService.isLocationChangesEnabled) { _ in
+                updateNotificationPreferences()
             }
             
             Spacer()
         }
         .padding()
     }
+    
+    private func updateNotificationPreferences() {
+        notificationService.updateNotificationPreferences(
+            highUVAlerts: notificationService.isHighUVAlertsEnabled,
+            dailyUpdates: notificationService.isDailyUpdatesEnabled,
+            locationChanges: notificationService.isLocationChangesEnabled
+        )
+    }
 }
 
 struct NotificationRow: View {
     let title: String
     let description: String
-    @State var isEnabled: Bool
+    @Binding var isEnabled: Bool
     
     var body: some View {
         HStack {

@@ -6,6 +6,12 @@
 	<array>
 		<string>location</string>
 		<string>remote-notification</string>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.timetoburn.uvcheck</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Time to Burn needs your location to provide accurate UV index information for your area.</string>
