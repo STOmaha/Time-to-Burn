@@ -4,6 +4,7 @@ import WeatherKit
 struct ContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
+    @State private var showingNotifications = false
     
     var body: some View {
         ZStack {
@@ -88,6 +89,32 @@ struct ContentView: View {
                     .padding()
                 }
             }
+            
+            // Notification Bell Button
+            VStack {
+                Spacer()
+                HStack {
+                    Button(action: {
+                        showingNotifications = true
+                    }) {
+                        Image(systemName: "bell.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(.blue)
+                            .padding()
+                            .background(Color.white)
+                            .clipShape(Circle())
+                            .shadow(radius: 3)
+                    }
+                    .padding(.leading, 20)
+                    .padding(.bottom, 20)
+                    Spacer()
+                }
+            }
+        }
+        .sheet(isPresented: $showingNotifications) {
+            NotificationCard()
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         .task {
             print("ContentView: Initial task started")
@@ -107,6 +134,66 @@ struct ContentView: View {
                 }
             }
         }
+    }
+}
+
+struct NotificationCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Notifications")
+                .font(.title2)
+                .fontWeight(.bold)
+                .padding(.top)
+            
+            VStack(alignment: .leading, spacing: 15) {
+                NotificationRow(
+                    title: "High UV Alerts",
+                    description: "Get notified when UV index is high",
+                    isEnabled: true
+                )
+                
+                NotificationRow(
+                    title: "Daily Updates",
+                    description: "Receive daily UV index updates",
+                    isEnabled: false
+                )
+                
+                NotificationRow(
+                    title: "Location Changes",
+                    description: "Get notified when you enter a new area",
+                    isEnabled: false
+                )
+            }
+            
+            Spacer()
+        }
+        .padding()
+    }
+}
+
+struct NotificationRow: View {
+    let title: String
+    let description: String
+    @State var isEnabled: Bool
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: $isEnabled)
+                .labelsHidden()
+        }
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(10)
     }
 }
 
