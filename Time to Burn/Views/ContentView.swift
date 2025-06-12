@@ -73,7 +73,8 @@ struct ContentView: View {
                                 await weatherViewModel.refreshData()
                             }
                         }) {
-                            Label("Refresh", systemImage: "arrow.clockwise")
+                            Label("Update Location", systemImage: "location.circle.fill")
+                                .font(.headline)
                         }
                         .buttonStyle(.bordered)
                         .padding(.top)
