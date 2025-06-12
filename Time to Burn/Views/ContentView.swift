@@ -126,9 +126,9 @@ struct ContentView: View {
                 print("ContentView: No location available")
             }
         }
-        .onChange(of: locationManager.location) { newLocation in
+        .onChange(of: locationManager.location) { oldValue, newValue in
             print("ContentView: Location changed")
-            if let location = newLocation {
+            if let location = newValue {
                 Task {
                     await weatherViewModel.fetchUVData(for: location)
                 }
@@ -166,13 +166,13 @@ struct NotificationCard: View {
                     isEnabled: $notificationService.isLocationChangesEnabled
                 )
             }
-            .onChange(of: notificationService.isHighUVAlertsEnabled) { _ in
+            .onChange(of: notificationService.isHighUVAlertsEnabled) { oldValue, newValue in
                 updateNotificationPreferences()
             }
-            .onChange(of: notificationService.isDailyUpdatesEnabled) { _ in
+            .onChange(of: notificationService.isDailyUpdatesEnabled) { oldValue, newValue in
                 updateNotificationPreferences()
             }
-            .onChange(of: notificationService.isLocationChangesEnabled) { _ in
+            .onChange(of: notificationService.isLocationChangesEnabled) { oldValue, newValue in
                 updateNotificationPreferences()
             }
             
