@@ -73,7 +73,7 @@ class NotificationService: NSObject, ObservableObject {
     }
     
     func requestAuthorization() async throws {
-        let options: UNAuthorizationOptions = [.alert, .sound, .badge, .timeSensitive]
+        let options: UNAuthorizationOptions = [.alert, .sound, .badge]
         try await UNUserNotificationCenter.current().requestAuthorization(options: options)
         
         // Schedule the first background task after authorization
