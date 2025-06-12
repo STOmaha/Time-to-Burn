@@ -11,6 +11,7 @@ class WeatherViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: Error?
     @Published var isAuthorized = false
+    @Published var lastUpdateTime: Date?
     
     private var lastNotifiedUVIndex: Int?
     private let notificationThreshold = 6 // Notify when UV index is 6 or higher
@@ -58,6 +59,7 @@ class WeatherViewModel: ObservableObject {
                 advice: advice
             )
             
+            lastUpdateTime = Date()
             print("WeatherViewModel: Created UV data object")
             
             // Check if we should send a notification

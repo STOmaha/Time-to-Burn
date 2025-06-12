@@ -78,6 +78,12 @@ struct ContentView: View {
                         }
                         .buttonStyle(.bordered)
                         .padding(.top)
+                        
+                        if let lastUpdate = weatherViewModel.lastUpdateTime {
+                            Text("Last updated: \(timeAgoString(from: lastUpdate))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                     .padding()
                 }
@@ -192,4 +198,22 @@ struct TimeToBurnCard: View {
     ContentView()
         .environmentObject(LocationManager())
         .environmentObject(WeatherViewModel())
+}
+
+extension ContentView {
+    func timeAgoString(from date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+        let components = calendar.dateComponents([.minute, .hour], from: date, to: now)
+        
+        if let hour = components.hour, hour > 0 {
+            return "\(hour)h ago"
+        } else if let minute = components.minute {
+            if minute == 0 {
+                return "Just now"
+            }
+            return "\(minute)m ago"
+        }
+        return "Just now"
+    }
 } 
