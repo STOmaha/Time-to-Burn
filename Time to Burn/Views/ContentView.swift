@@ -231,7 +231,7 @@ struct UVIndexCard: View {
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
-                Text("\(uvData.uvIndex)")
+                Text(uvIndexText(uvData.uvIndex))
                     .font(.system(size: 72, weight: .bold))
                     .foregroundColor(uvIndexColor(uvData.uvIndex))
             } else {
@@ -247,11 +247,20 @@ struct UVIndexCard: View {
     
     private func uvIndexColor(_ index: Int) -> Color {
         switch index {
-        case 0...2: return .green
+        case 0: return .blue
+        case 1...2: return .green
         case 3...5: return .yellow
         case 6...7: return .orange
         case 8...10: return .red
         default: return .purple
+        }
+    }
+    
+    private func uvIndexText(_ index: Int) -> String {
+        if index == 0 {
+            return "No chance of sunburn"
+        } else {
+            return "\(index)"
         }
     }
 }
