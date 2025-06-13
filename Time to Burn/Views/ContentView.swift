@@ -8,9 +8,9 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            // Background gradient
+            // Dynamic background gradient based on UV Index
             LinearGradient(
-                gradient: Gradient(colors: [Color.blue.opacity(0.3), Color.blue.opacity(0.1)]),
+                gradient: Gradient(colors: [darkerUVColor, darkerUVColor.opacity(0.7)]),
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -125,6 +125,21 @@ struct ContentView: View {
                     await weatherViewModel.fetchUVData(for: location)
                 }
             }
+        }
+    }
+    
+    // Add computed property for dynamic background color
+    private var darkerUVColor: Color {
+        guard let uvIndex = weatherViewModel.currentUVData?.uvIndex else {
+            return Color.blue.opacity(0.7)
+        }
+        switch uvIndex {
+        case 0: return Color.blue.darken()
+        case 1...2: return Color.green.darken()
+        case 3...5: return Color.yellow.darken()
+        case 6...7: return Color.orange.darken()
+        case 8...10: return Color.red.darken()
+        default: return Color.purple.darken()
         }
     }
 }
@@ -302,5 +317,12 @@ extension ContentView {
             return "\(minute)m ago"
         }
         return "Just now"
+    }
+}
+
+// Add Color extension for darken
+extension Color {
+    func darken(amount: Double = 0.5) -> Color {
+        return self.opacity(1.0 - amount)
     }
 } 
