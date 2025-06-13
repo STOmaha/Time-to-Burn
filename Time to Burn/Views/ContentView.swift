@@ -234,6 +234,10 @@ struct UVIndexCard: View {
                 Text(uvIndexText(uvData.uvIndex))
                     .font(.system(size: 72, weight: .bold))
                     .foregroundColor(uvIndexColor(uvData.uvIndex))
+                
+                Text("\(uvData.timeToBurn) minutes to burn")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             } else {
                 ProgressView()
             }
