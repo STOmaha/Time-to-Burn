@@ -58,16 +58,6 @@ struct ContentView: View {
                             uvData: weatherViewModel.currentUVData
                         )
                         
-                        // Advice Card
-                        if let uvData = weatherViewModel.currentUVData {
-                            AdviceCard(advice: uvData.advice)
-                        }
-                        
-                        // Time to Burn Card
-                        if let uvData = weatherViewModel.currentUVData {
-                            TimeToBurnCard(timeToBurn: uvData.timeToBurn)
-                        }
-                        
                         Button(action: {
                             Task {
                                 locationManager.requestLocation()
@@ -240,6 +230,19 @@ struct UVIndexCard: View {
                 Text("\(uvData.timeToBurn) minutes to burn")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                    .padding(.top, 2)
+                
+                Divider()
+                    .padding(.vertical, 8)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Protection Advice")
+                        .font(.headline)
+                    Text(uvData.advice)
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ProgressView()
             }
@@ -268,50 +271,6 @@ struct UVIndexCard: View {
         } else {
             return "\(index)"
         }
-    }
-}
-
-struct AdviceCard: View {
-    let advice: String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Protection Advice")
-                .font(.headline)
-            
-            Text(advice)
-                .font(.body)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(radius: 5)
-    }
-}
-
-struct TimeToBurnCard: View {
-    let timeToBurn: Int
-    
-    var body: some View {
-        VStack(spacing: 10) {
-            Text("Time to Burn")
-                .font(.headline)
-            
-            Text("\(timeToBurn) minutes")
-                .font(.system(size: 36, weight: .bold))
-                .foregroundColor(.red)
-            
-            Text("of unprotected exposure")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(radius: 5)
     }
 }
 
