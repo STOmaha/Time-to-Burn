@@ -223,9 +223,18 @@ struct UVIndexCard: View {
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
-                Text(uvIndexText(uvData.uvIndex))
-                    .font(.system(size: 72, weight: .bold))
-                    .foregroundColor(uvIndexColor(uvData.uvIndex))
+                ZStack {
+                    Text(uvIndexText(uvData.uvIndex))
+                        .font(.system(size: 72, weight: .bold))
+                        .foregroundColor(.black)
+                        .opacity(0.25)
+                        .overlay(
+                            Text(uvIndexText(uvData.uvIndex))
+                                .font(.system(size: 72, weight: .bold))
+                                .foregroundColor(uvIndexColor(uvData.uvIndex))
+                                .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 2)
+                        )
+                }
                 
                 Text("\(uvData.timeToBurn) minutes to burn")
                     .font(.subheadline)
@@ -249,7 +258,7 @@ struct UVIndexCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color.white)
+        .background(Color.white.opacity(0.5))
         .cornerRadius(20)
         .shadow(radius: 5)
     }
