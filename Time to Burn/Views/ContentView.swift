@@ -264,7 +264,7 @@ struct UVIndexCard: View {
     
     private func uvIndexText(_ index: Int) -> String {
         if index == 0 {
-            return "No chance of sunburn"
+            return "No chance of sunburn, safe for all skin types and Vampires. 🧛🏻❤️🧛🏻‍♀️"
         } else {
             return "\(index)"
         }
