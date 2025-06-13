@@ -81,9 +81,11 @@ struct ContentView: View {
                         .padding(.top)
                         
                         if let lastUpdate = weatherViewModel.lastUpdateTime {
-                            Text("Last updated: \(timeAgoString(from: lastUpdate))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            TimelineView(.periodic(from: lastUpdate, by: 1)) { context in
+                                Text("Last updated: \(timeAgoString(from: lastUpdate, to: context.date))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                     .padding()
@@ -320,11 +322,9 @@ struct TimeToBurnCard: View {
 }
 
 extension ContentView {
-    func timeAgoString(from date: Date) -> String {
+    func timeAgoString(from date: Date, to now: Date = Date()) -> String {
         let calendar = Calendar.current
-        let now = Date()
         let components = calendar.dateComponents([.minute, .hour], from: date, to: now)
-        
         if let hour = components.hour, hour > 0 {
             return "\(hour)h ago"
         } else if let minute = components.minute {
