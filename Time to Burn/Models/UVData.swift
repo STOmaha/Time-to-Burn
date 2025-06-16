@@ -16,7 +16,9 @@ struct UVData: Identifiable {
         case 3...5: return 45 // 45 minutes
         case 6...7: return 30 // 30 minutes
         case 8...10: return 15 // 15 minutes
-        default: return 10 // 10 minutes
+        case 11: return 10 // 10 minutes
+        case 12: return 4 // <5 minutes
+        default: return 4 // 4 minutes for any value above 12
         }
     }
     
@@ -32,8 +34,12 @@ struct UVData: Identifiable {
             return "High risk of harm. Reduce time in the sun between 10 a.m. and 4 p.m. Wear protective clothing and sunscreen."
         case 8...10:
             return "Very high risk of harm. Minimize sun exposure during midday hours. Protection against sun damage is essential."
-        default:
+        case 11:
             return "Extreme risk of harm. Take all precautions. Avoid sun exposure during midday hours."
+        case 12:
+            return "UV Index 12: Lethal risk. Avoid sun exposure completely. Less than 5 minutes to burn."
+        default:
+            return "UV Index off the scale! Avoid sun exposure at all costs."
         }
     }
 } 

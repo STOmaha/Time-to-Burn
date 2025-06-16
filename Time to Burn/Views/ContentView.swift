@@ -130,7 +130,9 @@ struct ContentView: View {
         case 3...5: return Color.yellow.darken()
         case 6...7: return Color.orange.darken()
         case 8...10: return Color.red.darken()
-        default: return Color.purple.darken()
+        case 11: return Color.purple.darken()
+        case 12: return Color.black.darken()
+        default: return Color.black.darken()
         }
     }
 }
@@ -168,7 +170,7 @@ struct NotificationCard: View {
                                         uvAlertThreshold: intValue
                                     )
                                 }
-                            ), in: 1...11, step: 1)
+                            ), in: 1...12, step: 1)
                             .frame(maxWidth: 150)
                             Text("\(notificationService.uvAlertThreshold)")
                                 .font(.subheadline)
@@ -277,7 +279,7 @@ struct UVIndexCard: View {
                         )
                 }
                 
-                Text("\(uvData.timeToBurn) minutes to burn")
+                Text(uvData.uvIndex == 12 ? "<5 minutes to burn" : "\(uvData.timeToBurn) minutes to burn")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .padding(.top, 2)
@@ -311,7 +313,9 @@ struct UVIndexCard: View {
         case 3...5: return .yellow
         case 6...7: return .orange
         case 8...10: return .red
-        default: return .purple
+        case 11: return .purple
+        case 12: return .black
+        default: return .black
         }
     }
     
