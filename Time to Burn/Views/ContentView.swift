@@ -239,12 +239,12 @@ struct UVIndexCard: View {
                     .foregroundColor(.secondary)
                 
                 ZStack {
-                    Text(uvIndexText(uvData.uvIndex))
+                    Text(uvIndexDisplay(uvData.uvIndex))
                         .font(.system(size: 72, weight: .bold))
                         .foregroundColor(.black)
                         .opacity(0.25)
                         .overlay(
-                            Text(uvIndexText(uvData.uvIndex))
+                            Text(uvIndexDisplay(uvData.uvIndex))
                                 .font(.system(size: 72, weight: .bold))
                                 .foregroundColor(uvIndexColor(uvData.uvIndex))
                                 .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 2)
@@ -289,9 +289,9 @@ struct UVIndexCard: View {
         }
     }
     
-    private func uvIndexText(_ index: Int) -> String {
+    private func uvIndexDisplay(_ index: Int) -> String {
         if index == 0 {
-            return "No chance of sunburn, safe for all skin types and Vampires. 🧛🏻❤️🧛🏻‍♀️"
+            return UVData.getAdvice(uvIndex: 0)
         } else {
             return "\(index)"
         }

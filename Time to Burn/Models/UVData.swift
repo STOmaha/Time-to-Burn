@@ -22,7 +22,9 @@ struct UVData: Identifiable {
     
     static func getAdvice(uvIndex: Int) -> String {
         switch uvIndex {
-        case 0...2:
+        case 0:
+            return "No chance of sunburn, safe for all skin types and Vampires. 🧛🏻❤️🧛🏻‍♀️"
+        case 1...2:
             return "Low risk of harm from unprotected sun exposure. No protection required."
         case 3...5:
             return "Moderate risk of harm. Wear sunscreen, protective clothing, and seek shade during midday hours."
