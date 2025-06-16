@@ -5,17 +5,20 @@ import CoreLocation
 @MainActor
 class WeatherViewModel: ObservableObject {
     private let weatherService = WeatherService.shared
-    private let notificationService = NotificationService.shared
+    private let notificationService: NotificationService
     
     @Published var currentUVData: UVData?
+    @Published var hourlyForecast: [UVData] = []
     @Published var isLoading = false
     @Published var error: Error?
     @Published var isAuthorized = false
-    @Published var lastUpdateTime: Date?
+    @Published var lastUpdated: Date?
+    @Published var isRefreshing = false
     
     private var lastNotifiedUVIndex: Int?
     
-    init() {
+    init(notificationService: NotificationService) {
+        self.notificationService = notificationService
         print("WeatherViewModel: Initialized")
         Task {
             await requestAuthorizations()
@@ -52,7 +55,7 @@ class WeatherViewModel: ObservableObject {
                 advice: advice
             )
             
-            lastUpdateTime = Date()
+            lastUpdated = Date()
             print("WeatherViewModel: Created UV data object")
             
             // Check if we should send a notification
@@ -87,5 +90,15 @@ class WeatherViewModel: ObservableObject {
     func scheduleUVNotifications() {
         // TODO: Implement notification scheduling
         // This will be implemented to send daily UV index updates
+    }
+    
+    private func checkAndNotifyUV(uvIndex: Int) async {
+        // Check if we should send a notification
+        let threshold = notificationService.uvAlertThreshold
+        if uvIndex >= threshold && (lastNotifiedUVIndex == nil || lastNotifiedUVIndex! < threshold) {
+            await notificationService.scheduleUVAlert(uvIndex: uvIndex, location: "")
+            lastNotifiedUVIndex = uvIndex
+            print("WeatherViewModel: Scheduled UV alert for index \(uvIndex)")
+        }
     }
 } 

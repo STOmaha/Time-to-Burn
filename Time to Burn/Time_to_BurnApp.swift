@@ -12,10 +12,14 @@ import BackgroundTasks
 @main
 struct Time_to_BurnApp: App {
     @StateObject private var locationManager = LocationManager()
-    @StateObject private var weatherViewModel = WeatherViewModel()
     @StateObject private var notificationService = NotificationService()
+    @StateObject private var weatherViewModel: WeatherViewModel
     
     init() {
+        // Initialize WeatherViewModel with the same NotificationService instance
+        let notificationService = NotificationService.shared
+        _weatherViewModel = StateObject(wrappedValue: WeatherViewModel(notificationService: notificationService))
+        
         // Register background task
         notificationService.registerBackgroundTask()
     }
@@ -24,8 +28,8 @@ struct Time_to_BurnApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(locationManager)
-                .environmentObject(weatherViewModel)
                 .environmentObject(notificationService)
+                .environmentObject(weatherViewModel)
         }
     }
 }

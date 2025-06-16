@@ -3,117 +3,118 @@ import WeatherKit
 
 struct ContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var notificationService: NotificationService
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @State private var showingNotifications = false
     
     var body: some View {
-        ZStack {
-            // Dynamic background gradient based on UV Index
-            LinearGradient(
-                gradient: Gradient(colors: [darkerUVColor, darkerUVColor.opacity(0.7)]),
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            
-            if weatherViewModel.isLoading {
-                VStack(spacing: 20) {
-                    ProgressView("Loading UV data...")
-                        .scaleEffect(1.5)
-                    Text("Please ensure location services are enabled")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            } else if let error = weatherViewModel.error {
-                VStack(spacing: 20) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 50))
-                        .foregroundColor(.red)
-                    
-                    Text("Error loading UV data")
-                        .font(.title2)
-                        .fontWeight(.medium)
-                    
-                    Text(error.localizedDescription)
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                    
-                    Button("Try Again") {
-                        Task {
-                            locationManager.requestLocation()
-                            await weatherViewModel.refreshData()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding()
-            } else {
-                ScrollView {
+        NavigationView {
+            ZStack {
+                // Dynamic background gradient based on UV Index
+                LinearGradient(
+                    gradient: Gradient(colors: [darkerUVColor, darkerUVColor.opacity(0.7)]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+                
+                if weatherViewModel.isLoading {
                     VStack(spacing: 20) {
-                        // Location and UV Index Card
-                        UVIndexCard(
-                            location: locationManager.locationName,
-                            uvData: weatherViewModel.currentUVData
-                        )
-                        if let lastUpdate = weatherViewModel.lastUpdateTime {
-                            TimelineView(.periodic(from: lastUpdate, by: 1)) { context in
-                                Text("Last updated: \(timeAgoString(from: lastUpdate, to: context.date))")
+                        ProgressView("Loading UV data...")
+                            .scaleEffect(1.5)
+                        Text("Please ensure location services are enabled")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else if let error = weatherViewModel.error {
+                    VStack(spacing: 20) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 50))
+                            .foregroundColor(.red)
+                        
+                        Text("Error loading UV data")
+                            .font(.title2)
+                            .fontWeight(.medium)
+                        
+                        Text(error.localizedDescription)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                        
+                        Button("Try Again") {
+                            Task {
+                                locationManager.requestLocation()
+                                await weatherViewModel.refreshData()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding()
+                } else {
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            // Location and UV Index Card
+                            UVIndexCard(
+                                location: locationManager.locationName,
+                                uvData: weatherViewModel.currentUVData
+                            )
+                            if let lastUpdated = weatherViewModel.lastUpdated {
+                                Text("Last updated: \(lastUpdated.formatted(.relative(presentation: .named)))")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                         }
+                        .padding()
                     }
-                    .padding()
-                }
-                .refreshable {
-                    locationManager.requestLocation()
-                    await weatherViewModel.refreshData()
-                }
-            }
-            
-            // Notification Bell Button
-            VStack {
-                Spacer()
-                HStack {
-                    Button(action: {
-                        showingNotifications = true
-                    }) {
-                        Image(systemName: "bell.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(.blue)
-                            .padding()
-                            .background(Color.white)
-                            .clipShape(Circle())
-                            .shadow(radius: 3)
+                    .refreshable {
+                        locationManager.requestLocation()
+                        await weatherViewModel.refreshData()
                     }
-                    .padding(.leading, 20)
-                    .padding(.bottom, 20)
+                }
+                
+                // Notification Bell Button
+                VStack {
                     Spacer()
+                    HStack {
+                        Button(action: {
+                            showingNotifications = true
+                        }) {
+                            Image(systemName: "bell.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.blue)
+                                .padding()
+                                .background(Color.white)
+                                .clipShape(Circle())
+                                .shadow(radius: 3)
+                        }
+                        .padding(.leading, 20)
+                        .padding(.bottom, 20)
+                        Spacer()
+                    }
                 }
             }
-        }
-        .sheet(isPresented: $showingNotifications) {
-            NotificationCard()
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-        }
-        .task {
-            print("ContentView: Initial task started")
-            locationManager.requestLocation()
-            if let location = locationManager.location {
-                print("ContentView: Location available, fetching UV data")
-                await weatherViewModel.fetchUVData(for: location)
-            } else {
-                print("ContentView: No location available")
+            .sheet(isPresented: $showingNotifications) {
+                NotificationCard()
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
             }
-        }
-        .onChange(of: locationManager.location) { oldValue, newValue in
-            print("ContentView: Location changed")
-            if let location = newValue {
-                Task {
+            .task {
+                print("ContentView: Initial task started")
+                locationManager.requestLocation()
+                if let location = locationManager.location {
+                    print("ContentView: Location available, fetching UV data")
                     await weatherViewModel.fetchUVData(for: location)
+                } else {
+                    print("ContentView: No location available")
+                }
+            }
+            .onChange(of: locationManager.location) { oldValue, newValue in
+                print("ContentView: Location changed")
+                if let location = newValue {
+                    Task {
+                        await weatherViewModel.fetchUVData(for: location)
+                    }
                 }
             }
         }
@@ -331,7 +332,7 @@ struct UVIndexCard: View {
 #Preview {
     ContentView()
         .environmentObject(LocationManager())
-        .environmentObject(WeatherViewModel())
+        .environmentObject(NotificationService())
 }
 
 extension ContentView {
