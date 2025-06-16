@@ -17,6 +17,11 @@ class NotificationService: NSObject, ObservableObject {
     private let uvAlertThresholdKey = "uvAlertThreshold"
     private let backgroundTaskIdentifier = "com.timetoburn.uvcheck"
     private let weatherService = WeatherService.shared
+    private let lastNotifiedUVKey = "lastNotifiedUVIndex"
+    private var lastNotifiedUVIndex: Int {
+        get { UserDefaults.standard.integer(forKey: lastNotifiedUVKey) }
+        set { UserDefaults.standard.set(newValue, forKey: lastNotifiedUVKey) }
+    }
     
     override init() {
         self.isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: highUVAlertsKey)
@@ -63,8 +68,11 @@ class NotificationService: NSObject, ObservableObject {
                     let weather = try await weatherService.weather(for: location)
                     let uvIndex = Int(weather.currentWeather.uvIndex.value)
                     
-                    if uvIndex >= uvAlertThreshold && self.isHighUVAlertsEnabled {
+                    if uvIndex > uvAlertThreshold && uvIndex > lastNotifiedUVIndex && self.isHighUVAlertsEnabled {
                         await self.scheduleUVAlert(uvIndex: uvIndex, location: LocationManager().locationName)
+                        lastNotifiedUVIndex = uvIndex
+                    } else if uvIndex <= uvAlertThreshold {
+                        lastNotifiedUVIndex = 0
                     }
                 }
                 task.setTaskCompleted(success: true)
