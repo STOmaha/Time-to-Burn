@@ -24,15 +24,9 @@ class WeatherViewModel: ObservableObject {
     
     private func requestAuthorizations() async {
         print("WeatherViewModel: Requesting authorizations")
-        do {
-            try await notificationService.requestAuthorization()
-            isAuthorized = true
-            print("WeatherViewModel: Notifications authorized")
-        } catch {
-            self.error = error
-            isAuthorized = false
-            print("WeatherViewModel: Notification authorization failed - \(error.localizedDescription)")
-        }
+        notificationService.requestNotificationPermissions()
+        isAuthorized = true
+        print("WeatherViewModel: Notifications permission requested")
     }
     
     func fetchUVData(for location: CLLocation) async {

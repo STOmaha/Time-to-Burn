@@ -19,24 +19,38 @@ class NotificationService: NSObject, ObservableObject {
     private let weatherService = WeatherService.shared
     
     override init() {
-        super.init()
-        UNUserNotificationCenter.current().delegate = self
-        registerBackgroundTask()
+        super.init() // Call superclass init first
+        // Now it's safe to use self
+        isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: "isHighUVAlertsEnabled")
+        isDailyUpdatesEnabled = UserDefaults.standard.bool(forKey: "isDailyUpdatesEnabled")
+        isLocationChangesEnabled = UserDefaults.standard.bool(forKey: "isLocationChangeEnabled")
+        uvAlertThreshold = UserDefaults.standard.integer(forKey: "uvAlertThreshold")
+        if uvAlertThreshold == 0 { uvAlertThreshold = 6 } // Default to 6 if not set
         
-        // Load saved preferences
-        isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: highUVAlertsKey)
-        isDailyUpdatesEnabled = UserDefaults.standard.bool(forKey: dailyUpdatesKey)
-        isLocationChangesEnabled = UserDefaults.standard.bool(forKey: locationChangesKey)
-        uvAlertThreshold = UserDefaults.standard.object(forKey: uvAlertThresholdKey) as? Int ?? 6
+        // Request notification permissions
+        requestNotificationPermissions()
     }
     
-    private func registerBackgroundTask() {
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundTaskIdentifier, using: nil) { task in
-            self.handleBackgroundTask(task: task as! BGAppRefreshTask)
+    func requestNotificationPermissions() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge, .provisional]) { granted, error in
+            if let error = error {
+                print("Notification permission error: \(error.localizedDescription)")
+            } else {
+                print("Notification permission granted: \(granted)")
+            }
         }
     }
     
-    private func handleBackgroundTask(task: BGAppRefreshTask) {
+    func registerBackgroundTask() {
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundTaskIdentifier, using: .main) { task in
+            self.handleBackgroundTask(task: task as! BGAppRefreshTask)
+        }
+        
+        // Schedule the first background task
+        scheduleBackgroundTask()
+    }
+    
+    func handleBackgroundTask(task: BGAppRefreshTask) {
         // Schedule the next background task
         scheduleBackgroundTask()
         
@@ -70,17 +84,10 @@ class NotificationService: NSObject, ObservableObject {
         
         do {
             try BGTaskScheduler.shared.submit(request)
+            print("Successfully scheduled background task")
         } catch {
             print("Could not schedule background task: \(error.localizedDescription)")
         }
-    }
-    
-    func requestAuthorization() async throws {
-        let options: UNAuthorizationOptions = [.alert, .sound, .badge]
-        try await UNUserNotificationCenter.current().requestAuthorization(options: options)
-        
-        // Schedule the first background task after authorization
-        scheduleBackgroundTask()
     }
     
     func scheduleUVAlert(uvIndex: Int, location: String) async {
@@ -91,6 +98,7 @@ class NotificationService: NSObject, ObservableObject {
         content.body = "UV Index is \(uvIndex) in \(location). Take precautions!"
         content.sound = .default
         content.interruptionLevel = .timeSensitive
+        content.categoryIdentifier = "UV_ALERT"
         
         // Create a unique identifier for this notification
         let identifier = "uv-alert-\(Date().timeIntervalSince1970)"

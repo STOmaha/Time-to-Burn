@@ -19,5 +19,7 @@
 	<string>Time to Burn needs your location to provide accurate UV index information and send you alerts about dangerous UV levels.</string>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Time to Burn will send you notifications about UV index changes and when you need to take precautions.</string>
+	<key>UIBackgroundFetchInterval</key>
+	<integer>900</integer>
 </dict>
 </plist>

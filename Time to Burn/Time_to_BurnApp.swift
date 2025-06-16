@@ -7,12 +7,18 @@
 
 import SwiftUI
 import WeatherKit
+import BackgroundTasks
 
 @main
 struct Time_to_BurnApp: App {
     @StateObject private var locationManager = LocationManager()
     @StateObject private var weatherViewModel = WeatherViewModel()
-    @StateObject private var notificationService = NotificationService.shared
+    @StateObject private var notificationService = NotificationService()
+    
+    init() {
+        // Register background task
+        notificationService.registerBackgroundTask()
+    }
     
     var body: some Scene {
         WindowGroup {
