@@ -6,10 +6,10 @@ import WeatherKit
 class NotificationService: NSObject, ObservableObject {
     static let shared = NotificationService()
     
-    @Published var isHighUVAlertsEnabled = true
-    @Published var isDailyUpdatesEnabled = false
-    @Published var isLocationChangesEnabled = false
-    @Published var uvAlertThreshold: Int = 6
+    @Published var isHighUVAlertsEnabled: Bool
+    @Published var isDailyUpdatesEnabled: Bool
+    @Published var isLocationChangesEnabled: Bool
+    @Published var uvAlertThreshold: Int
     
     private let highUVAlertsKey = "highUVAlertsEnabled"
     private let dailyUpdatesKey = "dailyUpdatesEnabled"
@@ -19,15 +19,12 @@ class NotificationService: NSObject, ObservableObject {
     private let weatherService = WeatherService.shared
     
     override init() {
-        super.init() // Call superclass init first
-        // Now it's safe to use self
-        isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: "isHighUVAlertsEnabled")
-        isDailyUpdatesEnabled = UserDefaults.standard.bool(forKey: "isDailyUpdatesEnabled")
-        isLocationChangesEnabled = UserDefaults.standard.bool(forKey: "isLocationChangeEnabled")
-        uvAlertThreshold = UserDefaults.standard.integer(forKey: "uvAlertThreshold")
-        if uvAlertThreshold == 0 { uvAlertThreshold = 6 } // Default to 6 if not set
-        
-        // Request notification permissions
+        self.isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: highUVAlertsKey)
+        self.isDailyUpdatesEnabled = UserDefaults.standard.bool(forKey: dailyUpdatesKey)
+        self.isLocationChangesEnabled = UserDefaults.standard.bool(forKey: locationChangesKey)
+        let threshold = UserDefaults.standard.integer(forKey: uvAlertThresholdKey)
+        self.uvAlertThreshold = threshold == 0 ? 6 : threshold
+        super.init()
         requestNotificationPermissions()
     }
     
@@ -165,12 +162,7 @@ class NotificationService: NSObject, ObservableObject {
         isLocationChangesEnabled = locationChanges
         if let threshold = uvAlertThreshold {
             self.uvAlertThreshold = threshold
-            UserDefaults.standard.set(threshold, forKey: uvAlertThresholdKey)
         }
-        // Save preferences
-        UserDefaults.standard.set(highUVAlerts, forKey: highUVAlertsKey)
-        UserDefaults.standard.set(dailyUpdates, forKey: dailyUpdatesKey)
-        UserDefaults.standard.set(locationChanges, forKey: locationChangesKey)
         // Remove existing notifications if disabled
         if !highUVAlerts {
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["uv-alert"])
