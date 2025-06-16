@@ -198,6 +198,16 @@ struct NotificationCard: View {
                 updateNotificationPreferences()
             }
             
+            // Debug/Test Button
+            Button(action: {
+                notificationService.testHighUVNotification()
+            }) {
+                Label("Test High UV Notification", systemImage: "paperplane.fill")
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.top, 10)
+            .accessibilityIdentifier("TestHighUVNotificationButton")
+            
             Spacer()
         }
         .padding()

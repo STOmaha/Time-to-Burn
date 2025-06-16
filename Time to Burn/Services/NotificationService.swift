@@ -53,11 +53,13 @@ class NotificationService: NSObject, ObservableObject {
     }
     
     func handleBackgroundTask(task: BGAppRefreshTask) {
+        print("[BGTask] handleBackgroundTask started")
         // Schedule the next background task
         scheduleBackgroundTask()
         
         // Create a task expiration handler
         task.expirationHandler = {
+            print("[BGTask] Expired before completion")
             task.setTaskCompleted(success: false)
         }
         
@@ -65,19 +67,28 @@ class NotificationService: NSObject, ObservableObject {
         Task {
             do {
                 if let location = LocationManager().location {
+                    print("[BGTask] Got location: \(location)")
                     let weather = try await weatherService.weather(for: location)
                     let uvIndex = Int(weather.currentWeather.uvIndex.value)
+                    print("[BGTask] Fetched UV Index: \(uvIndex)")
                     
                     if uvIndex > uvAlertThreshold && uvIndex > lastNotifiedUVIndex && self.isHighUVAlertsEnabled {
+                        print("[BGTask] Scheduling High UV Alert for index \(uvIndex)")
                         await self.scheduleUVAlert(uvIndex: uvIndex, location: LocationManager().locationName)
                         lastNotifiedUVIndex = uvIndex
                     } else if uvIndex <= uvAlertThreshold {
+                        print("[BGTask] UV Index below or equal to threshold, resetting lastNotifiedUVIndex")
                         lastNotifiedUVIndex = 0
+                    } else {
+                        print("[BGTask] No notification needed (already notified or below threshold)")
                     }
+                } else {
+                    print("[BGTask] No location available")
                 }
                 task.setTaskCompleted(success: true)
+                print("[BGTask] Task completed successfully")
             } catch {
-                print("Background task failed: \(error.localizedDescription)")
+                print("[BGTask] Background task failed: \(error.localizedDescription)")
                 task.setTaskCompleted(success: false)
             }
         }
@@ -187,6 +198,14 @@ class NotificationService: NSObject, ObservableObject {
         case 6...7: return "High risk - reduce time in sun, wear protection."
         case 8...10: return "Very high risk - minimize sun exposure."
         default: return "Extreme risk - avoid sun exposure."
+        }
+    }
+    
+    // Add a public test function to trigger a High UV notification manually
+    func testHighUVNotification() {
+        print("[Test] Triggering manual High UV notification...")
+        Task {
+            await self.scheduleUVAlert(uvIndex: uvAlertThreshold + 1, location: "Test Location")
         }
     }
 }
