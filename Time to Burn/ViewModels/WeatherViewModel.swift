@@ -14,7 +14,6 @@ class WeatherViewModel: ObservableObject {
     @Published var lastUpdateTime: Date?
     
     private var lastNotifiedUVIndex: Int?
-    private let notificationThreshold = 6 // Notify when UV index is 6 or higher
     
     init() {
         print("WeatherViewModel: Initialized")
@@ -63,11 +62,12 @@ class WeatherViewModel: ObservableObject {
             print("WeatherViewModel: Created UV data object")
             
             // Check if we should send a notification
-            if uvIndex >= notificationThreshold && (lastNotifiedUVIndex == nil || lastNotifiedUVIndex! < notificationThreshold) {
+            let threshold = notificationService.uvAlertThreshold
+            if uvIndex >= threshold && (lastNotifiedUVIndex == nil || lastNotifiedUVIndex! < threshold) {
                 await notificationService.scheduleUVAlert(uvIndex: uvIndex, location: "")
                 lastNotifiedUVIndex = uvIndex
                 print("WeatherViewModel: Scheduled UV alert for index \(uvIndex)")
-            } else if uvIndex < notificationThreshold {
+            } else if uvIndex < threshold {
                 lastNotifiedUVIndex = nil
             }
             

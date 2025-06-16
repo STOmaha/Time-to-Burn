@@ -146,18 +146,42 @@ struct NotificationCard: View {
                 .padding(.top)
             
             VStack(alignment: .leading, spacing: 15) {
-                NotificationRow(
-                    title: "High UV Alerts",
-                    description: "Get notified when UV index is high",
-                    isEnabled: $notificationService.isHighUVAlertsEnabled
-                )
-                
+                VStack(alignment: .leading, spacing: 8) {
+                    NotificationRow(
+                        title: "High UV Alerts",
+                        description: "Get notified when UV index is high",
+                        isEnabled: $notificationService.isHighUVAlertsEnabled
+                    )
+                    if notificationService.isHighUVAlertsEnabled {
+                        HStack {
+                            Text("Alert Threshold: ")
+                                .font(.subheadline)
+                            Slider(value: Binding(
+                                get: { Double(notificationService.uvAlertThreshold) },
+                                set: { newValue in
+                                    let intValue = Int(newValue.rounded())
+                                    notificationService.uvAlertThreshold = intValue
+                                    notificationService.updateNotificationPreferences(
+                                        highUVAlerts: notificationService.isHighUVAlertsEnabled,
+                                        dailyUpdates: notificationService.isDailyUpdatesEnabled,
+                                        locationChanges: notificationService.isLocationChangesEnabled,
+                                        uvAlertThreshold: intValue
+                                    )
+                                }
+                            ), in: 1...11, step: 1)
+                            .frame(maxWidth: 150)
+                            Text("\(notificationService.uvAlertThreshold)")
+                                .font(.subheadline)
+                                .frame(width: 28)
+                        }
+                        .padding(.horizontal, 8)
+                    }
+                }
                 NotificationRow(
                     title: "Daily Updates",
                     description: "Receive daily UV index updates",
                     isEnabled: $notificationService.isDailyUpdatesEnabled
                 )
-                
                 NotificationRow(
                     title: "Location Changes",
                     description: "Get notified when you enter a new area",
@@ -183,7 +207,8 @@ struct NotificationCard: View {
         notificationService.updateNotificationPreferences(
             highUVAlerts: notificationService.isHighUVAlertsEnabled,
             dailyUpdates: notificationService.isDailyUpdatesEnabled,
-            locationChanges: notificationService.isLocationChangesEnabled
+            locationChanges: notificationService.isLocationChangesEnabled,
+            uvAlertThreshold: notificationService.uvAlertThreshold
         )
     }
 }

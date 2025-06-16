@@ -9,10 +9,12 @@ class NotificationService: NSObject, ObservableObject {
     @Published var isHighUVAlertsEnabled = true
     @Published var isDailyUpdatesEnabled = false
     @Published var isLocationChangesEnabled = false
+    @Published var uvAlertThreshold: Int = 6
     
     private let highUVAlertsKey = "highUVAlertsEnabled"
     private let dailyUpdatesKey = "dailyUpdatesEnabled"
     private let locationChangesKey = "locationChangesEnabled"
+    private let uvAlertThresholdKey = "uvAlertThreshold"
     private let backgroundTaskIdentifier = "com.timetoburn.uvcheck"
     private let weatherService = WeatherService.shared
     
@@ -25,6 +27,7 @@ class NotificationService: NSObject, ObservableObject {
         isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: highUVAlertsKey)
         isDailyUpdatesEnabled = UserDefaults.standard.bool(forKey: dailyUpdatesKey)
         isLocationChangesEnabled = UserDefaults.standard.bool(forKey: locationChangesKey)
+        uvAlertThreshold = UserDefaults.standard.object(forKey: uvAlertThresholdKey) as? Int ?? 6
     }
     
     private func registerBackgroundTask() {
@@ -49,7 +52,7 @@ class NotificationService: NSObject, ObservableObject {
                     let weather = try await weatherService.weather(for: location)
                     let uvIndex = Int(weather.currentWeather.uvIndex.value)
                     
-                    if uvIndex >= 6 && self.isHighUVAlertsEnabled {
+                    if uvIndex >= uvAlertThreshold && self.isHighUVAlertsEnabled {
                         await self.scheduleUVAlert(uvIndex: uvIndex, location: LocationManager().locationName)
                     }
                 }
@@ -148,16 +151,18 @@ class NotificationService: NSObject, ObservableObject {
         UNUserNotificationCenter.current().add(request)
     }
     
-    func updateNotificationPreferences(highUVAlerts: Bool, dailyUpdates: Bool, locationChanges: Bool) {
+    func updateNotificationPreferences(highUVAlerts: Bool, dailyUpdates: Bool, locationChanges: Bool, uvAlertThreshold: Int? = nil) {
         isHighUVAlertsEnabled = highUVAlerts
         isDailyUpdatesEnabled = dailyUpdates
         isLocationChangesEnabled = locationChanges
-        
+        if let threshold = uvAlertThreshold {
+            self.uvAlertThreshold = threshold
+            UserDefaults.standard.set(threshold, forKey: uvAlertThresholdKey)
+        }
         // Save preferences
         UserDefaults.standard.set(highUVAlerts, forKey: highUVAlertsKey)
         UserDefaults.standard.set(dailyUpdates, forKey: dailyUpdatesKey)
         UserDefaults.standard.set(locationChanges, forKey: locationChangesKey)
-        
         // Remove existing notifications if disabled
         if !highUVAlerts {
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["uv-alert"])
