@@ -57,19 +57,6 @@ struct ContentView: View {
                             location: locationManager.locationName,
                             uvData: weatherViewModel.currentUVData
                         )
-                        
-                        Button(action: {
-                            Task {
-                                locationManager.requestLocation()
-                                await weatherViewModel.refreshData()
-                            }
-                        }) {
-                            Label("Update Location", systemImage: "location.circle.fill")
-                                .font(.headline)
-                        }
-                        .buttonStyle(.bordered)
-                        .padding(.top)
-                        
                         if let lastUpdate = weatherViewModel.lastUpdateTime {
                             TimelineView(.periodic(from: lastUpdate, by: 1)) { context in
                                 Text("Last updated: \(timeAgoString(from: lastUpdate, to: context.date))")
@@ -79,6 +66,10 @@ struct ContentView: View {
                         }
                     }
                     .padding()
+                }
+                .refreshable {
+                    locationManager.requestLocation()
+                    await weatherViewModel.refreshData()
                 }
             }
             
