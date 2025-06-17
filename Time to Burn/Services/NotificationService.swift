@@ -54,13 +54,22 @@ class NotificationService: NSObject, ObservableObject {
     
     func handleBackgroundTask(task: BGAppRefreshTask) {
         print("[BGTask] handleBackgroundTask started")
-        // Schedule the next background task
-        scheduleBackgroundTask()
         
         // Create a task expiration handler
         task.expirationHandler = {
             print("[BGTask] Expired before completion")
             task.setTaskCompleted(success: false)
+        }
+        
+        // Check if we're within active hours (8 AM - 8 PM)
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: Date())
+        
+        guard hour >= 8 && hour < 20 else {
+            print("[BGTask] Outside active hours (8 AM - 8 PM), skipping update")
+            task.setTaskCompleted(success: true)
+            scheduleBackgroundTask() // Schedule next check
+            return
         }
         
         // Perform the UV check
@@ -91,16 +100,24 @@ class NotificationService: NSObject, ObservableObject {
                 print("[BGTask] Background task failed: \(error.localizedDescription)")
                 task.setTaskCompleted(success: false)
             }
+            
+            // Schedule the next background task
+            scheduleBackgroundTask()
         }
     }
     
     private func scheduleBackgroundTask() {
         let request = BGAppRefreshTaskRequest(identifier: backgroundTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60) // Check every 15 minutes
+        // Set the earliest begin date to the next 15-minute interval
+        let calendar = Calendar.current
+        let now = Date()
+        let minute = calendar.component(.minute, from: now)
+        let minutesUntilNext15 = 15 - (minute % 15)
+        request.earliestBeginDate = calendar.date(byAdding: .minute, value: minutesUntilNext15, to: now)
         
         do {
             try BGTaskScheduler.shared.submit(request)
-            print("Successfully scheduled background task")
+            print("Successfully scheduled background task for next 15-minute interval")
         } catch {
             print("Could not schedule background task: \(error.localizedDescription)")
         }
