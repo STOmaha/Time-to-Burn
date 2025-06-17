@@ -72,12 +72,12 @@ class NotificationService: NSObject, ObservableObject {
                     let uvIndex = Int(weather.currentWeather.uvIndex.value)
                     print("[BGTask] Fetched UV Index: \(uvIndex)")
                     
-                    if uvIndex > uvAlertThreshold && uvIndex > lastNotifiedUVIndex && self.isHighUVAlertsEnabled {
+                    if uvIndex >= uvAlertThreshold && uvIndex > lastNotifiedUVIndex && self.isHighUVAlertsEnabled {
                         print("[BGTask] Scheduling High UV Alert for index \(uvIndex)")
                         await self.scheduleUVAlert(uvIndex: uvIndex, location: LocationManager().locationName)
                         lastNotifiedUVIndex = uvIndex
-                    } else if uvIndex <= uvAlertThreshold {
-                        print("[BGTask] UV Index below or equal to threshold, resetting lastNotifiedUVIndex")
+                    } else if uvIndex < uvAlertThreshold {
+                        print("[BGTask] UV Index below threshold, resetting lastNotifiedUVIndex")
                         lastNotifiedUVIndex = 0
                     } else {
                         print("[BGTask] No notification needed (already notified or below threshold)")
@@ -205,7 +205,7 @@ class NotificationService: NSObject, ObservableObject {
     func testHighUVNotification() {
         print("[Test] Triggering manual High UV notification...")
         Task {
-            await self.scheduleUVAlert(uvIndex: uvAlertThreshold + 1, location: "Test Location")
+            await self.scheduleUVAlert(uvIndex: uvAlertThreshold, location: "Test Location")
         }
     }
 }
