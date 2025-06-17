@@ -280,7 +280,9 @@ struct UVIndexCard: View {
                         )
                 }
                 
-                Text(uvData.uvIndex == 12 ? "<5 minutes to burn" : "\(uvData.timeToBurn) minutes to burn")
+                Text(uvData.uvIndex == 12 ? "<5 minutes to burn" : 
+                     uvData.uvIndex == 0 ? "∞ minutes to burn" :
+                     "\(uvData.timeToBurn) minutes to burn")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .padding(.top, 2)
@@ -321,11 +323,7 @@ struct UVIndexCard: View {
     }
     
     private func uvIndexDisplay(_ index: Int) -> String {
-        if index == 0 {
-            return UVData.getAdvice(uvIndex: 0)
-        } else {
-            return "\(index)"
-        }
+        return "\(index)"
     }
 }
 
