@@ -6,6 +6,9 @@ struct ContentView: View {
     @EnvironmentObject private var notificationService: NotificationService
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @State private var showingNotifications = false
+    @State private var currentTime = Date()
+    
+    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     var body: some View {
         NavigationView {
@@ -60,7 +63,7 @@ struct ContentView: View {
                                 uvData: weatherViewModel.currentUVData
                             )
                             if let lastUpdated = weatherViewModel.lastUpdated {
-                                Text("Last updated: \(lastUpdated.formatted(.relative(presentation: .named)))")
+                                Text("Last updated: \(timeAgoString(from: lastUpdated, to: currentTime))")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -116,6 +119,9 @@ struct ContentView: View {
                         await weatherViewModel.fetchUVData(for: location)
                     }
                 }
+            }
+            .onReceive(timer) { time in
+                currentTime = time
             }
         }
     }
