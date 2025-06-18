@@ -3,13 +3,29 @@ import UserNotifications
 import BackgroundTasks
 import WeatherKit
 
-class NotificationService: NSObject, ObservableObject {
+class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationService()
     
-    @Published var isHighUVAlertsEnabled: Bool
-    @Published var isDailyUpdatesEnabled: Bool
-    @Published var isLocationChangesEnabled: Bool
-    @Published var uvAlertThreshold: Int
+    @Published var isHighUVAlertsEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isHighUVAlertsEnabled, forKey: highUVAlertsKey)
+        }
+    }
+    @Published var isDailyUpdatesEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isDailyUpdatesEnabled, forKey: dailyUpdatesKey)
+        }
+    }
+    @Published var isLocationChangesEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(isLocationChangesEnabled, forKey: locationChangesKey)
+        }
+    }
+    @Published var uvAlertThreshold: Int {
+        didSet {
+            UserDefaults.standard.set(uvAlertThreshold, forKey: uvAlertThresholdKey)
+        }
+    }
     
     private let highUVAlertsKey = "highUVAlertsEnabled"
     private let dailyUpdatesKey = "dailyUpdatesEnabled"
@@ -30,11 +46,12 @@ class NotificationService: NSObject, ObservableObject {
         let threshold = UserDefaults.standard.integer(forKey: uvAlertThresholdKey)
         self.uvAlertThreshold = threshold == 0 ? 6 : threshold
         super.init()
+        UNUserNotificationCenter.current().delegate = self
         requestNotificationPermissions()
     }
     
     func requestNotificationPermissions() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge, .provisional]) { granted, error in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error = error {
                 print("Notification permission error: \(error.localizedDescription)")
             } else {
@@ -225,13 +242,34 @@ class NotificationService: NSObject, ObservableObject {
             await self.scheduleUVAlert(uvIndex: uvAlertThreshold, location: "Test Location")
         }
     }
-}
-
-extension NotificationService: UNUserNotificationCenterDelegate {
-    func userNotificationCenter(
-        _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        return [.banner, .sound, .badge]
+    
+    func sendTestNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Test Notification"
+        content.body = "This is a test notification from Time to Burn"
+        content.sound = .default
+        
+        // Create a trigger that fires immediately
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        
+        // Create the request
+        let request = UNNotificationRequest(
+            identifier: "test-notification",
+            content: content,
+            trigger: trigger
+        )
+        
+        // Add the request to the notification center
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error sending test notification: \(error.localizedDescription)")
+            } else {
+                print("Test notification sent successfully")
+            }
+        }
+    }
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .list])
     }
 } 
