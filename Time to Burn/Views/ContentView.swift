@@ -76,6 +76,22 @@ struct UVPointContent: ChartContent {
     }
 }
 
+struct UVDangerZoneContent: ChartContent {
+    let data: UVData
+    let threshold: Int
+    
+    var body: some ChartContent {
+        RectangleMark(
+            xStart: .value("Start", data.date.addingTimeInterval(-1800)), // 30 min before
+            xEnd: .value("End", data.date.addingTimeInterval(1800)),      // 30 min after
+            yStart: .value("Threshold", Double(threshold)),
+            yEnd: .value("Max", 12.0)
+        )
+        .foregroundStyle(Color.red.opacity(0.15))
+        .opacity(data.uvIndex >= threshold ? 1 : 0)
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var notificationService: NotificationService
@@ -83,6 +99,7 @@ struct ContentView: View {
     @State private var showingNotifications = false
     @State private var currentTime = Date()
     @State private var showingUVChart = false
+    @AppStorage("uvThreshold") private var uvThreshold: Int = 3  // Default threshold
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
@@ -259,9 +276,25 @@ struct ContentView: View {
         VStack(spacing: 16) {
             Chart {
                 ForEach(weatherViewModel.hourlyForecast) { data in
-                    UVLineContent(data: data)
+                    // Danger Zone Layer
+                    UVDangerZoneContent(data: data, threshold: uvThreshold)
+                    
+                    // Existing Layers
                     UVAreaContent(data: data)
+                    UVLineContent(data: data)
                     UVPointContent(data: data)
+                }
+                
+                // Threshold Line
+                RuleMark(
+                    y: .value("UV Threshold", Double(uvThreshold))
+                )
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                .foregroundStyle(.red)
+                .annotation(position: .leading) {
+                    Text("Threshold")
+                        .font(.caption2)
+                        .foregroundColor(.red)
                 }
             }
             .chartYScale(domain: 0...max(11, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
@@ -291,28 +324,26 @@ struct ContentView: View {
             }
             .frame(height: 300)
             
-            // UV Index Legend
-            UVLegendView()
+            // UV Index Legend with Threshold Indicator
+            VStack(spacing: 12) {
+                HStack(spacing: 20) {
+                    legendItem(color: .green, range: "0-2", label: "Low")
+                    legendItem(color: .yellow, range: "3-5", label: "Moderate")
+                    legendItem(color: .orange, range: "6-7", label: "High")
+                }
+                HStack(spacing: 20) {
+                    legendItem(color: .red, range: "8-10", label: "Very High")
+                    legendItem(color: .purple, range: "11+", label: "Extreme")
+                    Spacer()
+                    legendItem(color: .red.opacity(0.15), range: "≥\(uvThreshold)", label: "Danger Zone")
+                }
+            }
         }
         .padding()
         .background(Color.white.opacity(0.5))
         .cornerRadius(20)
         .shadow(radius: 5)
         .padding(.horizontal)
-    }
-    
-    private func UVLegendView() -> some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 20) {
-                legendItem(color: .green, range: "0-2", label: "Low")
-                legendItem(color: .yellow, range: "3-5", label: "Moderate")
-                legendItem(color: .orange, range: "6-7", label: "High")
-            }
-            HStack(spacing: 20) {
-                legendItem(color: .red, range: "8-10", label: "Very High")
-                legendItem(color: .purple, range: "11+", label: "Extreme")
-            }
-        }
     }
 }
 
