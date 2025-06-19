@@ -329,6 +329,21 @@ struct ContentView: View {
     // MARK: - Chart Components
     private func UVChartView() -> some View {
         VStack(spacing: 16) {
+            // UV Exposure Warning
+            if let warningText = getUVExposureWarning() {
+                Text(warningText)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.orange)
+                    .cornerRadius(8)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.bottom, 20)
+
+            }
+            
             ZStack(alignment: .bottom) {
                 // Chart Area
                 Chart {
@@ -423,13 +438,70 @@ struct ContentView: View {
                     }
                 }
                 .frame(height: 20)
-                .offset(y: -55) // Move up slightly above the X-axis
+                .offset(y: -300) // Move up slightly above the X-axis
             }
         }
         .padding()
         .background(Color.white.opacity(0.5))
         .cornerRadius(20)
         .shadow(radius: 5)
+    }
+    
+    private func getUVExposureWarning() -> String? {
+        let threshold = notificationService.uvAlertThreshold
+        let calendar = Calendar.current
+        
+        // Find all hours where UV is at or above threshold
+        let highUVHours = weatherViewModel.hourlyForecast.enumerated().compactMap { index, data in
+            data.uvIndex >= threshold ? index : nil
+        }
+        
+        guard !highUVHours.isEmpty else {
+            return nil // No high UV periods
+        }
+        
+        // Group consecutive hours into ranges
+        var ranges: [(start: Int, end: Int)] = []
+        var currentStart = highUVHours[0]
+        var currentEnd = highUVHours[0]
+        
+        for i in 1..<highUVHours.count {
+            if highUVHours[i] == currentEnd + 1 {
+                currentEnd = highUVHours[i]
+            } else {
+                ranges.append((start: currentStart, end: currentEnd))
+                currentStart = highUVHours[i]
+                currentEnd = highUVHours[i]
+            }
+        }
+        ranges.append((start: currentStart, end: currentEnd))
+        
+        // Format the ranges
+        let rangeStrings = ranges.map { range in
+            let startHour = range.start
+            let endHour = range.end
+            
+            let startTime = formatTimeForHour(startHour)
+            let endTime = formatTimeForHour(endHour + 1) // Add 1 to show end time
+            
+            if startHour == endHour {
+                return startTime
+            } else {
+                return "\(startTime)-\(endTime)"
+            }
+        }
+        
+        return "Avoid UV exposure: \(rangeStrings.joined(separator: ", "))"
+    }
+    
+    private func formatTimeForHour(_ hour: Int) -> String {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        let targetDate = calendar.date(byAdding: .hour, value: hour, to: startOfDay)!
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: targetDate).lowercased()
     }
 }
 
