@@ -341,8 +341,21 @@ struct ContentView: View {
                     .cornerRadius(8)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.bottom, 20)
-
             }
+            
+            // Current Time Indicator
+            HStack {
+                Text("Now:")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+                Text(formatHour(currentTime))
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.blue)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 8)
             
             ZStack(alignment: .bottom) {
                 // Chart Area
@@ -410,35 +423,6 @@ struct ContentView: View {
                     }
                 }
                 .frame(height: 300)
-                
-                // Current Time Label - Positioned just above X-axis
-                GeometryReader { geometry in
-                    let chartWidth = geometry.size.width
-                    let startOfDay = Calendar.current.startOfDay(for: Date())
-                    let endOfDay = startOfDay.addingTimeInterval(24 * 3600)
-                    let totalTimeRange = endOfDay.timeIntervalSince(startOfDay)
-                    let currentTimeProgress = currentTime.timeIntervalSince(startOfDay)
-                    let xPosition = (currentTimeProgress / totalTimeRange) * chartWidth
-                    
-                    HStack {
-                        Spacer()
-                            .frame(width: max(0, xPosition - 25))
-                        
-                        Text(formatHour(currentTime))
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.blue)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.white.opacity(0.9))
-                            .cornerRadius(4)
-                            .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
-                        
-                        Spacer()
-                    }
-                }
-                .frame(height: 20)
-                .offset(y: -300) // Move up slightly above the X-axis
             }
         }
         .padding()
