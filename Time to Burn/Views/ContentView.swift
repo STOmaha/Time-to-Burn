@@ -367,7 +367,7 @@ struct ContentView: View {
                     .foregroundStyle(.blue)
                 }
                 .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.startOfDay(for: Date()).addingTimeInterval(24 * 3600))
-                .chartYScale(domain: 0...max(11, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
+                .chartYScale(domain: 0...max(12, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
                 .chartYAxis {
                     AxisMarks(values: .automatic(desiredCount: 6)) { value in
                         AxisGridLine()
@@ -422,7 +422,7 @@ struct ContentView: View {
                     }
                 }
                 .frame(height: 20)
-                .offset(y: -16) // Move up slightly above the X-axis
+                .offset(y: 10) // Move up slightly above the X-axis
             }
         }
         .padding()
