@@ -99,7 +99,6 @@ struct ContentView: View {
     @State private var showingNotifications = false
     @State private var currentTime = Date()
     @State private var showingUVChart = false
-    @AppStorage("uvThreshold") private var uvThreshold: Int = 3  // Default threshold
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
@@ -277,7 +276,7 @@ struct ContentView: View {
             Chart {
                 ForEach(weatherViewModel.hourlyForecast) { data in
                     // Danger Zone Layer
-                    UVDangerZoneContent(data: data, threshold: uvThreshold)
+                    UVDangerZoneContent(data: data, threshold: notificationService.uvAlertThreshold)
                     
                     // Existing Layers
                     UVAreaContent(data: data)
@@ -287,7 +286,7 @@ struct ContentView: View {
                 
                 // Threshold Line
                 RuleMark(
-                    y: .value("UV Threshold", Double(uvThreshold))
+                    y: .value("UV Threshold", Double(notificationService.uvAlertThreshold))
                 )
                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
                 .foregroundStyle(.red)
