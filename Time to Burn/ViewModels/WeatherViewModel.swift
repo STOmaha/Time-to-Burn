@@ -272,7 +272,7 @@ class WeatherViewModel: ObservableObject {
     }
     
     func refreshData() async {
-        if let location = LocationManager().location {
+        if let location = locationManager.location {
             await fetchUVData(for: location)
         }
     }

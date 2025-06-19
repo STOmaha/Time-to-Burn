@@ -152,13 +152,10 @@ struct ContentView: View {
                             // Location and UV Index Card
                             UVIndexCard(
                                 location: locationManager.locationName,
-                                uvData: weatherViewModel.currentUVData
+                                uvData: weatherViewModel.currentUVData,
+                                currentTime: currentTime,
+                                lastUpdated: weatherViewModel.lastUpdated
                             )
-                            if let lastUpdated = weatherViewModel.lastUpdated {
-                                Text("Last updated: \(timeAgoString(from: lastUpdated, to: currentTime))")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
                             
                             // UV Chart
                             UVChartView()
@@ -332,7 +329,8 @@ struct ContentView: View {
     // MARK: - Chart Components
     private func UVChartView() -> some View {
         VStack(spacing: 16) {
-            ZStack {
+            ZStack(alignment: .bottom) {
+                // Chart Area
                 Chart {
                     ForEach(weatherViewModel.hourlyForecast) { data in
                         // Danger Zone Layer
@@ -350,10 +348,15 @@ struct ContentView: View {
                     )
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
                     .foregroundStyle(.red)
-                    .annotation(position: .leading) {
+                    .annotation(position: .top, alignment: .leading, spacing: 0) {
                         Text("Threshold")
                             .font(.caption2)
-                            .foregroundColor(.red)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.red)
+                            .cornerRadius(4)
                     }
                     
                     // Current Time Line
@@ -392,7 +395,7 @@ struct ContentView: View {
                 }
                 .frame(height: 300)
                 
-                // Current Time Label
+                // Current Time Label - Positioned just above X-axis
                 GeometryReader { geometry in
                     let chartWidth = geometry.size.width
                     let startOfDay = Calendar.current.startOfDay(for: Date())
@@ -401,23 +404,25 @@ struct ContentView: View {
                     let currentTimeProgress = currentTime.timeIntervalSince(startOfDay)
                     let xPosition = (currentTimeProgress / totalTimeRange) * chartWidth
                     
-                    VStack {
+                    HStack {
                         Spacer()
+                            .frame(width: max(0, xPosition - 25))
                         
                         Text(formatHour(currentTime))
                             .font(.caption)
-                            .fontWeight(.semibold)
+                            .fontWeight(.medium)
                             .foregroundColor(.blue)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
                             .background(Color.white.opacity(0.9))
-                            .cornerRadius(8)
-                            .shadow(radius: 2)
-                            .offset(x: xPosition - 20) // Center the label over the line
+                            .cornerRadius(4)
+                            .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                        
+                        Spacer()
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.bottom, 8)
                 }
+                .frame(height: 20)
+                .offset(y: -16) // Move up slightly above the X-axis
             }
         }
         .padding()
@@ -554,6 +559,8 @@ struct NotificationRow: View {
 struct UVIndexCard: View {
     let location: String
     let uvData: UVData?
+    let currentTime: Date
+    let lastUpdated: Date?
     
     var body: some View {
         VStack(spacing: 15) {
@@ -586,6 +593,14 @@ struct UVIndexCard: View {
                     .fontWeight(uvData.uvIndex >= 6 ? .bold : .regular)
                     .foregroundColor(uvData.uvIndex >= 6 ? .red : .secondary)
                     .padding(.top, 2)
+                
+                // Last Updated Time
+                if let lastUpdated = lastUpdated {
+                    Text("Last updated: \(timeAgoString(from: lastUpdated, to: currentTime))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 2)
+                }
                 
                 Divider()
                     .padding(.vertical, 8)
@@ -624,6 +639,20 @@ struct UVIndexCard: View {
     
     private func uvIndexDisplay(_ index: Int) -> String {
         return "\(index)"
+    }
+    
+    private func timeAgoString(from date: Date, to now: Date = Date()) -> String {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.minute, .hour], from: date, to: now)
+        if let hour = components.hour, hour > 0 {
+            return "\(hour)h ago"
+        } else if let minute = components.minute {
+            if minute == 0 {
+                return "Just now"
+            }
+            return "\(minute)m ago"
+        }
+        return "Just now"
     }
 }
 
