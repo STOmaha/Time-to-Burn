@@ -220,7 +220,7 @@ class WeatherViewModel: ObservableObject {
                 including: .hourly
             )
             
-            var forecast = hourlyWeather
+            let forecast = hourlyWeather
                 .filter { startTime...endTime ~= $0.date }
                 .map { hour in
                     UVData(
