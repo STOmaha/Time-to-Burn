@@ -240,8 +240,14 @@ struct ContentView: View {
     
     private func formatHour(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "ha"
-        return formatter.string(from: date).lowercased()
+        formatter.dateFormat = "h:mm"
+        let timeString = formatter.string(from: date)
+        
+        let amPmFormatter = DateFormatter()
+        amPmFormatter.dateFormat = "a"
+        let amPm = amPmFormatter.string(from: date).lowercased()
+        
+        return "\(timeString)\(amPm)"
     }
     
     private func getChartColor(for uvIndex: Int) -> Color {
@@ -273,56 +279,93 @@ struct ContentView: View {
     // MARK: - Chart Components
     private func UVChartView() -> some View {
         VStack(spacing: 16) {
-            Chart {
-                ForEach(weatherViewModel.hourlyForecast) { data in
-                    // Danger Zone Layer
-                    UVDangerZoneContent(data: data, threshold: notificationService.uvAlertThreshold)
+            ZStack {
+                Chart {
+                    ForEach(weatherViewModel.hourlyForecast) { data in
+                        // Danger Zone Layer
+                        UVDangerZoneContent(data: data, threshold: notificationService.uvAlertThreshold)
+                        
+                        // Existing Layers
+                        UVAreaContent(data: data)
+                        UVLineContent(data: data)
+                        UVPointContent(data: data)
+                    }
                     
-                    // Existing Layers
-                    UVAreaContent(data: data)
-                    UVLineContent(data: data)
-                    UVPointContent(data: data)
+                    // Threshold Line
+                    RuleMark(
+                        y: .value("UV Threshold", Double(notificationService.uvAlertThreshold))
+                    )
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
+                    .foregroundStyle(.red)
+                    .annotation(position: .leading) {
+                        Text("Threshold")
+                            .font(.caption2)
+                            .foregroundColor(.red)
+                    }
+                    
+                    // Current Time Line
+                    RuleMark(
+                        x: .value("Current Time", currentTime)
+                    )
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .foregroundStyle(.blue)
                 }
+                .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.startOfDay(for: Date()).addingTimeInterval(24 * 3600))
+                .chartYScale(domain: 0...max(11, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
+                .chartYAxis {
+                    AxisMarks(values: .automatic(desiredCount: 6)) { value in
+                        AxisGridLine()
+                        AxisTick()
+                        AxisValueLabel {
+                            if let intValue = value.as(Int.self) {
+                                Text("\(intValue)")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .hour, count: 4)) { value in
+                        AxisGridLine()
+                        AxisTick()
+                        AxisValueLabel {
+                            if let date = value.as(Date.self) {
+                                Text(formatHour(date))
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                .frame(height: 300)
                 
-                // Threshold Line
-                RuleMark(
-                    y: .value("UV Threshold", Double(notificationService.uvAlertThreshold))
-                )
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
-                .foregroundStyle(.red)
-                .annotation(position: .leading) {
-                    Text("Threshold")
-                        .font(.caption2)
-                        .foregroundColor(.red)
-                }
-            }
-            .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.startOfDay(for: Date()).addingTimeInterval(24 * 3600))
-            .chartYScale(domain: 0...max(11, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
-            .chartYAxis {
-                AxisMarks(values: .automatic(desiredCount: 6)) { value in
-                    AxisGridLine()
-                    AxisTick()
-                    AxisValueLabel {
-                        if let intValue = value.as(Int.self) {
-                            Text("\(intValue)")
-                                .foregroundColor(.secondary)
-                        }
+                // Current Time Label
+                GeometryReader { geometry in
+                    let chartWidth = geometry.size.width
+                    let startOfDay = Calendar.current.startOfDay(for: Date())
+                    let endOfDay = startOfDay.addingTimeInterval(24 * 3600)
+                    let totalTimeRange = endOfDay.timeIntervalSince(startOfDay)
+                    let currentTimeProgress = currentTime.timeIntervalSince(startOfDay)
+                    let xPosition = (currentTimeProgress / totalTimeRange) * chartWidth
+                    
+                    VStack {
+                        Spacer()
+                        
+                        Text(formatHour(currentTime))
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.9))
+                            .cornerRadius(8)
+                            .shadow(radius: 2)
+                            .offset(x: xPosition - 20) // Center the label over the line
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 8)
                 }
             }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .hour, count: 3)) { value in
-                    AxisGridLine()
-                    AxisTick()
-                    AxisValueLabel {
-                        if let date = value.as(Date.self) {
-                            Text(formatHour(date))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-            }
-            .frame(height: 300)
         }
         .padding()
         .background(Color.white.opacity(0.5))
