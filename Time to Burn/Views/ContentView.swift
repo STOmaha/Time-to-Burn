@@ -447,6 +447,16 @@ struct NotificationCard: View {
             .padding(.top, 10)
             .accessibilityIdentifier("TestHighUVNotificationButton")
             
+            // Manual Background Check Button
+            Button(action: {
+                notificationService.triggerBackgroundUVCheck()
+            }) {
+                Label("Trigger Background UV Check", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .padding(.top, 5)
+            .accessibilityIdentifier("TriggerBackgroundCheckButton")
+            
             Spacer()
         }
         .padding()

@@ -18,10 +18,11 @@ struct Time_to_BurnApp: App {
     init() {
         // Initialize WeatherViewModel with the same NotificationService instance
         let notificationService = NotificationService.shared
-        _weatherViewModel = StateObject(wrappedValue: WeatherViewModel(notificationService: notificationService))
         
-        // Register background task
-        notificationService.registerBackgroundTask()
+        // Register background task handlers BEFORE app finishes launching
+        notificationService.registerBackgroundTaskHandlers()
+        
+        _weatherViewModel = StateObject(wrappedValue: WeatherViewModel(notificationService: notificationService))
     }
     
     var body: some Scene {

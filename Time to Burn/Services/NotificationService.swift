@@ -2,6 +2,7 @@ import Foundation
 import UserNotifications
 import BackgroundTasks
 import WeatherKit
+import CoreLocation
 
 class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationService()
@@ -9,6 +10,9 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
     @Published var isHighUVAlertsEnabled: Bool {
         didSet {
             UserDefaults.standard.set(isHighUVAlertsEnabled, forKey: highUVAlertsKey)
+            if isHighUVAlertsEnabled {
+                scheduleBackgroundTask()
+            }
         }
     }
     @Published var isDailyUpdatesEnabled: Bool {
@@ -34,9 +38,17 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
     private let backgroundTaskIdentifier = "com.timetoburn.uvcheck"
     private let weatherService = WeatherService.shared
     private let lastNotifiedUVKey = "lastNotifiedUVIndex"
+    private let lastNotificationDateKey = "lastNotificationDate"
+    private var isBackgroundTaskRegistered = false
+    
     private var lastNotifiedUVIndex: Int {
         get { UserDefaults.standard.integer(forKey: lastNotifiedUVKey) }
         set { UserDefaults.standard.set(newValue, forKey: lastNotifiedUVKey) }
+    }
+    
+    private var lastNotificationDate: Date? {
+        get { UserDefaults.standard.object(forKey: lastNotificationDateKey) as? Date }
+        set { UserDefaults.standard.set(newValue, forKey: lastNotificationDateKey) }
     }
     
     override init() {
@@ -47,25 +59,69 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         self.uvAlertThreshold = threshold == 0 ? 6 : threshold
         super.init()
         UNUserNotificationCenter.current().delegate = self
+        setupNotificationCategories()
         requestNotificationPermissions()
     }
     
+    private func setupNotificationCategories() {
+        // Create notification categories with actions
+        let viewAction = UNNotificationAction(
+            identifier: "VIEW_UV_INFO",
+            title: "View Details",
+            options: [.foreground]
+        )
+        
+        let dismissAction = UNNotificationAction(
+            identifier: "DISMISS",
+            title: "Dismiss",
+            options: [.destructive]
+        )
+        
+        let uvAlertCategory = UNNotificationCategory(
+            identifier: "UV_ALERT",
+            actions: [viewAction, dismissAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        
+        let dailyUpdateCategory = UNNotificationCategory(
+            identifier: "DAILY_UPDATE",
+            actions: [viewAction, dismissAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction]
+        )
+        
+        UNUserNotificationCenter.current().setNotificationCategories([uvAlertCategory, dailyUpdateCategory])
+    }
+    
     func requestNotificationPermissions() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                print("Notification permission error: \(error.localizedDescription)")
-            } else {
-                print("Notification permission granted: \(granted)")
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge, .provisional]) { granted, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("Notification permission error: \(error.localizedDescription)")
+                } else {
+                    print("Notification permission granted: \(granted)")
+                    if granted && self.isHighUVAlertsEnabled {
+                        self.scheduleBackgroundTask()
+                    }
+                }
             }
         }
     }
     
-    func registerBackgroundTask() {
+    func registerBackgroundTaskHandlers() {
+        if isBackgroundTaskRegistered { return }
+        
         BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundTaskIdentifier, using: .main) { task in
             self.handleBackgroundTask(task: task as! BGAppRefreshTask)
         }
         
-        // Schedule the first background task
+        isBackgroundTaskRegistered = true
+        print("Background task handlers registered successfully")
+    }
+    
+    func registerBackgroundTask() {
+        registerBackgroundTaskHandlers()
         scheduleBackgroundTask()
     }
     
@@ -92,19 +148,26 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         // Perform the UV check
         Task {
             do {
-                if let location = LocationManager().location {
+                let locationManager = LocationManager()
+                if let location = locationManager.location {
                     print("[BGTask] Got location: \(location)")
                     let weather = try await weatherService.weather(for: location)
                     let uvIndex = Int(weather.currentWeather.uvIndex.value)
                     print("[BGTask] Fetched UV Index: \(uvIndex)")
                     
-                    if uvIndex >= uvAlertThreshold && uvIndex > lastNotifiedUVIndex && self.isHighUVAlertsEnabled {
+                    // Check if we should send a notification
+                    let shouldNotify = uvIndex >= uvAlertThreshold && 
+                                     self.isHighUVAlertsEnabled &&
+                                     self.shouldSendNotification(for: uvIndex)
+                    
+                    if shouldNotify {
                         print("[BGTask] Scheduling High UV Alert for index \(uvIndex)")
-                        await self.scheduleUVAlert(uvIndex: uvIndex, location: LocationManager().locationName)
-                        lastNotifiedUVIndex = uvIndex
+                        await self.scheduleUVAlert(uvIndex: uvIndex, location: locationManager.locationName)
+                        self.lastNotifiedUVIndex = uvIndex
+                        self.lastNotificationDate = Date()
                     } else if uvIndex < uvAlertThreshold {
                         print("[BGTask] UV Index below threshold, resetting lastNotifiedUVIndex")
-                        lastNotifiedUVIndex = 0
+                        self.lastNotifiedUVIndex = 0
                     } else {
                         print("[BGTask] No notification needed (already notified or below threshold)")
                     }
@@ -123,9 +186,27 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         }
     }
     
+    private func shouldSendNotification(for uvIndex: Int) -> Bool {
+        // Don't send if we've already notified for this UV level
+        if uvIndex <= lastNotifiedUVIndex {
+            return false
+        }
+        
+        // Don't send if we've sent a notification in the last 30 minutes
+        if let lastDate = lastNotificationDate {
+            let timeSinceLastNotification = Date().timeIntervalSince(lastDate)
+            if timeSinceLastNotification < 30 * 60 { // 30 minutes
+                return false
+            }
+        }
+        
+        return true
+    }
+    
     private func scheduleBackgroundTask() {
         let request = BGAppRefreshTaskRequest(identifier: backgroundTaskIdentifier)
-        // Set the earliest begin date to the next 15-minute interval
+        
+        // Schedule for the next 15-minute interval
         let calendar = Calendar.current
         let now = Date()
         let minute = calendar.component(.minute, from: now)
@@ -149,6 +230,7 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         content.sound = .default
         content.interruptionLevel = .timeSensitive
         content.categoryIdentifier = "UV_ALERT"
+        content.userInfo = ["uvIndex": uvIndex, "location": location]
         
         // Create a unique identifier for this notification
         let identifier = "uv-alert-\(Date().timeIntervalSince1970)"
@@ -175,6 +257,8 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         content.title = "Daily UV Update"
         content.body = "Today's UV Index in \(location) is \(uvIndex). \(getAdviceForUVIndex(uvIndex))"
         content.sound = .default
+        content.categoryIdentifier = "DAILY_UPDATE"
+        content.userInfo = ["uvIndex": uvIndex, "location": location]
         
         // Create a date components for 9 AM
         var dateComponents = DateComponents()
@@ -199,6 +283,8 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         content.title = "New Location Detected"
         content.body = "UV Index in \(newLocation) is \(uvIndex). \(getAdviceForUVIndex(uvIndex))"
         content.sound = .default
+        content.categoryIdentifier = "UV_ALERT"
+        content.userInfo = ["uvIndex": uvIndex, "location": newLocation]
         
         let request = UNNotificationRequest(
             identifier: "location-change-\(Date().timeIntervalSince1970)",
@@ -216,12 +302,18 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         if let threshold = uvAlertThreshold {
             self.uvAlertThreshold = threshold
         }
+        
         // Remove existing notifications if disabled
         if !highUVAlerts {
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["uv-alert"])
         }
         if !dailyUpdates {
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["daily-uv-update"])
+        }
+        
+        // Register background task if high UV alerts are enabled
+        if highUVAlerts {
+            registerBackgroundTask()
         }
     }
     
@@ -235,6 +327,35 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         }
     }
     
+    // MARK: - UNUserNotificationCenterDelegate
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let identifier = response.actionIdentifier
+        
+        switch identifier {
+        case "VIEW_UV_INFO":
+            // Handle opening the app to view UV details
+            print("User tapped 'View Details' for UV notification")
+            // The app will be brought to foreground automatically
+            break
+        case "DISMISS":
+            // Handle dismiss action
+            print("User dismissed UV notification")
+            break
+        default:
+            // Handle default tap on notification
+            print("User tapped on UV notification")
+            break
+        }
+        
+        completionHandler()
+    }
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // Show notification even when app is in foreground
+        completionHandler([.banner, .sound, .badge])
+    }
+    
     // Add a public test function to trigger a High UV notification manually
     func testHighUVNotification() {
         print("[Test] Triggering manual High UV notification...")
@@ -243,33 +364,17 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         }
     }
     
-    func sendTestNotification() {
-        let content = UNMutableNotificationContent()
-        content.title = "Test Notification"
-        content.body = "This is a test notification from Time to Burn"
-        content.sound = .default
+    // Function to manually trigger background UV check
+    func triggerBackgroundUVCheck() {
+        print("[Manual] Triggering background UV check...")
+        let request = BGAppRefreshTaskRequest(identifier: backgroundTaskIdentifier)
+        request.earliestBeginDate = Date()
         
-        // Create a trigger that fires immediately
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
-        
-        // Create the request
-        let request = UNNotificationRequest(
-            identifier: "test-notification",
-            content: content,
-            trigger: trigger
-        )
-        
-        // Add the request to the notification center
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("Error sending test notification: \(error.localizedDescription)")
-            } else {
-                print("Test notification sent successfully")
-            }
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            print("Successfully scheduled immediate background task")
+        } catch {
+            print("Could not schedule immediate background task: \(error.localizedDescription)")
         }
-    }
-    
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound, .list])
     }
 } 
