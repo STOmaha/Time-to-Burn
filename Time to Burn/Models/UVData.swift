@@ -4,10 +4,20 @@ import WeatherKit
 struct UVData: Identifiable {
     let id = UUID()
     let uvIndex: Int
-    let timeToBurn: Int // in minutes
-    let location: String
-    let timestamp: Date
-    let advice: String
+    let date: Date
+    let timeToBurn: Int? // in minutes
+    let location: String?
+    let timestamp: Date?
+    let advice: String?
+    
+    init(uvIndex: Int, date: Date, timeToBurn: Int? = nil, location: String? = nil, timestamp: Date? = nil, advice: String? = nil) {
+        self.uvIndex = uvIndex
+        self.date = date
+        self.timeToBurn = timeToBurn ?? UVData.calculateTimeToBurn(uvIndex: uvIndex)
+        self.location = location
+        self.timestamp = timestamp ?? date
+        self.advice = advice ?? UVData.getAdvice(uvIndex: uvIndex)
+    }
     
     static func calculateTimeToBurn(uvIndex: Int) -> Int {
         // Basic calculation - can be refined based on research

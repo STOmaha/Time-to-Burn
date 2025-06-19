@@ -195,14 +195,64 @@ class WeatherViewModel: ObservableObject {
             
             currentUVData = UVData(
                 uvIndex: uvIndex,
+                date: Date(),
                 timeToBurn: timeToBurn,
                 location: "", // Will be set by LocationManager
                 timestamp: Date(),
                 advice: advice
             )
             
+            // Get today's start (midnight) and tomorrow's start
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+            
+            // Populate hourly forecast data
+            let hourlyWeather = try await weatherService.weather(
+                for: location,
+                including: .hourly
+            )
+            
+            hourlyForecast = hourlyWeather.forecast
+                .filter { forecast in
+                    // Only include forecasts between today midnight and tomorrow midnight
+                    forecast.date >= today && forecast.date < tomorrow
+                }
+                .map { forecast in
+                    UVData(
+                        uvIndex: Int(forecast.uvIndex.value),
+                        date: forecast.date
+                    )
+                }
+                .sorted { $0.date < $1.date } // Ensure chronological order
+            
+            // If we're missing early morning hours (before current time),
+            // pad with zero UV index values
+            let firstForecastHour = calendar.component(.hour, from: hourlyForecast.first?.date ?? Date())
+            if firstForecastHour > 0 {
+                var paddingHours: [UVData] = []
+                for hour in 0..<firstForecastHour {
+                    if let date = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: today) {
+                        paddingHours.append(UVData(uvIndex: 0, date: date))
+                    }
+                }
+                hourlyForecast = paddingHours + hourlyForecast
+            }
+            
+            // If we're missing late night hours, pad with zero UV index values
+            let lastForecastHour = calendar.component(.hour, from: hourlyForecast.last?.date ?? Date())
+            if lastForecastHour < 23 {
+                var paddingHours: [UVData] = []
+                for hour in (lastForecastHour + 1)...23 {
+                    if let date = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: today) {
+                        paddingHours.append(UVData(uvIndex: 0, date: date))
+                    }
+                }
+                hourlyForecast = hourlyForecast + paddingHours
+            }
+            
             lastUpdated = Date()
-            print("WeatherViewModel: Created UV data object")
+            print("WeatherViewModel: Created UV data object and hourly forecast")
             
             // Check if we should send a notification
             let threshold = notificationService.uvAlertThreshold

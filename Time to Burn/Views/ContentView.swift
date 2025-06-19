@@ -1,5 +1,80 @@
 import SwiftUI
+import Charts
 import WeatherKit
+import CoreLocation
+
+struct UVLineContent: ChartContent {
+    let data: UVData
+    
+    var body: some ChartContent {
+        LineMark(
+            x: .value("Time", data.date),
+            y: .value("UV Index", Double(data.uvIndex))
+        )
+        .interpolationMethod(.catmullRom)
+        .foregroundStyle(
+            LinearGradient(
+                colors: [.purple, .red, .orange, .yellow, .green],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+    }
+}
+
+struct UVAreaContent: ChartContent {
+    let data: UVData
+    
+    var body: some ChartContent {
+        AreaMark(
+            x: .value("Time", data.date),
+            y: .value("UV Index", Double(data.uvIndex))
+        )
+        .interpolationMethod(.catmullRom)
+        .foregroundStyle(
+            LinearGradient(
+                colors: [
+                    getChartColor(for: data.uvIndex).opacity(0.3),
+                    getChartColor(for: data.uvIndex).opacity(0.1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+    }
+    
+    private func getChartColor(for uvIndex: Int) -> Color {
+        switch uvIndex {
+        case 0...2: return .green
+        case 3...5: return .yellow
+        case 6...7: return .orange
+        case 8...10: return .red
+        default: return .purple
+        }
+    }
+}
+
+struct UVPointContent: ChartContent {
+    let data: UVData
+    
+    var body: some ChartContent {
+        PointMark(
+            x: .value("Time", data.date),
+            y: .value("UV Index", Double(data.uvIndex))
+        )
+        .foregroundStyle(getChartColor(for: data.uvIndex))
+    }
+    
+    private func getChartColor(for uvIndex: Int) -> Color {
+        switch uvIndex {
+        case 0...2: return .green
+        case 3...5: return .yellow
+        case 6...7: return .orange
+        case 8...10: return .red
+        default: return .purple
+        }
+    }
+}
 
 struct ContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
@@ -7,6 +82,7 @@ struct ContentView: View {
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @State private var showingNotifications = false
     @State private var currentTime = Date()
+    @State private var showingUVChart = false
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
@@ -67,6 +143,9 @@ struct ContentView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
+                            
+                            // UV Chart
+                            UVChartView()
                         }
                         .padding()
                     }
@@ -140,6 +219,99 @@ struct ContentView: View {
         case 11: return Color.purple.darken()
         case 12: return Color.black.darken()
         default: return Color.black.darken()
+        }
+    }
+    
+    private func formatHour(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "ha"
+        return formatter.string(from: date).lowercased()
+    }
+    
+    private func getChartColor(for uvIndex: Int) -> Color {
+        switch uvIndex {
+        case 0...2: return .green
+        case 3...5: return .yellow
+        case 6...7: return .orange
+        case 8...10: return .red
+        default: return .purple
+        }
+    }
+    
+    private func legendItem(color: Color, range: String, label: String) -> some View {
+        HStack {
+            Circle()
+                .fill(color)
+                .frame(width: 12, height: 12)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(range)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(label)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    // MARK: - Chart Components
+    private func UVChartView() -> some View {
+        VStack(spacing: 16) {
+            Chart {
+                ForEach(weatherViewModel.hourlyForecast) { data in
+                    UVLineContent(data: data)
+                    UVAreaContent(data: data)
+                    UVPointContent(data: data)
+                }
+            }
+            .chartYScale(domain: 0...max(11, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
+            .chartYAxis {
+                AxisMarks(values: .automatic(desiredCount: 6)) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel {
+                        if let intValue = value.as(Int.self) {
+                            Text("\(intValue)")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .hour, count: 3)) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(formatHour(date))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+            .frame(height: 300)
+            
+            // UV Index Legend
+            UVLegendView()
+        }
+        .padding()
+        .background(Color.white.opacity(0.5))
+        .cornerRadius(20)
+        .shadow(radius: 5)
+        .padding(.horizontal)
+    }
+    
+    private func UVLegendView() -> some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 20) {
+                legendItem(color: .green, range: "0-2", label: "Low")
+                legendItem(color: .yellow, range: "3-5", label: "Moderate")
+                legendItem(color: .orange, range: "6-7", label: "High")
+            }
+            HStack(spacing: 20) {
+                legendItem(color: .red, range: "8-10", label: "Very High")
+                legendItem(color: .purple, range: "11+", label: "Extreme")
+            }
         }
     }
 }
@@ -288,7 +460,7 @@ struct UVIndexCard: View {
                 
                 Text(uvData.uvIndex == 12 ? "<5 minutes to burn" : 
                      uvData.uvIndex == 0 ? "∞ minutes to burn" :
-                     "\(uvData.timeToBurn) minutes to burn")
+                     "\(uvData.timeToBurn ?? UVData.calculateTimeToBurn(uvIndex: uvData.uvIndex)) minutes to burn")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .padding(.top, 2)
@@ -299,7 +471,7 @@ struct UVIndexCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Protection Advice")
                         .font(.headline)
-                    Text(uvData.advice)
+                    Text(uvData.advice ?? UVData.getAdvice(uvIndex: uvData.uvIndex))
                         .font(.body)
                         .foregroundColor(.secondary)
                 }
