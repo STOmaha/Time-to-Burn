@@ -582,8 +582,9 @@ struct UVIndexCard: View {
                 Text(uvData.uvIndex == 12 ? "<5 minutes to burn" : 
                      uvData.uvIndex == 0 ? "∞ minutes to burn" :
                      "\(uvData.timeToBurn ?? UVData.calculateTimeToBurn(uvIndex: uvData.uvIndex)) minutes to burn")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(uvData.uvIndex >= 8 ? .title2 : .subheadline)
+                    .fontWeight(uvData.uvIndex >= 8 ? .bold : .regular)
+                    .foregroundColor(uvData.uvIndex >= 8 ? .red : .secondary)
                     .padding(.top, 2)
                 
                 Divider()
