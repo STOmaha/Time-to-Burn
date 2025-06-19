@@ -250,6 +250,59 @@ struct ContentView: View {
         return "\(timeString)\(amPm)"
     }
     
+    private func formatKeyTime(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: date)
+        
+        // Show 12am at start and end
+        if hour == 0 {
+            return "12am"
+        }
+        
+        // Show 12pm at noon
+        if hour == 12 {
+            return "12pm"
+        }
+        
+        // Show "Now" for current hour
+        let currentHour = calendar.component(.hour, from: currentTime)
+        if hour == currentHour {
+            return "Now"
+        }
+        
+        // Show threshold times if they exist
+        if isThresholdTime(date) {
+            return formatHour(date)
+        }
+        
+        // For other times, show a simplified format
+        if hour < 12 {
+            return "\(hour)am"
+        } else if hour == 12 {
+            return "12pm"
+        } else {
+            return "\(hour - 12)pm"
+        }
+    }
+    
+    private func isThresholdTime(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: date)
+        
+        // Check if this hour has UV crossing the threshold
+        let threshold = notificationService.uvAlertThreshold
+        
+        // Find the UV data for this hour
+        if let uvData = weatherViewModel.hourlyForecast.first(where: { 
+            calendar.component(.hour, from: $0.date) == hour 
+        }) {
+            // Show if UV is at or above threshold
+            return uvData.uvIndex >= threshold
+        }
+        
+        return false
+    }
+    
     private func getChartColor(for uvIndex: Int) -> Color {
         switch uvIndex {
         case 0...2: return .green
@@ -325,12 +378,12 @@ struct ContentView: View {
                     }
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .hour, count: 4)) { value in
+                    AxisMarks(values: .stride(by: .hour, count: 6)) { value in
                         AxisGridLine()
                         AxisTick()
                         AxisValueLabel {
                             if let date = value.as(Date.self) {
-                                Text(formatHour(date))
+                                Text(formatKeyTime(date))
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
