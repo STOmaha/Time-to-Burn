@@ -349,14 +349,15 @@ struct ContentView: View {
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
                     .foregroundStyle(.red)
                     .annotation(position: .top, alignment: .leading, spacing: 0) {
-                        Text("Threshold")
+                        Text("UV Threshold")
                             .font(.caption2)
-                            .fontWeight(.semibold)
+                            .fontWeight(.medium)
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Color.red)
                             .cornerRadius(4)
+                            .offset(y: 9)
                     }
                     
                     // Current Time Line
@@ -422,7 +423,7 @@ struct ContentView: View {
                     }
                 }
                 .frame(height: 20)
-                .offset(y: 10) // Move up slightly above the X-axis
+                .offset(y: -55) // Move up slightly above the X-axis
             }
         }
         .padding()
