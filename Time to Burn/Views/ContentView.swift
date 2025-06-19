@@ -99,6 +99,8 @@ struct ContentView: View {
     @State private var showingNotifications = false
     @State private var currentTime = Date()
     @State private var showingUVChart = false
+    @State private var selectedTime = Date()
+    @State private var isDragging = false
     
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
@@ -345,14 +347,21 @@ struct ContentView: View {
             
             // Current Time Indicator
             HStack {
-                Text("Now:")
+                Text(isDragging ? "Selected:" : "Now:")
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
-                Text(formatHour(currentTime))
+                Text(formatHour(isDragging ? selectedTime : currentTime))
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(.blue)
+                
+                if isDragging, let uvLevel = getUVLevelForTime(selectedTime) {
+                    Text("• UV \(uvLevel)")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(getUVColor(uvLevel))
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 8)
@@ -388,9 +397,9 @@ struct ContentView: View {
                             .offset(y: 9)
                     }
                     
-                    // Current Time Line
+                    // Interactive Time Line (shows selected time when dragging, current time otherwise)
                     RuleMark(
-                        x: .value("Current Time", currentTime)
+                        x: .value("Selected Time", isDragging ? selectedTime : currentTime)
                     )
                     .lineStyle(StrokeStyle(lineWidth: 2))
                     .foregroundStyle(.blue)
@@ -423,6 +432,17 @@ struct ContentView: View {
                     }
                 }
                 .frame(height: 300)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            isDragging = true
+                            selectedTime = getTimeFromDragLocation(value.location.x, chartWidth: 300)
+                        }
+                        .onEnded { _ in
+                            isDragging = false
+                            selectedTime = currentTime
+                        }
+                )
             }
         }
         .padding()
@@ -486,6 +506,43 @@ struct ContentView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
         return formatter.string(from: targetDate).lowercased()
+    }
+    
+    private func getUVLevelForTime(_ time: Date) -> Int? {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: time)
+        
+        // Find the UV data for this hour
+        if let uvData = weatherViewModel.hourlyForecast.first(where: { 
+            calendar.component(.hour, from: $0.date) == hour 
+        }) {
+            return uvData.uvIndex
+        }
+        
+        return nil
+    }
+    
+    private func getUVColor(_ uvIndex: Int) -> Color {
+        switch uvIndex {
+        case 0...2: return .green
+        case 3...5: return .yellow
+        case 6...7: return .orange
+        case 8...10: return .red
+        default: return .purple
+        }
+    }
+    
+    private func getTimeFromDragLocation(_ xLocation: CGFloat, chartWidth: CGFloat) -> Date {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        let endOfDay = startOfDay.addingTimeInterval(24 * 3600)
+        let totalTimeRange = endOfDay.timeIntervalSince(startOfDay)
+        
+        // Convert x position to time (0 = start of day, chartWidth = end of day)
+        let timeProgress = Double(xLocation / chartWidth)
+        let timeInterval = totalTimeRange * timeProgress
+        
+        return startOfDay.addingTimeInterval(timeInterval)
     }
 }
 
