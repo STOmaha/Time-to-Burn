@@ -371,7 +371,6 @@ struct ContentView: View {
         .background(Color.white.opacity(0.5))
         .cornerRadius(20)
         .shadow(radius: 5)
-        .padding(.horizontal)
     }
 }
 
