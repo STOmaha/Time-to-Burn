@@ -297,6 +297,7 @@ struct ContentView: View {
                         .foregroundColor(.red)
                 }
             }
+            .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.startOfDay(for: Date()).addingTimeInterval(24 * 3600))
             .chartYScale(domain: 0...max(11, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
             .chartYAxis {
                 AxisMarks(values: .automatic(desiredCount: 6)) { value in
@@ -323,21 +324,6 @@ struct ContentView: View {
                 }
             }
             .frame(height: 300)
-            
-            // UV Index Legend with Threshold Indicator
-            VStack(spacing: 12) {
-                HStack(spacing: 20) {
-                    legendItem(color: .green, range: "0-2", label: "Low")
-                    legendItem(color: .yellow, range: "3-5", label: "Moderate")
-                    legendItem(color: .orange, range: "6-7", label: "High")
-                }
-                HStack(spacing: 20) {
-                    legendItem(color: .red, range: "8-10", label: "Very High")
-                    legendItem(color: .purple, range: "11+", label: "Extreme")
-                    Spacer()
-                    legendItem(color: .red.opacity(0.15), range: "≥\(uvThreshold)", label: "Danger Zone")
-                }
-            }
         }
         .padding()
         .background(Color.white.opacity(0.5))

@@ -178,6 +178,17 @@ class WeatherViewModel: ObservableObject {
         print("WeatherViewModel: Notifications permission requested")
     }
     
+    private func startOfDay() -> Date {
+        Calendar.current.startOfDay(for: Date())
+    }
+    
+    private func endOfDay() -> Date {
+        var components = DateComponents()
+        components.day = 1
+        components.second = -1
+        return Calendar.current.date(byAdding: components, to: startOfDay()) ?? Date()
+    }
+    
     func fetchUVData(for location: CLLocation) async {
         print("WeatherViewModel: Fetching UV data for location - \(location.coordinate)")
         isLoading = true
@@ -187,77 +198,64 @@ class WeatherViewModel: ObservableObject {
             let weather = try await weatherService.weather(for: location)
             print("WeatherViewModel: Successfully fetched weather data")
             
+            // Current UV Data
             let uvIndex = Int(weather.currentWeather.uvIndex.value)
             print("WeatherViewModel: UV Index - \(uvIndex)")
-            
-            let timeToBurn = UVData.calculateTimeToBurn(uvIndex: uvIndex)
-            let advice = UVData.getAdvice(uvIndex: uvIndex)
             
             currentUVData = UVData(
                 uvIndex: uvIndex,
                 date: Date(),
-                timeToBurn: timeToBurn,
-                location: "", // Will be set by LocationManager
+                timeToBurn: UVData.calculateTimeToBurn(uvIndex: uvIndex),
+                location: location.description,
                 timestamp: Date(),
-                advice: advice
+                advice: UVData.getAdvice(uvIndex: uvIndex)
             )
             
-            // Get today's start (midnight) and tomorrow's start
-            let calendar = Calendar.current
-            let today = calendar.startOfDay(for: Date())
-            let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+            // Hourly Forecast
+            let startTime = startOfDay()
+            let endTime = endOfDay()
             
-            // Populate hourly forecast data
             let hourlyWeather = try await weatherService.weather(
                 for: location,
                 including: .hourly
             )
             
-            hourlyForecast = hourlyWeather.forecast
-                .filter { forecast in
-                    // Only include forecasts between today midnight and tomorrow midnight
-                    forecast.date >= today && forecast.date < tomorrow
-                }
-                .map { forecast in
+            var forecast = hourlyWeather
+                .filter { startTime...endTime ~= $0.date }
+                .map { hour in
                     UVData(
-                        uvIndex: Int(forecast.uvIndex.value),
-                        date: forecast.date
+                        uvIndex: Int(hour.uvIndex.value),
+                        date: hour.date
                     )
                 }
-                .sorted { $0.date < $1.date } // Ensure chronological order
             
-            // If we're missing early morning hours (before current time),
-            // pad with zero UV index values
-            let firstForecastHour = calendar.component(.hour, from: hourlyForecast.first?.date ?? Date())
-            if firstForecastHour > 0 {
-                var paddingHours: [UVData] = []
-                for hour in 0..<firstForecastHour {
-                    if let date = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: today) {
-                        paddingHours.append(UVData(uvIndex: 0, date: date))
-                    }
+            // Ensure we have entries for all 24 hours
+            let calendar = Calendar.current
+            var hour = 0
+            var completeHourlyData: [UVData] = []
+            
+            while hour < 24 {
+                let targetDate = calendar.date(byAdding: .hour, value: hour, to: startTime)!
+                
+                if let existingData = forecast.first(where: { calendar.isDate($0.date, equalTo: targetDate, toGranularity: .hour) }) {
+                    completeHourlyData.append(existingData)
+                } else {
+                    // Add entry with UV index 0 for missing hours (typically night hours)
+                    completeHourlyData.append(UVData(uvIndex: 0, date: targetDate))
                 }
-                hourlyForecast = paddingHours + hourlyForecast
+                hour += 1
             }
             
-            // If we're missing late night hours, pad with zero UV index values
-            let lastForecastHour = calendar.component(.hour, from: hourlyForecast.last?.date ?? Date())
-            if lastForecastHour < 23 {
-                var paddingHours: [UVData] = []
-                for hour in (lastForecastHour + 1)...23 {
-                    if let date = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: today) {
-                        paddingHours.append(UVData(uvIndex: 0, date: date))
-                    }
-                }
-                hourlyForecast = hourlyForecast + paddingHours
+            await MainActor.run {
+                self.hourlyForecast = completeHourlyData
+                self.lastUpdated = Date()
+                self.isLoading = false
             }
-            
-            lastUpdated = Date()
-            print("WeatherViewModel: Created UV data object and hourly forecast")
             
             // Check if we should send a notification
             let threshold = notificationService.uvAlertThreshold
             if uvIndex >= threshold && (lastNotifiedUVIndex == nil || lastNotifiedUVIndex! < threshold) {
-                await notificationService.scheduleUVAlert(uvIndex: uvIndex, location: "")
+                await notificationService.scheduleUVAlert(uvIndex: uvIndex, location: location.description)
                 lastNotifiedUVIndex = uvIndex
                 print("WeatherViewModel: Scheduled UV alert for index \(uvIndex)")
             } else if uvIndex < threshold {
@@ -265,18 +263,18 @@ class WeatherViewModel: ObservableObject {
             }
             
         } catch {
-            self.error = error
-            currentUVData = nil
-            print("WeatherViewModel: Failed to fetch weather data - \(error.localizedDescription)")
+            print("WeatherViewModel: Error fetching weather - \(error)")
+            await MainActor.run {
+                self.error = error
+                self.isLoading = false
+            }
         }
-        
-        isLoading = false
-        print("WeatherViewModel: Finished loading UV data")
     }
     
     func refreshData() async {
-        print("WeatherViewModel: Manual refresh requested")
-        await performFullRefresh()
+        if let location = LocationManager().location {
+            await fetchUVData(for: location)
+        }
     }
     
     func scheduleUVNotifications() {
