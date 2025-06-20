@@ -460,7 +460,6 @@ struct ContentView: View {
     
     private func getUVExposureWarning() -> String? {
         let threshold = notificationService.uvAlertThreshold
-        let calendar = Calendar.current
         
         // Find all hours where UV is at or above threshold
         let highUVHours = weatherViewModel.hourlyForecast.enumerated().compactMap { index, data in
