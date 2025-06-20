@@ -430,26 +430,28 @@ struct ContentView: View {
                     }
                 }
                 .frame(height: 300)
-                .gesture(
-                    DragGesture(minimumDistance: 10)
-                        .onChanged { value in
-                            // Add a slight delay before activating drag
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                if !isDragging {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        Rectangle().fill(.clear).contentShape(Rectangle())
+                            .gesture(
+                                DragGesture()
+                                    .onChanged { value in
                                         isDragging = true
+                                        let location = value.location
+                                        if let date: Date = proxy.value(atX: location.x) {
+                                            selectedTime = date
+                                        }
                                     }
-                                }
-                                selectedTime = getTimeFromDragLocation(value.location.x, chartWidth: 300)
-                            }
-                        }
-                        .onEnded { _ in
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isDragging = false
-                                selectedTime = currentTime
-                            }
-                        }
-                )
+                                    .onEnded { _ in
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                            withAnimation {
+                                                isDragging = false
+                                            }
+                                        }
+                                    }
+                            )
+                    }
+                }
             }
         }
         .padding()
@@ -536,19 +538,6 @@ struct ContentView: View {
         case 8...10: return .red
         default: return .purple
         }
-    }
-    
-    private func getTimeFromDragLocation(_ xLocation: CGFloat, chartWidth: CGFloat) -> Date {
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: Date())
-        let endOfDay = startOfDay.addingTimeInterval(24 * 3600)
-        let totalTimeRange = endOfDay.timeIntervalSince(startOfDay)
-        
-        // Convert x position to time (0 = start of day, chartWidth = end of day)
-        let timeProgress = Double(xLocation / chartWidth)
-        let timeInterval = totalTimeRange * timeProgress
-        
-        return startOfDay.addingTimeInterval(timeInterval)
     }
 }
 
