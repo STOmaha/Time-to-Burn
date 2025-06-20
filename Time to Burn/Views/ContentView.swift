@@ -556,28 +556,36 @@ struct NotificationCard: View {
                         isEnabled: $notificationService.isHighUVAlertsEnabled
                     )
                     if notificationService.isHighUVAlertsEnabled {
-                        HStack {
-                            Text("Alert Threshold: ")
-                                .font(.subheadline)
-                            Slider(value: Binding(
-                                get: { Double(notificationService.uvAlertThreshold) },
-                                set: { newValue in
-                                    let intValue = Int(newValue.rounded())
-                                    notificationService.uvAlertThreshold = intValue
-                                    notificationService.updateNotificationPreferences(
-                                        highUVAlerts: notificationService.isHighUVAlertsEnabled,
-                                        dailyUpdates: notificationService.isDailyUpdatesEnabled,
-                                        locationChanges: notificationService.isLocationChangesEnabled,
-                                        uvAlertThreshold: intValue
-                                    )
-                                }
-                            ), in: 1...12, step: 1)
-                            .frame(maxWidth: 150)
-                            Text("\(notificationService.uvAlertThreshold)")
-                                .font(.subheadline)
-                                .frame(width: 28)
+                        VStack(alignment: .leading, spacing: 8) {
+                            let timeToBurn = UVData.calculateTimeToBurn(uvIndex: notificationService.uvAlertThreshold)
+                            Text("Time to burn at this level: ~\(timeToBurn) minutes")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.leading, 8)
+
+                            HStack {
+                                Text("Alert Threshold: ")
+                                    .font(.subheadline)
+                                Slider(value: Binding(
+                                    get: { Double(notificationService.uvAlertThreshold) },
+                                    set: { newValue in
+                                        let intValue = Int(newValue.rounded())
+                                        notificationService.uvAlertThreshold = intValue
+                                        notificationService.updateNotificationPreferences(
+                                            highUVAlerts: notificationService.isHighUVAlertsEnabled,
+                                            dailyUpdates: notificationService.isDailyUpdatesEnabled,
+                                            locationChanges: notificationService.isLocationChangesEnabled,
+                                            uvAlertThreshold: intValue
+                                        )
+                                    }
+                                ), in: 1...12, step: 1)
+                                .frame(maxWidth: 150)
+                                Text("\(notificationService.uvAlertThreshold)")
+                                    .font(.subheadline)
+                                    .frame(width: 28)
+                            }
+                            .padding(.horizontal, 8)
                         }
-                        .padding(.horizontal, 8)
                     }
                 }
                 NotificationRow(
