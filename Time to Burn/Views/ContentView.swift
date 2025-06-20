@@ -342,29 +342,27 @@ struct ContentView: View {
                     .background(Color.orange)
                     .cornerRadius(8)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.bottom, 20)
             }
             
             // Current Time Indicator
             HStack {
                 Text(isDragging ? "Selected:" : "Now:")
-                    .font(.caption)
+                    .font(.headline)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
                 Text(formatHour(isDragging ? selectedTime : currentTime))
-                    .font(.caption)
+                    .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.blue)
                 
                 if isDragging, let uvLevel = getUVLevelForTime(selectedTime) {
                     Text("• UV \(uvLevel)")
-                        .font(.caption)
+                        .font(.headline)
                         .fontWeight(.semibold)
                         .foregroundColor(getUVColor(uvLevel))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 8)
             
             ZStack(alignment: .bottom) {
                 // Chart Area
