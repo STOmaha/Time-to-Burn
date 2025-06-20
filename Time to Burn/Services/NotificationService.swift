@@ -51,7 +51,7 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         set { UserDefaults.standard.set(newValue, forKey: lastNotificationDateKey) }
     }
     
-    override init() {
+    private override init() {
         self.isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: highUVAlertsKey)
         self.isDailyUpdatesEnabled = UserDefaults.standard.bool(forKey: dailyUpdatesKey)
         self.isLocationChangesEnabled = UserDefaults.standard.bool(forKey: locationChangesKey)
@@ -121,7 +121,10 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
     }
     
     func registerBackgroundTask() {
-        registerBackgroundTaskHandlers()
+        // Only register handlers if not already registered
+        if !isBackgroundTaskRegistered {
+            registerBackgroundTaskHandlers()
+        }
         scheduleBackgroundTask()
     }
     
@@ -311,9 +314,15 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["daily-uv-update"])
         }
         
-        // Register background task if high UV alerts are enabled
+        // Schedule background task if high UV alerts are enabled
         if highUVAlerts {
-            registerBackgroundTask()
+            if isBackgroundTaskRegistered {
+                // Handlers already registered, just schedule the task
+                scheduleBackgroundTask()
+            } else {
+                // Register handlers and schedule task
+                registerBackgroundTask()
+            }
         }
     }
     

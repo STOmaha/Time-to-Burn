@@ -779,7 +779,8 @@ struct UVIndexCard: View {
 #Preview {
     ContentView()
         .environmentObject(LocationManager())
-        .environmentObject(NotificationService())
+        .environmentObject(NotificationService.shared)
+        .environmentObject(WeatherViewModel(notificationService: NotificationService.shared))
 }
 
 extension ContentView {

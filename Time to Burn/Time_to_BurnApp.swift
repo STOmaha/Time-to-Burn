@@ -12,17 +12,14 @@ import BackgroundTasks
 @main
 struct Time_to_BurnApp: App {
     @StateObject private var locationManager = LocationManager()
-    @StateObject private var notificationService = NotificationService()
+    private var notificationService = NotificationService.shared
     @StateObject private var weatherViewModel: WeatherViewModel
     
     init() {
-        // Initialize WeatherViewModel with the same NotificationService instance
-        let notificationService = NotificationService.shared
-        
         // Register background task handlers BEFORE app finishes launching
-        notificationService.registerBackgroundTaskHandlers()
+        NotificationService.shared.registerBackgroundTaskHandlers()
         
-        _weatherViewModel = StateObject(wrappedValue: WeatherViewModel(notificationService: notificationService))
+        _weatherViewModel = StateObject(wrappedValue: WeatherViewModel(notificationService: NotificationService.shared))
     }
     
     var body: some Scene {
