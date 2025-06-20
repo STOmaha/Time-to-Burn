@@ -12,6 +12,7 @@ struct UVLineContent: ChartContent {
             y: .value("UV Index", Double(data.uvIndex))
         )
         .interpolationMethod(.catmullRom)
+        .lineStyle(StrokeStyle(lineWidth: 3))
         .foregroundStyle(
             LinearGradient(
                 colors: [.purple, .red, .orange, .yellow, .green],
@@ -374,7 +375,7 @@ struct ContentView: View {
                         // Existing Layers
                         UVAreaContent(data: data)
                         UVLineContent(data: data)
-                        UVPointContent(data: data)
+                        // UVPointContent(data: data) // Removed to hide plot points
                     }
                     
                     // Threshold Line
