@@ -3,96 +3,6 @@ import Charts
 import WeatherKit
 import CoreLocation
 
-struct UVLineContent: ChartContent {
-    let data: UVData
-    
-    var body: some ChartContent {
-        LineMark(
-            x: .value("Time", data.date),
-            y: .value("UV Index", Double(data.uvIndex))
-        )
-        .interpolationMethod(.monotone)
-        .lineStyle(StrokeStyle(lineWidth: 3))
-        .foregroundStyle(
-            LinearGradient(
-                colors: [.purple, .red, .orange, .yellow, .green],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-    }
-}
-
-struct UVAreaContent: ChartContent {
-    let data: UVData
-    
-    var body: some ChartContent {
-        AreaMark(
-            x: .value("Time", data.date),
-            y: .value("UV Index", Double(data.uvIndex))
-        )
-        .interpolationMethod(.monotone)
-        .foregroundStyle(
-            LinearGradient(
-                colors: [
-                    getChartColor(for: data.uvIndex).opacity(0.3),
-                    getChartColor(for: data.uvIndex).opacity(0.1)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-    }
-    
-    private func getChartColor(for uvIndex: Int) -> Color {
-        switch uvIndex {
-        case 0...2: return .green
-        case 3...5: return .yellow
-        case 6...7: return .orange
-        case 8...10: return .red
-        default: return .purple
-        }
-    }
-}
-
-struct UVPointContent: ChartContent {
-    let data: UVData
-    
-    var body: some ChartContent {
-        PointMark(
-            x: .value("Time", data.date),
-            y: .value("UV Index", Double(data.uvIndex))
-        )
-        .foregroundStyle(getChartColor(for: data.uvIndex))
-    }
-    
-    private func getChartColor(for uvIndex: Int) -> Color {
-        switch uvIndex {
-        case 0...2: return .green
-        case 3...5: return .yellow
-        case 6...7: return .orange
-        case 8...10: return .red
-        default: return .purple
-        }
-    }
-}
-
-struct UVDangerZoneContent: ChartContent {
-    let data: UVData
-    let threshold: Int
-    
-    var body: some ChartContent {
-        RectangleMark(
-            xStart: .value("Start", data.date.addingTimeInterval(-1800)), // 30 min before
-            xEnd: .value("End", data.date.addingTimeInterval(1800)),      // 30 min after
-            yStart: .value("Threshold", Double(threshold)),
-            yEnd: .value("Max", 12.0)
-        )
-        .foregroundStyle(Color.red.opacity(0.15))
-        .opacity(data.uvIndex >= threshold ? 1 : 0)
-    }
-}
-
 struct ContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var notificationService: NotificationService
@@ -198,105 +108,53 @@ struct ContentView: View {
                     .presentationDragIndicator(.visible)
             }
             .task {
-                print("ContentView: Initial task started")
                 locationManager.requestLocation()
-                if let location = locationManager.location {
-                    print("ContentView: Location available, fetching UV data")
-                    await weatherViewModel.fetchUVData(for: location)
-                } else {
-                    print("ContentView: No location available")
-                }
+                await weatherViewModel.refreshData()
             }
-            .onChange(of: locationManager.location) { oldValue, newValue in
-                print("ContentView: Location changed")
-                if let location = newValue {
-                    Task {
-                        await weatherViewModel.fetchUVData(for: location)
-                    }
-                }
+            .onReceive(timer) { input in
+                currentTime = input
             }
-            .onReceive(timer) { time in
-                currentTime = time
-            }
+            .navigationBarHidden(true)
         }
     }
     
-    // Add computed property for dynamic background color
+    // MARK: - Computed Properties
     private var darkerUVColor: Color {
-        guard let uvIndex = weatherViewModel.currentUVData?.uvIndex else {
-            return Color.blue.opacity(0.7)
+        if let uvIndex = weatherViewModel.currentUVData?.uvIndex {
+            return getUVColor(uvIndex)
         }
+        return .blue
+    }
+    
+    // MARK: - UI Helper Functions
+    private func getUVCategory(for uvIndex: Int) -> String {
         switch uvIndex {
-        case 0: return Color.blue.darken()
-        case 1...2: return Color.green.darken()
-        case 3...5: return Color.yellow.darken()
-        case 6...7: return Color.orange.darken()
-        case 8...10: return Color.red.darken()
-        case 11: return Color.purple.darken()
-        case 12: return Color.black.darken()
-        default: return Color.black.darken()
+        case 0...2: return "Low"
+        case 3...5: return "Moderate"
+        case 6...7: return "High"
+        case 8...10: return "Very High"
+        default: return "Extreme"
         }
     }
     
     private func formatHour(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm"
-        let timeString = formatter.string(from: date)
-        
-        let amPmFormatter = DateFormatter()
-        amPmFormatter.dateFormat = "a"
-        let amPm = amPmFormatter.string(from: date).lowercased()
-        
-        return "\(timeString)\(amPm)"
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
     }
     
     private func formatKeyTime(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: date)
-        
-        // Show 12am at start and end
-        if hour == 0 {
-            return "12am"
-        }
-        
-        // Show 12pm at noon
-        if hour == 12 {
-            return "12pm"
-        }
-        
-        // Show "Now" for current hour
-        let currentHour = calendar.component(.hour, from: currentTime)
-        if hour == currentHour {
-            return "Now"
-        }
-        
-        // Show threshold times if they exist
-        if isThresholdTime(date) {
-            return formatHour(date)
-        }
-        
-        // For other times, show a simplified format
-        if hour < 12 {
-            return "\(hour)am"
-        } else if hour == 12 {
-            return "12pm"
-        } else {
-            return "\(hour - 12)pm"
-        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h a"
+        return formatter.string(from: date).lowercased()
     }
     
-    private func isThresholdTime(_ date: Date) -> Bool {
+    private func isHighUV(at time: Date) -> Bool {
         let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: date)
+        let hour = calendar.component(.hour, from: time)
         
-        // Check if this hour has UV crossing the threshold
-        let threshold = notificationService.uvAlertThreshold
-        
-        // Find the UV data for this hour
-        if let uvData = weatherViewModel.hourlyForecast.first(where: { 
-            calendar.component(.hour, from: $0.date) == hour 
-        }) {
-            // Show if UV is at or above threshold
+        if let uvData = weatherViewModel.hourlyForecast.first(where: { calendar.component(.hour, from: $0.date) == hour }) {
+            let threshold = notificationService.uvAlertThreshold
             return uvData.uvIndex >= threshold
         }
         
@@ -332,6 +190,7 @@ struct ContentView: View {
     // MARK: - Chart Components
     private func UVChartView() -> some View {
         VStack(spacing: 16) {
+            
             // UV Exposure Warning
             if let warningText = getUVExposureWarning() {
                 Text(warningText)
@@ -370,12 +229,47 @@ struct ContentView: View {
                 Chart {
                     ForEach(weatherViewModel.hourlyForecast) { data in
                         // Danger Zone Layer
-                        UVDangerZoneContent(data: data, threshold: notificationService.uvAlertThreshold)
+                        if data.uvIndex >= notificationService.uvAlertThreshold {
+                            RectangleMark(
+                                xStart: .value("Start", data.date.addingTimeInterval(-1800)), // 30 min before
+                                xEnd: .value("End", data.date.addingTimeInterval(1800)),      // 30 min after
+                                yStart: .value("Threshold", Double(notificationService.uvAlertThreshold)),
+                                yEnd: .value("Max", 12.0)
+                            )
+                            .foregroundStyle(Color.red.opacity(0.15))
+                        }
                         
-                        // Existing Layers
-                        UVAreaContent(data: data)
-                        UVLineContent(data: data)
-                        // UVPointContent(data: data) // Removed to hide plot points
+                        // Area Mark
+                        AreaMark(
+                            x: .value("Time", data.date),
+                            y: .value("UV Index", Double(data.uvIndex))
+                        )
+                        .interpolationMethod(.monotone)
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [
+                                    getChartColor(for: data.uvIndex).opacity(0.3),
+                                    getChartColor(for: data.uvIndex).opacity(0.1)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        
+                        // Line Mark
+                        LineMark(
+                            x: .value("Time", data.date),
+                            y: .value("UV Index", Double(data.uvIndex))
+                        )
+                        .interpolationMethod(.monotone)
+                        .lineStyle(StrokeStyle(lineWidth: 3))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.purple, .red, .orange, .yellow, .green],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                     }
                     
                     // Threshold Line
@@ -405,18 +299,6 @@ struct ContentView: View {
                 }
                 .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.startOfDay(for: Date()).addingTimeInterval(24 * 3600))
                 .chartYScale(domain: 0...max(12, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
-                .chartYAxis {
-                    AxisMarks(values: .automatic(desiredCount: 6)) { value in
-                        AxisGridLine()
-                        AxisTick()
-                        AxisValueLabel {
-                            if let intValue = value.as(Int.self) {
-                                Text("\(intValue)")
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                }
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .hour, count: 6)) { value in
                         AxisGridLine()
@@ -425,6 +307,18 @@ struct ContentView: View {
                             if let date = value.as(Date.self) {
                                 Text(formatKeyTime(date))
                                     .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks(values: .automatic(desiredCount: 6)) { value in
+                        AxisGridLine()
+                        AxisTick()
+                        AxisValueLabel {
+                            if let intValue = value.as(Int.self) {
+                                Text("\(intValue)")
                                     .foregroundColor(.secondary)
                             }
                         }
@@ -598,228 +492,130 @@ struct NotificationCard: View {
                     description: "Get notified when you enter a new area",
                     isEnabled: $notificationService.isLocationChangesEnabled
                 )
+                
+                // Add a test notification button
+                Button("Test High UV Notification") {
+                    notificationService.testHighUVNotification()
+                }
+                .padding()
             }
-            .onChange(of: notificationService.isHighUVAlertsEnabled) { oldValue, newValue in
-                updateNotificationPreferences()
-            }
-            .onChange(of: notificationService.isDailyUpdatesEnabled) { oldValue, newValue in
-                updateNotificationPreferences()
-            }
-            .onChange(of: notificationService.isLocationChangesEnabled) { oldValue, newValue in
-                updateNotificationPreferences()
-            }
-            
-            // Debug/Test Button
-            Button(action: {
-                notificationService.testHighUVNotification()
-            }) {
-                Label("Test High UV Notification", systemImage: "paperplane.fill")
-            }
-            .buttonStyle(.borderedProminent)
-            .padding(.top, 10)
-            .accessibilityIdentifier("TestHighUVNotificationButton")
-            
-            // Manual Background Check Button
-            Button(action: {
-                notificationService.triggerBackgroundUVCheck()
-            }) {
-                Label("Trigger Background UV Check", systemImage: "arrow.clockwise")
-            }
-            .buttonStyle(.bordered)
-            .padding(.top, 5)
-            .accessibilityIdentifier("TriggerBackgroundCheckButton")
-            
-            Spacer()
         }
         .padding()
-    }
-    
-    private func updateNotificationPreferences() {
-        notificationService.updateNotificationPreferences(
-            highUVAlerts: notificationService.isHighUVAlertsEnabled,
-            dailyUpdates: notificationService.isDailyUpdatesEnabled,
-            locationChanges: notificationService.isLocationChangesEnabled,
-            uvAlertThreshold: notificationService.uvAlertThreshold
-        )
+        .background(Color.white)
+        .cornerRadius(20)
+        .shadow(radius: 5)
     }
 }
 
 struct NotificationRow: View {
-    let title: String
-    let description: String
+    var title: String
+    var description: String
     @Binding var isEnabled: Bool
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+        VStack {
+            Toggle(isOn: $isEnabled) {
+                VStack(alignment: .leading) {
+                    Text(title)
+                        .font(.headline)
+                    Text(description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             }
-            
-            Spacer()
-            
-            Toggle("", isOn: $isEnabled)
-                .labelsHidden()
+            .padding(.horizontal, 8)
         }
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(10)
     }
 }
 
 struct UVIndexCard: View {
-    let location: String
-    let uvData: UVData?
-    let currentTime: Date
-    let lastUpdated: Date?
+    var location: String
+    var uvData: UVData?
+    var currentTime: Date
+    var lastUpdated: Date?
     
     var body: some View {
-        VStack(spacing: 15) {
-            Text(location)
-                .font(.title2)
-                .fontWeight(.medium)
-            
-            if let uvData = uvData {
-                Text("UV Index")
+        VStack(spacing: 16) {
+            // Location and Last Updated
+            HStack {
+                Image(systemName: "location.fill")
+                Text(location)
                     .font(.headline)
-                    .foregroundColor(.secondary)
-                
-                ZStack {
-                    Text(uvIndexDisplay(uvData.uvIndex))
-                        .font(.system(size: 72, weight: .bold))
-                        .foregroundColor(.black)
-                        .opacity(0.25)
-                        .overlay(
-                            Text(uvIndexDisplay(uvData.uvIndex))
-                                .font(.system(size: 72, weight: .bold))
-                                .foregroundColor(uvIndexColor(uvData.uvIndex))
-                                .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 2)
-                        )
-                }
-                
-                Text(burnText(for: uvData))
-                    .font(burnTextFont(for: uvData))
-                    .fontWeight(burnTextWeight(for: uvData))
-                    .foregroundColor(burnTextColor(for: uvData))
-                    .padding(.top, 2)
-                
+                Spacer()
                 if let lastUpdated = lastUpdated {
-                    Text("Last updated: \(timeAgoString(from: lastUpdated, to: currentTime))")
+                    Text("Updated \(lastUpdated, style: .time)")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                        .padding(.top, 2)
                 }
-                
-                Divider()
-                    .padding(.vertical, 8)
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Protection Advice")
+            }
+            
+            // Main UV Index Display
+            if let uvData = uvData {
+                HStack(alignment: .center, spacing: 20) {
+                    VStack {
+                        Text("\(uvData.uvIndex)")
+                            .font(.system(size: 72, weight: .bold))
+                            .foregroundColor(getUVColor(uvData.uvIndex))
+                        Text(getUVCategory(for: uvData.uvIndex))
+                            .font(.title2)
+                            .fontWeight(.medium)
+                            .foregroundColor(getUVColor(uvData.uvIndex))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "hourglass")
+                            Text("Time to Burn:")
+                        }
                         .font(.headline)
-                    Text(uvData.advice ?? UVData.getAdvice(uvIndex: uvData.uvIndex))
-                        .font(.body)
-                        .foregroundColor(.secondary)
+                        
+                        Text("~\(uvData.timeToBurn ?? 0) minutes")
+                            .font(.title)
+                            .fontWeight(.semibold)
+                        
+                        Text(uvData.advice ?? "Stay safe!")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                ProgressView()
+                Text("No UV data available")
+                    .font(.title2)
             }
         }
-        .frame(maxWidth: .infinity)
         .padding()
         .background(Color.white.opacity(0.5))
         .cornerRadius(20)
         .shadow(radius: 5)
     }
     
-    private func uvIndexColor(_ index: Int) -> Color {
-        switch index {
-        case 0: return .blue
-        case 1...2: return .green
+    private func getUVColor(_ uvIndex: Int) -> Color {
+        switch uvIndex {
+        case 0...2: return .green
         case 3...5: return .yellow
         case 6...7: return .orange
         case 8...10: return .red
-        case 11: return .purple
-        case 12: return .black
-        default: return .black
+        default: return .purple
         }
     }
     
-    private func uvIndexDisplay(_ index: Int) -> String {
-        return "\(index)"
-    }
-    
-    private func timeAgoString(from date: Date, to now: Date = Date()) -> String {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.minute, .hour], from: date, to: now)
-        if let hour = components.hour, hour > 0 {
-            return "\(hour)h ago"
-        } else if let minute = components.minute {
-            if minute == 0 {
-                return "Just now"
-            }
-            return "\(minute)m ago"
+    private func getUVCategory(for uvIndex: Int) -> String {
+        switch uvIndex {
+        case 0...2: return "Low"
+        case 3...5: return "Moderate"
+        case 6...7: return "High"
+        case 8...10: return "Very High"
+        default: return "Extreme"
         }
-        return "Just now"
-    }
-
-    private func burnText(for uvData: UVData) -> String {
-        guard let timeToBurn = uvData.timeToBurn else {
-            return "N/A"
-        }
-
-        if uvData.uvIndex == 0 || timeToBurn == .max {
-            return "∞ minutes to burn"
-        } else if uvData.uvIndex >= 12 {
-            return "<5 minutes to burn"
-        } else {
-            return "\(timeToBurn) minutes to burn"
-        }
-    }
-
-    private func burnTextColor(for uvData: UVData) -> Color {
-        return uvData.uvIndex >= 6 ? .red : .secondary
-    }
-
-    private func burnTextFont(for uvData: UVData) -> Font {
-        return uvData.uvIndex >= 6 ? .title2 : .subheadline
-    }
-
-    private func burnTextWeight(for uvData: UVData) -> Font.Weight {
-        return uvData.uvIndex >= 6 ? .bold : .regular
     }
 }
 
-#Preview {
-    ContentView()
-        .environmentObject(LocationManager())
-        .environmentObject(NotificationService.shared)
-        .environmentObject(WeatherViewModel(notificationService: NotificationService.shared))
-}
-
-extension ContentView {
-    func timeAgoString(from date: Date, to now: Date = Date()) -> String {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.minute, .hour], from: date, to: now)
-        if let hour = components.hour, hour > 0 {
-            return "\(hour)h ago"
-        } else if let minute = components.minute {
-            if minute == 0 {
-                return "Just now"
-            }
-            return "\(minute)m ago"
-        }
-        return "Just now"
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+            .environmentObject(LocationManager())
+            .environmentObject(NotificationService.shared)
+            .environmentObject(WeatherViewModel(notificationService: NotificationService.shared))
     }
 }
-
-// Add Color extension for darken
-extension Color {
-    func darken(amount: Double = 0.5) -> Color {
-        return self.opacity(1.0 - amount)
-    }
-} 
 

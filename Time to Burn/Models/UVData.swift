@@ -1,8 +1,8 @@
 import Foundation
 import WeatherKit
 
-struct UVData: Identifiable {
-    let id = UUID()
+struct UVData: Identifiable, Codable {
+    let id: UUID
     let uvIndex: Int
     let date: Date
     let timeToBurn: Int? // in minutes
@@ -11,6 +11,7 @@ struct UVData: Identifiable {
     let advice: String?
     
     init(from hourWeather: HourWeather) {
+        self.id = UUID()
         self.uvIndex = Int(hourWeather.uvIndex.value)
         self.date = hourWeather.date
         self.timeToBurn = UVData.calculateTimeToBurn(uvIndex: Int(hourWeather.uvIndex.value))
@@ -20,6 +21,7 @@ struct UVData: Identifiable {
     }
 
     init(from currentWeather: CurrentWeather) {
+        self.id = UUID()
         self.uvIndex = Int(currentWeather.uvIndex.value)
         self.date = currentWeather.date
         self.timeToBurn = UVData.calculateTimeToBurn(uvIndex: Int(currentWeather.uvIndex.value))
@@ -30,6 +32,7 @@ struct UVData: Identifiable {
     
     // Add a more flexible initializer
     init(uvIndex: Int, date: Date, timeToBurn: Int? = nil, advice: String? = nil, location: String? = nil, timestamp: Date? = nil) {
+        self.id = UUID()
         self.uvIndex = uvIndex
         self.date = date
         self.timeToBurn = timeToBurn ?? UVData.calculateTimeToBurn(uvIndex: uvIndex)

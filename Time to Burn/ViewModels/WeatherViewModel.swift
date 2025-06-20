@@ -21,12 +21,21 @@ class WeatherViewModel: ObservableObject {
     
     private var lastNotifiedUVIndex: Int?
     
+    // Add persistent storage for historical data
+    private var historicalUVData: [UVData] = []
+    private let userDefaults = UserDefaults.standard
+    private let historicalDataKey = "historicalUVData"
+    private let lastDataDateKey = "lastDataDate"
+    
     init(notificationService: NotificationService) {
         self.notificationService = notificationService
         print("WeatherViewModel: Initialized")
         
         // Set up the connection between LocationManager and WeatherViewModel
         locationManager.weatherViewModel = self
+        
+        // Load historical data
+        loadHistoricalData()
         
         // Set up notification observers for app lifecycle
         setupNotificationObservers()
@@ -215,13 +224,16 @@ class WeatherViewModel: ObservableObject {
             interpolatedData.append(last)
         }
         
+        // Merge with historical data
+        let mergedData = mergeWithHistoricalData(newData: interpolatedData)
+        
         // Ensure we have entries for all 48 half-hour slots in a 24-hour period
         let calendar = Calendar.current
         var completeData: [UVData] = []
         
         for i in 0..<48 {
             let targetDate = startTime.addingTimeInterval(TimeInterval(i * 30 * 60))
-            if let existingData = interpolatedData.first(where: { calendar.isDate($0.date, equalTo: targetDate, toGranularity: .minute) }) {
+            if let existingData = mergedData.first(where: { calendar.isDate($0.date, equalTo: targetDate, toGranularity: .minute) }) {
                 completeData.append(existingData)
             } else {
                 // If no exact match, create a zero-UV point for that slot
@@ -231,6 +243,81 @@ class WeatherViewModel: ObservableObject {
         
         return completeData
     }
+    
+    private func mergeWithHistoricalData(newData: [UVData]) -> [UVData] {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Filter historical data to only include data from today
+        let today = calendar.startOfDay(for: now)
+        let historicalToday = historicalUVData.filter { calendar.isDate($0.date, inSameDayAs: today) }
+        
+        print("WeatherViewModel: Merging data - Historical today: \(historicalToday.count), New data: \(newData.count)")
+        
+        // Create a combined dataset
+        var combinedData: [UVData] = []
+        
+        // Add historical data for past hours
+        for historicalPoint in historicalToday {
+            if historicalPoint.date < now {
+                combinedData.append(historicalPoint)
+                print("WeatherViewModel: Added historical point - Time: \(historicalPoint.date), UV: \(historicalPoint.uvIndex)")
+            }
+        }
+        
+        // Add new data for current and future hours
+        for newPoint in newData {
+            if newPoint.date >= now {
+                combinedData.append(newPoint)
+                print("WeatherViewModel: Added new point - Time: \(newPoint.date), UV: \(newPoint.uvIndex)")
+            }
+        }
+        
+        // Sort by date
+        combinedData.sort { $0.date < $1.date }
+        
+        print("WeatherViewModel: Combined data has \(combinedData.count) points")
+        
+        // Update historical data with new data
+        updateHistoricalData(with: newData)
+        
+        return combinedData
+    }
+    
+    private func updateHistoricalData(with newData: [UVData]) {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Remove any historical data that's older than today
+        let today = calendar.startOfDay(for: now)
+        historicalUVData = historicalUVData.filter { calendar.isDate($0.date, inSameDayAs: today) }
+        
+        print("WeatherViewModel: Updating historical data - Current historical count: \(historicalUVData.count)")
+        
+        // Add new data points to historical data
+        for dataPoint in newData {
+            // Check if we already have data for this time
+            if let existingIndex = historicalUVData.firstIndex(where: { 
+                calendar.isDate($0.date, equalTo: dataPoint.date, toGranularity: .minute) 
+            }) {
+                // Update existing data point
+                historicalUVData[existingIndex] = dataPoint
+                print("WeatherViewModel: Updated existing historical point - Time: \(dataPoint.date), UV: \(dataPoint.uvIndex)")
+            } else {
+                // Add new data point
+                historicalUVData.append(dataPoint)
+                print("WeatherViewModel: Added new historical point - Time: \(dataPoint.date), UV: \(dataPoint.uvIndex)")
+            }
+        }
+        
+        // Sort historical data by date
+        historicalUVData.sort { $0.date < $1.date }
+        
+        print("WeatherViewModel: Historical data now has \(historicalUVData.count) points")
+        
+        // Save updated historical data
+        saveHistoricalData()
+    }
 
     func fetchUVData(for location: CLLocation) async {
         print("WeatherViewModel: Fetching UV data for location - \(location.coordinate)")
@@ -238,6 +325,9 @@ class WeatherViewModel: ObservableObject {
             isLoading = true
             error = nil
         }
+        
+        // Clear historical data if it's a new day
+        clearHistoricalDataIfNewDay()
         
         do {
             let (currentWeather, hourlyForecast) = try await weatherService.weather(for: location, including: .current, .hourly)
@@ -289,5 +379,53 @@ class WeatherViewModel: ObservableObject {
             lastNotifiedUVIndex = uvIndex
             print("WeatherViewModel: Scheduled UV alert for index \(uvIndex)")
         }
+    }
+    
+    private func loadHistoricalData() {
+        if let savedData = userDefaults.data(forKey: historicalDataKey),
+           let savedUVData = try? JSONDecoder().decode([UVData].self, from: savedData) {
+            historicalUVData = savedUVData
+            print("WeatherViewModel: Loaded \(historicalUVData.count) historical data points")
+        } else {
+            print("WeatherViewModel: No historical data found or failed to decode")
+        }
+        
+        if let savedDate = userDefaults.object(forKey: lastDataDateKey) as? Date {
+            lastUpdated = savedDate
+            print("WeatherViewModel: Loaded last updated date: \(savedDate)")
+        }
+    }
+    
+    private func saveHistoricalData() {
+        if let encodedData = try? JSONEncoder().encode(historicalUVData) {
+            userDefaults.set(encodedData, forKey: historicalDataKey)
+            print("WeatherViewModel: Saved \(historicalUVData.count) historical data points")
+        } else {
+            print("WeatherViewModel: Failed to encode historical data")
+        }
+        userDefaults.set(lastUpdated, forKey: lastDataDateKey)
+    }
+    
+    private func clearHistoricalDataIfNewDay() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        
+        if let lastDate = lastUpdated {
+            let lastDay = calendar.startOfDay(for: lastDate)
+            if !calendar.isDate(lastDay, inSameDayAs: today) {
+                // New day, clear historical data
+                historicalUVData.removeAll()
+                saveHistoricalData()
+                print("WeatherViewModel: Cleared historical data for new day")
+            }
+        }
+    }
+    
+    // Debug function to manually clear historical data
+    func clearHistoricalData() {
+        historicalUVData.removeAll()
+        userDefaults.removeObject(forKey: historicalDataKey)
+        userDefaults.removeObject(forKey: lastDataDateKey)
+        print("WeatherViewModel: Manually cleared all historical data")
     }
 } 
