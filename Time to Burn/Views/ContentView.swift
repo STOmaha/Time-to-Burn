@@ -464,40 +464,36 @@ struct ContentView: View {
     private func getUVExposureWarning() -> String? {
         let threshold = notificationService.uvAlertThreshold
         
-        // Find all hours where UV is at or above threshold
-        let highUVHours = weatherViewModel.hourlyForecast.enumerated().compactMap { index, data in
-            data.uvIndex >= threshold ? index : nil
-        }
+        let highUVDataPoints = weatherViewModel.hourlyForecast.filter { $0.uvIndex >= threshold }
         
-        guard !highUVHours.isEmpty else {
-            return nil // No high UV periods
-        }
+        guard !highUVDataPoints.isEmpty else { return nil }
         
-        // Group consecutive hours into ranges
-        var ranges: [(start: Int, end: Int)] = []
-        var currentStart = highUVHours[0]
-        var currentEnd = highUVHours[0]
+        // Group consecutive hours
+        var ranges: [[UVData]] = []
+        var currentRange: [UVData] = []
         
-        for i in 1..<highUVHours.count {
-            if highUVHours[i] == currentEnd + 1 {
-                currentEnd = highUVHours[i]
+        for dataPoint in highUVDataPoints {
+            if let lastDataPoint = currentRange.last, dataPoint.date.timeIntervalSince(lastDataPoint.date) > (30 * 60 + 1) { // Greater than 31 mins apart
+                ranges.append(currentRange)
+                currentRange = [dataPoint]
             } else {
-                ranges.append((start: currentStart, end: currentEnd))
-                currentStart = highUVHours[i]
-                currentEnd = highUVHours[i]
+                currentRange.append(dataPoint)
             }
         }
-        ranges.append((start: currentStart, end: currentEnd))
+        if !currentRange.isEmpty {
+            ranges.append(currentRange)
+        }
         
-        // Format the ranges
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "h a" // e.g., "9 AM"
+        
         let rangeStrings = ranges.map { range in
-            let startHour = range.start
-            let endHour = range.end
+            guard let first = range.first, let last = range.last else { return "" }
             
-            let startTime = formatTimeForHour(startHour)
-            let endTime = formatTimeForHour(endHour + 1) // Add 1 to show end time
+            let startTime = timeFormatter.string(from: first.date)
+            let endTime = timeFormatter.string(from: last.date.addingTimeInterval(30*60)) // End of the last half-hour block
             
-            if startHour == endHour {
+            if first.date == last.date {
                 return startTime
             } else {
                 return "\(startTime)-\(endTime)"
@@ -818,3 +814,4 @@ extension Color {
         return self.opacity(1.0 - amount)
     }
 } 
+
