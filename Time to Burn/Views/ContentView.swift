@@ -431,14 +431,23 @@ struct ContentView: View {
                 }
                 .frame(height: 300)
                 .gesture(
-                    DragGesture(minimumDistance: 0)
+                    DragGesture(minimumDistance: 10)
                         .onChanged { value in
-                            isDragging = true
-                            selectedTime = getTimeFromDragLocation(value.location.x, chartWidth: 300)
+                            // Add a slight delay before activating drag
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                if !isDragging {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        isDragging = true
+                                    }
+                                }
+                                selectedTime = getTimeFromDragLocation(value.location.x, chartWidth: 300)
+                            }
                         }
                         .onEnded { _ in
-                            isDragging = false
-                            selectedTime = currentTime
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isDragging = false
+                                selectedTime = currentTime
+                            }
                         }
                 )
             }
