@@ -11,7 +11,7 @@ struct UVLineContent: ChartContent {
             x: .value("Time", data.date),
             y: .value("UV Index", Double(data.uvIndex))
         )
-        .interpolationMethod(.catmullRom)
+        .interpolationMethod(.monotone)
         .lineStyle(StrokeStyle(lineWidth: 3))
         .foregroundStyle(
             LinearGradient(
@@ -31,7 +31,7 @@ struct UVAreaContent: ChartContent {
             x: .value("Time", data.date),
             y: .value("UV Index", Double(data.uvIndex))
         )
-        .interpolationMethod(.catmullRom)
+        .interpolationMethod(.monotone)
         .foregroundStyle(
             LinearGradient(
                 colors: [
@@ -696,15 +696,12 @@ struct UVIndexCard: View {
                         )
                 }
                 
-                Text(uvData.uvIndex == 12 ? "<5 minutes to burn" : 
-                     uvData.uvIndex == 0 ? "∞ minutes to burn" :
-                     "\(uvData.timeToBurn ?? UVData.calculateTimeToBurn(uvIndex: uvData.uvIndex)) minutes to burn")
-                    .font(uvData.uvIndex >= 6 ? .title2 : .subheadline)
-                    .fontWeight(uvData.uvIndex >= 6 ? .bold : .regular)
-                    .foregroundColor(uvData.uvIndex >= 6 ? .red : .secondary)
+                Text(burnText(for: uvData))
+                    .font(burnTextFont(for: uvData))
+                    .fontWeight(burnTextWeight(for: uvData))
+                    .foregroundColor(burnTextColor(for: uvData))
                     .padding(.top, 2)
                 
-                // Last Updated Time
                 if let lastUpdated = lastUpdated {
                     Text("Last updated: \(timeAgoString(from: lastUpdated, to: currentTime))")
                         .font(.caption)
@@ -763,6 +760,32 @@ struct UVIndexCard: View {
             return "\(minute)m ago"
         }
         return "Just now"
+    }
+
+    private func burnText(for uvData: UVData) -> String {
+        guard let timeToBurn = uvData.timeToBurn else {
+            return "N/A"
+        }
+
+        if uvData.uvIndex == 0 || timeToBurn == .max {
+            return "∞ minutes to burn"
+        } else if uvData.uvIndex >= 12 {
+            return "<5 minutes to burn"
+        } else {
+            return "\(timeToBurn) minutes to burn"
+        }
+    }
+
+    private func burnTextColor(for uvData: UVData) -> Color {
+        return uvData.uvIndex >= 6 ? .red : .secondary
+    }
+
+    private func burnTextFont(for uvData: UVData) -> Font {
+        return uvData.uvIndex >= 6 ? .title2 : .subheadline
+    }
+
+    private func burnTextWeight(for uvData: UVData) -> Font.Weight {
+        return uvData.uvIndex >= 6 ? .bold : .regular
     }
 }
 
