@@ -247,12 +247,9 @@ struct ContentView: View {
                         .interpolationMethod(.monotone)
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [
-                                    getChartColor(for: data.uvIndex).opacity(0.3),
-                                    getChartColor(for: data.uvIndex).opacity(0.1)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
+                                colors: [.blue.opacity(0.3), .green.opacity(0.3), .yellow.opacity(0.3), .orange.opacity(0.3), .red.opacity(0.3), .purple.opacity(0.3)],
+                                startPoint: .bottom,
+                                endPoint: .top
                             )
                         )
                         
@@ -265,9 +262,9 @@ struct ContentView: View {
                         .lineStyle(StrokeStyle(lineWidth: 3))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [.purple, .red, .orange, .yellow, .green],
-                                startPoint: .top,
-                                endPoint: .bottom
+                                colors: [.blue, .green, .yellow, .orange, .red, .purple],
+                                startPoint: .bottom,
+                                endPoint: .top
                             )
                         )
                     }
@@ -423,7 +420,8 @@ struct ContentView: View {
     
     private func getUVColor(_ uvIndex: Int) -> Color {
         switch uvIndex {
-        case 0...2: return .green
+        case 0: return .blue
+        case 1...2: return .green
         case 3...5: return .yellow
         case 6...7: return .orange
         case 8...10: return .red
@@ -569,9 +567,15 @@ struct UVIndexCard: View {
                         }
                         .font(.headline)
                         
-                        Text("~\(uvData.timeToBurn ?? 0) minutes")
-                            .font(.title)
-                            .fontWeight(.semibold)
+                        if uvData.uvIndex == 0 {
+                            Text("∞ minutes")
+                                .font(.title)
+                                .fontWeight(.semibold)
+                        } else {
+                            Text("~\(uvData.timeToBurn ?? 0) minutes")
+                                .font(.title)
+                                .fontWeight(.semibold)
+                        }
                         
                         Text(uvData.advice ?? "Stay safe!")
                             .font(.caption)
@@ -591,7 +595,8 @@ struct UVIndexCard: View {
     
     private func getUVColor(_ uvIndex: Int) -> Color {
         switch uvIndex {
-        case 0...2: return .green
+        case 0: return .blue
+        case 1...2: return .green
         case 3...5: return .yellow
         case 6...7: return .orange
         case 8...10: return .red
