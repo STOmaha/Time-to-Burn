@@ -23,8 +23,15 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         }
     }
     
+    @Published var skinType: SkinType {
+        didSet {
+            UserDefaults.standard.set(skinType.rawValue, forKey: skinTypeKey)
+        }
+    }
+    
     private let highUVAlertsKey = "highUVAlertsEnabled"
     private let uvAlertThresholdKey = "uvAlertThreshold"
+    private let skinTypeKey = "skinType"
     private let backgroundTaskIdentifier = "com.timetoburn.uvcheck"
     private let weatherService = WeatherService.shared
     private let lastNotifiedUVKey = "lastNotifiedUVIndex"
@@ -45,6 +52,15 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         self.isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: highUVAlertsKey)
         let threshold = UserDefaults.standard.integer(forKey: uvAlertThresholdKey)
         self.uvAlertThreshold = threshold == 0 ? 6 : threshold
+        
+        // Load stored skin type or use a default
+        if let storedSkinTypeRawValue = UserDefaults.standard.string(forKey: skinTypeKey),
+           let storedSkinType = SkinType(rawValue: storedSkinTypeRawValue) {
+            self.skinType = storedSkinType
+        } else {
+            self.skinType = .type2 // Default value
+        }
+        
         super.init()
         UNUserNotificationCenter.current().delegate = self
         setupNotificationCategories()

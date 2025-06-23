@@ -9,6 +9,15 @@ struct NotificationSettingsView: View {
     @State private var showingAlert = false
     @State private var isDailySummaryEnabled: Bool
     
+    // Computed property to calculate time to burn based on current state
+    private var timeToBurn: String {
+        let minutes = notificationService.skinType.minutesToBurn(uvIndex: uvThreshold)
+        if minutes.isInfinite {
+            return "∞"
+        }
+        return String(format: "%.0f", minutes)
+    }
+    
     init() {
         _uvThreshold = State(initialValue: NotificationService.shared.uvAlertThreshold)
         _isDailySummaryEnabled = State(initialValue: UserDefaults.standard.bool(forKey: "isDailySummaryEnabled"))
@@ -34,13 +43,29 @@ struct NotificationSettingsView: View {
                     Toggle("Enable High UV Alerts", isOn: $notificationService.isHighUVAlertsEnabled)
                     
                     if notificationService.isHighUVAlertsEnabled {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Alert Threshold: \(uvThreshold)")
-                                .font(.subheadline)
+                        VStack(alignment: .leading) {
+                            HStack {
+                                Text("Alert Threshold: \(uvThreshold)")
+                                Spacer()
+                                Text("Est. Time to Burn: **\(timeToBurn) mins**")
+                            }
+                            .font(.subheadline)
                             
                             Slider(value: uvThresholdBinding, in: 1...12, step: 1)
                         }
+                        .padding(.vertical, 4)
                     }
+                }
+                
+                Section(header: Text("Skin Type")) {
+                    Picker("Your Skin Type", selection: $notificationService.skinType) {
+                        ForEach(SkinType.allCases) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+                    Text(notificationService.skinType.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 
                 Section(header: Text("Daily Summary")) {
