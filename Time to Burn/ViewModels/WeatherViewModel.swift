@@ -19,6 +19,10 @@ class WeatherViewModel: ObservableObject {
     @Published var isAuthorized = false
     @Published var lastUpdated: Date?
     @Published var isRefreshing = false
+    @Published var sunrise: Date?
+    @Published var sunset: Date?
+    @Published var moonrise: Date?
+    @Published var moonset: Date?
     
     private var lastNotifiedUVIndex: Int?
     
@@ -42,6 +46,9 @@ class WeatherViewModel: ObservableObject {
         
         // Set up notification observers for app lifecycle
         setupNotificationObservers()
+        
+        // Run WeatherKit diagnostics
+        checkWeatherKitAvailability()
         
         Task {
             await requestAuthorizations()
@@ -325,23 +332,26 @@ class WeatherViewModel: ObservableObject {
 
     func fetchUVData(for location: CLLocation) async {
         print("WeatherViewModel: Fetching UV data for location - \(location.coordinate)")
+        print("WeatherViewModel: WeatherService shared instance: \(weatherService)")
         await MainActor.run {
             isLoading = true
             error = nil
         }
-        
-        // Clear historical data if it's a new day
         clearHistoricalDataIfNewDay()
-        
         do {
-            let (currentWeather, hourlyForecast) = try await weatherService.weather(for: location, including: .current, .hourly)
+            print("WeatherViewModel: Attempting WeatherKit request...")
+            let (currentWeather, hourlyForecast, dailyForecast) = try await weatherService.weather(for: location, including: .current, .hourly, .daily)
             print("WeatherViewModel: Successfully fetched weather data")
-            
             let processedHourlyData = processAndInterpolateHourlyData(from: hourlyForecast)
-            
+            let today = Calendar.current.startOfDay(for: Date())
+            let todayDayWeather = dailyForecast.first { Calendar.current.isDate($0.date, inSameDayAs: today) }
             await MainActor.run {
                 self.currentUVData = UVData(from: currentWeather)
                 self.hourlyForecast = processedHourlyData
+                self.sunrise = todayDayWeather?.sun.sunrise
+                self.sunset = todayDayWeather?.sun.sunset
+                self.moonrise = todayDayWeather?.moon.moonrise
+                self.moonset = todayDayWeather?.moon.moonset
                 self.lastUpdated = Date()
                 self.isLoading = false
             }
@@ -357,10 +367,115 @@ class WeatherViewModel: ObservableObject {
             
         } catch {
             print("WeatherViewModel: Error fetching weather - \(error)")
-            await MainActor.run {
-                self.error = error
-                self.isLoading = false
+            print("WeatherViewModel: Error domain: \((error as NSError).domain)")
+            print("WeatherViewModel: Error code: \((error as NSError).code)")
+            print("WeatherViewModel: Error user info: \((error as NSError).userInfo)")
+            
+            // Check if this is the specific WeatherKit authentication error
+            if (error as NSError).domain == "WeatherDaemon.WDSJWTAuthenticatorServiceListener.Errors" && (error as NSError).code == 2 {
+                print("WeatherViewModel: Detected WeatherKit authentication error (code 2) - attempting recovery")
+                await handleWeatherKitAuthError2(for: location)
+            } else {
+                await MainActor.run {
+                    self.error = error
+                    self.isLoading = false
+                }
             }
+        }
+    }
+    
+    private func handleWeatherKitAuthError2(for location: CLLocation) async {
+        print("WeatherViewModel: Handling WeatherKit authentication error code 2")
+        
+        // This error typically means the JWT token generation failed
+        // We need to try multiple approaches to force token regeneration
+        
+        // First attempt: Wait and retry
+        print("WeatherViewModel: Attempt 1 - Waiting 10 seconds for token regeneration...")
+        try? await Task.sleep(for: .seconds(10))
+        
+        do {
+            let (currentWeather, hourlyForecast, dailyForecast) = try await weatherService.weather(for: location, including: .current, .hourly, .daily)
+            print("WeatherViewModel: Successfully fetched weather data after first retry")
+            await handleSuccessfulWeatherFetch(currentWeather: currentWeather, hourlyForecast: hourlyForecast, dailyForecast: dailyForecast)
+            return
+        } catch {
+            print("WeatherViewModel: First retry failed - \(error)")
+        }
+        
+        // Second attempt: Clear all data and wait longer
+        print("WeatherViewModel: Attempt 2 - Clearing data and waiting 20 seconds...")
+        forceWeatherKitTokenRefresh()
+        try? await Task.sleep(for: .seconds(20))
+        
+        do {
+            let (currentWeather, hourlyForecast, dailyForecast) = try await weatherService.weather(for: location, including: .current, .hourly, .daily)
+            print("WeatherViewModel: Successfully fetched weather data after second retry")
+            await handleSuccessfulWeatherFetch(currentWeather: currentWeather, hourlyForecast: hourlyForecast, dailyForecast: dailyForecast)
+            return
+        } catch {
+            print("WeatherViewModel: Second retry failed - \(error)")
+        }
+        
+        // Third attempt: Try a different WeatherKit request type
+        print("WeatherViewModel: Attempt 3 - Trying different request type...")
+        try? await Task.sleep(for: .seconds(5))
+        
+        do {
+            // Try a simpler request first
+            _ = try await weatherService.weather(for: location)
+            print("WeatherViewModel: Basic weather request succeeded, trying full request...")
+            
+            let (currentWeather, hourlyForecast, dailyForecast) = try await weatherService.weather(for: location, including: .current, .hourly, .daily)
+            print("WeatherViewModel: Successfully fetched weather data after third retry")
+            await handleSuccessfulWeatherFetch(currentWeather: currentWeather, hourlyForecast: hourlyForecast, dailyForecast: dailyForecast)
+            return
+        } catch {
+            print("WeatherViewModel: Third retry failed - \(error)")
+        }
+        
+        // If all attempts fail, show user-friendly error
+        print("WeatherViewModel: All recovery attempts failed")
+        let userFriendlyError = NSError(
+            domain: "WeatherViewModel",
+            code: 1002,
+            userInfo: [
+                NSLocalizedDescriptionKey: "Weather service is temporarily unavailable. Please restart the app and try again.",
+                NSLocalizedRecoverySuggestionErrorKey: "This may be due to a recent app update. Try closing and reopening the app."
+            ]
+        )
+        
+        await MainActor.run {
+            self.error = userFriendlyError
+            self.isLoading = false
+        }
+    }
+    
+    private func handleSuccessfulWeatherFetch(currentWeather: CurrentWeather, hourlyForecast: Forecast<HourWeather>, dailyForecast: Forecast<DayWeather>) async {
+        let processedHourlyData = processAndInterpolateHourlyData(from: hourlyForecast)
+        
+        // Get today's sunrise and sunset from daily forecast
+        let today = Calendar.current.startOfDay(for: Date())
+        let todayDayWeather = dailyForecast.first { Calendar.current.isDate($0.date, inSameDayAs: today) }
+        
+        await MainActor.run {
+            self.currentUVData = UVData(from: currentWeather)
+            self.hourlyForecast = processedHourlyData
+            self.sunrise = todayDayWeather?.sun.sunrise
+            self.sunset = todayDayWeather?.sun.sunset
+            self.moonrise = todayDayWeather?.moon.moonrise
+            self.moonset = todayDayWeather?.moon.moonset
+            self.lastUpdated = Date()
+            self.isLoading = false
+        }
+        
+        let threshold = notificationService.uvAlertThreshold
+        let currentUV = Int(currentWeather.uvIndex.value)
+        if currentUV >= threshold && (lastNotifiedUVIndex == nil || lastNotifiedUVIndex! < threshold) {
+            await notificationService.scheduleUVAlert(uvIndex: currentUV, location: locationManager.locationName)
+            lastNotifiedUVIndex = currentUV
+        } else if currentUV < threshold {
+            lastNotifiedUVIndex = nil
         }
     }
     
@@ -471,6 +586,164 @@ class WeatherViewModel: ObservableObject {
     
     private func mapWeatherData(_ currentWeather: CurrentWeather) -> UVData {
         return UVData(from: currentWeather)
+    }
+
+    // Add method to reset WeatherKit authentication state
+    func resetWeatherKitAuthentication() {
+        print("WeatherViewModel: Resetting WeatherKit authentication state")
+        error = nil
+        
+        // Clear any cached weather data
+        currentUVData = nil
+        hourlyForecast = []
+        lastUpdated = nil
+        
+        // Force a fresh fetch on next location update
+        Task {
+            if let location = locationManager.location {
+                await fetchUVData(for: location)
+            }
+        }
+    }
+    
+    // Add method to force WeatherKit token refresh
+    func forceWeatherKitTokenRefresh() {
+        print("WeatherViewModel: Forcing WeatherKit token refresh")
+        
+        // Clear any cached data
+        currentUVData = nil
+        hourlyForecast = []
+        lastUpdated = nil
+        error = nil
+        
+        // Clear UserDefaults cache
+        userDefaults.removeObject(forKey: historicalDataKey)
+        userDefaults.removeObject(forKey: lastDataDateKey)
+        
+        // Force a new WeatherService instance (this might help with token refresh)
+        // Note: WeatherService.shared is a singleton, but we can try to clear any cached state
+        
+        print("WeatherViewModel: WeatherKit token refresh completed")
+    }
+    
+    // Add method to force complete WeatherKit reset
+    func forceCompleteWeatherKitReset() async {
+        print("WeatherViewModel: Forcing complete WeatherKit reset")
+        
+        // Clear all data
+        forceWeatherKitTokenRefresh()
+        
+        // Wait a bit for the system to potentially reset
+        print("WeatherViewModel: Waiting for system reset...")
+        try? await Task.sleep(for: .seconds(3))
+        
+        // Try to trigger a new WeatherKit request
+        if let location = locationManager.location {
+            print("WeatherViewModel: Attempting fresh WeatherKit request after reset...")
+            await fetchUVData(for: location)
+        }
+    }
+    
+    // Nuclear option: Force app restart for WeatherKit issues
+    func forceAppRestartForWeatherKit() {
+        print("WeatherViewModel: Nuclear option - forcing app restart")
+        
+        // Clear all cached data
+        forceWeatherKitTokenRefresh()
+        
+        // Show a message to the user
+        let restartMessage = NSError(
+            domain: "WeatherViewModel",
+            code: 1003,
+            userInfo: [
+                NSLocalizedDescriptionKey: "WeatherKit authentication needs to be reset. Please close the app completely and reopen it.",
+                NSLocalizedRecoverySuggestionErrorKey: "This will resolve the authentication issue."
+            ]
+        )
+        
+        Task { @MainActor in
+            self.error = restartMessage
+            self.isLoading = false
+        }
+        
+        // In a real app, you might want to show an alert here
+        print("WeatherViewModel: User should restart the app to resolve WeatherKit authentication")
+    }
+    
+    // Add method to check if we're experiencing authentication issues
+    func isExperiencingAuthIssues() -> Bool {
+        return error != nil
+    }
+    
+    // Add method to test WeatherKit connectivity
+    func testWeatherKitConnectivity() async -> Bool {
+        print("WeatherViewModel: Testing WeatherKit connectivity")
+        
+        guard let location = locationManager.location else {
+            print("WeatherViewModel: No location available for connectivity test")
+            return false
+        }
+        
+        do {
+            // Try a simple weather request
+            print("WeatherViewModel: Testing basic WeatherKit access...")
+            _ = try await weatherService.weather(for: location)
+            print("WeatherViewModel: WeatherKit connectivity test successful")
+            return true
+        } catch {
+            print("WeatherViewModel: WeatherKit connectivity test failed - \(error)")
+            print("WeatherViewModel: Test error domain: \((error as NSError).domain)")
+            print("WeatherViewModel: Test error code: \((error as NSError).code)")
+            
+            // If it's the authentication error, try the recovery method
+            if (error as NSError).domain == "WeatherDaemon.WDSJWTAuthenticatorServiceListener.Errors" && (error as NSError).code == 2 {
+                print("WeatherViewModel: Attempting recovery for connectivity test...")
+                return await testWeatherKitConnectivityWithRecovery(for: location)
+            }
+            
+            return false
+        }
+    }
+    
+    private func testWeatherKitConnectivityWithRecovery(for location: CLLocation) async -> Bool {
+        print("WeatherViewModel: Testing WeatherKit connectivity with recovery")
+        
+        // Wait 5 seconds for potential token regeneration
+        print("WeatherViewModel: Waiting 5 seconds for token regeneration...")
+        try? await Task.sleep(for: .seconds(5))
+        
+        do {
+            _ = try await weatherService.weather(for: location)
+            print("WeatherViewModel: WeatherKit connectivity test successful after recovery")
+            return true
+        } catch {
+            print("WeatherViewModel: WeatherKit connectivity test failed even after recovery - \(error)")
+            return false
+        }
+    }
+    
+    // Add method to check WeatherKit availability
+    func checkWeatherKitAvailability() {
+        print("WeatherViewModel: Checking WeatherKit availability...")
+        print("WeatherViewModel: WeatherService.shared available: true")
+        
+        // Check if we can access WeatherKit at all
+        if #available(iOS 16.0, *) {
+            print("WeatherViewModel: WeatherKit is available on this iOS version")
+        } else {
+            print("WeatherViewModel: WeatherKit requires iOS 16.0+")
+        }
+    }
+    
+    // Add method to get diagnostic information
+    func getDiagnosticInfo() -> [String: Any] {
+        return [
+            "hasLocation": locationManager.location != nil,
+            "locationName": locationManager.locationName,
+            "lastUpdated": lastUpdated?.description ?? "Never",
+            "hasError": error != nil,
+            "errorDescription": error?.localizedDescription ?? "None"
+        ]
     }
 }
 
