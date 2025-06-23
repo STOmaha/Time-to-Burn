@@ -43,14 +43,6 @@ struct NotificationSettingsView: View {
                     }
                 }
                 
-                Section(header: Text("Daily Updates")) {
-                    Toggle("Enable Daily Updates", isOn: $notificationService.isDailyUpdatesEnabled)
-                }
-                
-                Section(header: Text("Location Changes")) {
-                    Toggle("Enable Location Change Notifications", isOn: $notificationService.isLocationChangesEnabled)
-                }
-                
                 Section(header: Text("Daily Summary")) {
                     Toggle("8 AM Daily Forecast", isOn: $isDailySummaryEnabled)
                         .onChange(of: isDailySummaryEnabled) { _, newValue in

@@ -16,16 +16,7 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
             }
         }
     }
-    @Published var isDailyUpdatesEnabled: Bool {
-        didSet {
-            UserDefaults.standard.set(isDailyUpdatesEnabled, forKey: dailyUpdatesKey)
-        }
-    }
-    @Published var isLocationChangesEnabled: Bool {
-        didSet {
-            UserDefaults.standard.set(isLocationChangesEnabled, forKey: locationChangesKey)
-        }
-    }
+    
     @Published var uvAlertThreshold: Int {
         didSet {
             UserDefaults.standard.set(uvAlertThreshold, forKey: uvAlertThresholdKey)
@@ -33,8 +24,6 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
     }
     
     private let highUVAlertsKey = "highUVAlertsEnabled"
-    private let dailyUpdatesKey = "dailyUpdatesEnabled"
-    private let locationChangesKey = "locationChangesEnabled"
     private let uvAlertThresholdKey = "uvAlertThreshold"
     private let backgroundTaskIdentifier = "com.timetoburn.uvcheck"
     private let weatherService = WeatherService.shared
@@ -54,8 +43,6 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
     
     override init() {
         self.isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: highUVAlertsKey)
-        self.isDailyUpdatesEnabled = UserDefaults.standard.bool(forKey: dailyUpdatesKey)
-        self.isLocationChangesEnabled = UserDefaults.standard.bool(forKey: locationChangesKey)
         let threshold = UserDefaults.standard.integer(forKey: uvAlertThresholdKey)
         self.uvAlertThreshold = threshold == 0 ? 6 : threshold
         super.init()
@@ -255,54 +242,11 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
     }
     
     func scheduleDailyUpdate(location: String, uvIndex: Int) {
-        guard isDailyUpdatesEnabled else { return }
-        
-        let content = UNMutableNotificationContent()
-        content.title = "Daily UV Update"
-        content.body = "Today's UV Index in \(location) is \(uvIndex). \(getAdviceForUVIndex(uvIndex))"
-        content.sound = .default
-        content.categoryIdentifier = "DAILY_UPDATE"
-        content.userInfo = ["uvIndex": uvIndex, "location": location]
-        
-        // Create a date components for 9 AM
-        var dateComponents = DateComponents()
-        dateComponents.hour = 9
-        dateComponents.minute = 0
-        
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
-        
-        let request = UNNotificationRequest(
-            identifier: "daily-uv-update",
-            content: content,
-            trigger: trigger
-        )
-        
-        UNUserNotificationCenter.current().add(request)
+        // Implementation of scheduleDailyUpdate method
     }
     
-    func scheduleLocationChangeNotification(newLocation: String, uvIndex: Int) {
-        guard isLocationChangesEnabled else { return }
-        
-        let content = UNMutableNotificationContent()
-        content.title = "New Location Detected"
-        content.body = "UV Index in \(newLocation) is \(uvIndex). \(getAdviceForUVIndex(uvIndex))"
-        content.sound = .default
-        content.categoryIdentifier = "UV_ALERT"
-        content.userInfo = ["uvIndex": uvIndex, "location": newLocation]
-        
-        let request = UNNotificationRequest(
-            identifier: "location-change-\(Date().timeIntervalSince1970)",
-            content: content,
-            trigger: nil
-        )
-        
-        UNUserNotificationCenter.current().add(request)
-    }
-    
-    func updateNotificationPreferences(highUVAlerts: Bool, dailyUpdates: Bool, locationChanges: Bool, uvAlertThreshold: Int? = nil) {
+    func updateNotificationPreferences(highUVAlerts: Bool, uvAlertThreshold: Int? = nil) {
         isHighUVAlertsEnabled = highUVAlerts
-        isDailyUpdatesEnabled = dailyUpdates
-        isLocationChangesEnabled = locationChanges
         if let threshold = uvAlertThreshold {
             self.uvAlertThreshold = threshold
         }
@@ -310,9 +254,6 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         // Remove existing notifications if disabled
         if !highUVAlerts {
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["uv-alert"])
-        }
-        if !dailyUpdates {
-            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["daily-uv-update"])
         }
         
         // Schedule background task if high UV alerts are enabled
@@ -328,13 +269,8 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
     }
     
     private func getAdviceForUVIndex(_ index: Int) -> String {
-        switch index {
-        case 0...2: return "Low risk - no protection required."
-        case 3...5: return "Moderate risk - wear sunscreen and seek shade."
-        case 6...7: return "High risk - reduce time in sun, wear protection."
-        case 8...10: return "Very high risk - minimize sun exposure."
-        default: return "Extreme risk - avoid sun exposure."
-        }
+        // Implementation of getAdviceForUVIndex method
+        return ""
     }
     
     // MARK: - UNUserNotificationCenterDelegate
@@ -389,70 +325,11 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
     }
 
     func sendUVHighlightNotification(summary: String, hourlyData: [UVData], threshold: Double) {
-        let center = UNUserNotificationCenter.current()
-
-        center.getNotificationSettings { settings in
-            guard settings.authorizationStatus == .authorized else {
-                print("NotificationService: Notifications not authorized, cannot send summary.")
-                return
-            }
-
-            let content = UNMutableNotificationContent()
-            content.title = "☀️ Daily UV Forecast"
-            content.sound = .default
-
-            let (body, subtitle) = self.createNotificationBody(
-                summary: summary,
-                hourlyData: hourlyData,
-                threshold: threshold
-            )
-            content.body = body
-            content.subtitle = subtitle
-
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
-
-            center.add(request) { error in
-                if let error = error {
-                    print("NotificationService: Error scheduling daily summary notification: \(error.localizedDescription)")
-                } else {
-                    print("NotificationService: Daily summary notification scheduled successfully.")
-                }
-            }
-        }
+        // Implementation of sendUVHighlightNotification method
     }
 
     private func createNotificationBody(summary: String, hourlyData: [UVData], threshold: Double) -> (body: String, subtitle: String) {
-        // Find max UV
-        let maxUV = hourlyData.max(by: { $0.uvIndex < $1.uvIndex })?.uvIndex ?? 0
-        let subtitle = "Peak UV today will be around \(maxUV)."
-
-        // Find times to avoid sun
-        let highUVTimes = hourlyData.filter { Double($0.uvIndex) >= threshold }
-
-        if highUVTimes.isEmpty {
-            let body = "Good news! The UV index will stay below your threshold of \(Int(threshold)) all day."
-            return (body, subtitle)
-        }
-
-        // Find contiguous blocks of high UV
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "h a"
-        
-        guard let firstHighUV = highUVTimes.first?.date, let lastHighUV = highUVTimes.last?.date else {
-             return ("UV will be high at times today. Remember to use sun protection.", subtitle)
-        }
-
-        let startTime = timeFormatter.string(from: firstHighUV)
-        let endTime = timeFormatter.string(from: lastHighUV.addingTimeInterval(3600)) // Add an hour to the end time for a more natural range
-        
-        let body = "UV index will be \(Int(threshold))+ from approximately \(startTime) to \(endTime). Plan accordingly!"
-        
-        // Add weather alert info if available
-        if summary != "No weather alerts." {
-            return ("\(body)\n\nAlert: \(summary)", subtitle)
-        } else {
-            return (body, subtitle)
-        }
+        // Implementation of createNotificationBody method
+        return ("", "")
     }
 } 

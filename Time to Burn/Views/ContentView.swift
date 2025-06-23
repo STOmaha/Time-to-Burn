@@ -430,78 +430,47 @@ struct ContentView: View {
     }
 }
 
-struct NotificationCard: View {
+private struct NotificationCard: View {
     @EnvironmentObject private var notificationService: NotificationService
-    
+    @State private var isDailySummaryEnabled: Bool = UserDefaults.standard.bool(forKey: "isDailySummaryEnabled")
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Notifications")
-                .font(.title2)
-                .fontWeight(.bold)
-                .padding(.top)
-            
-            VStack(alignment: .leading, spacing: 15) {
-                VStack(alignment: .leading, spacing: 8) {
-                    NotificationRow(
-                        title: "High UV Alerts",
-                        description: "Get notified when UV index is high",
-                        isEnabled: $notificationService.isHighUVAlertsEnabled
-                    )
+        NavigationView {
+            Form {
+                Section(header: Text("Daily Summary")) {
+                    Toggle("8 AM Daily Forecast", isOn: $isDailySummaryEnabled)
+                        .onChange(of: isDailySummaryEnabled) { _, newValue in
+                            UserDefaults.standard.set(newValue, forKey: "isDailySummaryEnabled")
+                            if newValue {
+                                BackgroundService.shared.scheduleAppRefresh()
+                            } else {
+                                BackgroundService.shared.cancel()
+                            }
+                        }
+                    Text("Receive a morning summary of the day's UV forecast.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Section(header: Text("High UV Alerts")) {
+                    Toggle("Enable High UV Alerts", isOn: $notificationService.isHighUVAlertsEnabled)
+                    
                     if notificationService.isHighUVAlertsEnabled {
                         VStack(alignment: .leading, spacing: 8) {
-                            let timeToBurn = UVData.calculateTimeToBurn(uvIndex: notificationService.uvAlertThreshold)
-                            Text("Time to burn at this level: ~\(timeToBurn) minutes")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.leading, 8)
-
-                            HStack {
-                                Text("Alert Threshold: ")
-                                    .font(.subheadline)
-                                Slider(value: Binding(
-                                    get: { Double(notificationService.uvAlertThreshold) },
-                                    set: { newValue in
-                                        let intValue = Int(newValue.rounded())
-                                        notificationService.uvAlertThreshold = intValue
-                                        notificationService.updateNotificationPreferences(
-                                            highUVAlerts: notificationService.isHighUVAlertsEnabled,
-                                            dailyUpdates: notificationService.isDailyUpdatesEnabled,
-                                            locationChanges: notificationService.isLocationChangesEnabled,
-                                            uvAlertThreshold: intValue
-                                        )
-                                    }
-                                ), in: 1...12, step: 1)
-                                .frame(maxWidth: 150)
-                                Text("\(notificationService.uvAlertThreshold)")
-                                    .font(.subheadline)
-                                    .frame(width: 28)
-                            }
-                            .padding(.horizontal, 8)
+                            let thresholdBinding = Binding<Double>(
+                                get: { Double(notificationService.uvAlertThreshold) },
+                                set: { notificationService.uvAlertThreshold = Int($0) }
+                            )
+                            Text("Alert Threshold: \(notificationService.uvAlertThreshold)")
+                                .font(.subheadline)
+                            Slider(value: thresholdBinding, in: 1...12, step: 1)
                         }
                     }
                 }
-                NotificationRow(
-                    title: "Daily Updates",
-                    description: "Receive daily UV index updates",
-                    isEnabled: $notificationService.isDailyUpdatesEnabled
-                )
-                NotificationRow(
-                    title: "Location Changes",
-                    description: "Get notified when you enter a new area",
-                    isEnabled: $notificationService.isLocationChangesEnabled
-                )
-                
-                // Add a test notification button
-                Button("Test High UV Notification") {
-                    notificationService.testHighUVNotification()
-                }
-                .padding()
             }
+            .navigationTitle("Notification Settings")
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .padding()
-        .background(Color.white)
-        .cornerRadius(20)
-        .shadow(radius: 5)
     }
 }
 
