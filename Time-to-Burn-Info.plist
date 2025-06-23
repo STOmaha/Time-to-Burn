@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.steven-sell.Time-to-Burn.fetchUV</string>
+	</array>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Time to Burn will send you notifications about UV index changes and when you need to take precautions.</string>
+	<key>UIBackgroundFetchInterval</key>
+	<integer>900</integer>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
@@ -9,17 +17,5 @@
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.timetoburn.uvcheck</string>
-	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Time to Burn needs your location to provide accurate UV index information for your area.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Time to Burn needs your location to provide accurate UV index information and send you alerts about dangerous UV levels.</string>
-	<key>NSUserNotificationUsageDescription</key>
-	<string>Time to Burn will send you notifications about UV index changes and when you need to take precautions.</string>
-	<key>UIBackgroundFetchInterval</key>
-	<integer>900</integer>
 </dict>
 </plist>

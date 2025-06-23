@@ -2,6 +2,7 @@ import Foundation
 import WeatherKit
 import CoreLocation
 import UIKit
+import Combine
 
 @MainActor
 class WeatherViewModel: ObservableObject {
@@ -27,6 +28,8 @@ class WeatherViewModel: ObservableObject {
     private let historicalDataKey = "historicalUVData"
     private let lastDataDateKey = "lastDataDate"
     
+    private var cancellables = Set<AnyCancellable>()
+    
     init(notificationService: NotificationService) {
         self.notificationService = notificationService
         print("WeatherViewModel: Initialized")
@@ -49,6 +52,7 @@ class WeatherViewModel: ObservableObject {
     deinit {
         NotificationCenter.default.removeObserver(self)
         backgroundUpdateTimer?.invalidate()
+        cancellables.forEach { $0.cancel() }
     }
     
     private func setupNotificationObservers() {
@@ -361,9 +365,12 @@ class WeatherViewModel: ObservableObject {
     }
     
     func refreshData() async {
-        if let location = locationManager.location {
-            await fetchUVData(for: location)
+        guard let location = locationManager.location else {
+            self.error = NSError(domain: "WeatherViewModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "Location not available."])
+            self.isLoading = false
+            return
         }
+        await fetchUVData(for: location)
     }
     
     func scheduleUVNotifications() {
@@ -427,5 +434,49 @@ class WeatherViewModel: ObservableObject {
         userDefaults.removeObject(forKey: historicalDataKey)
         userDefaults.removeObject(forKey: lastDataDateKey)
         print("WeatherViewModel: Manually cleared all historical data")
+    }
+
+    func fetchSummaryData(for location: CLLocation) async -> (summary: String?, hourlyData: [UVData]?, threshold: Double?) {
+        do {
+            let weather = try await weatherService.weather(for: location)
+            
+            // Filter for the next 24 hours from now
+            let now = Date()
+            let forecastEnd = now.addingTimeInterval(24 * 60 * 60)
+            let relevantForecast = weather.hourlyForecast.filter { $0.date >= now && $0.date <= forecastEnd }
+
+            let summary = weather.weatherAlerts?.first?.summary
+            let hourlyData = relevantForecast.map { UVData(from: $0) }
+            let threshold = Double(notificationService.uvAlertThreshold)
+            
+            return (summary, hourlyData, threshold)
+        } catch {
+            print("WeatherViewModel: Failed to fetch summary weather data - \(error.localizedDescription)")
+            return (nil, nil, nil)
+        }
+    }
+
+    func cancelTasks() {
+        cancellables.forEach { $0.cancel() }
+        print("WeatherViewModel: All Combine tasks cancelled.")
+    }
+
+    private func saveHourlyForecast(_ forecast: [HourWeather]) {
+        // ... (implementation unchanged)
+    }
+
+    private func mapWeatherData(_ hourWeather: HourWeather) -> UVData {
+        return UVData(from: hourWeather)
+    }
+    
+    private func mapWeatherData(_ currentWeather: CurrentWeather) -> UVData {
+        return UVData(from: currentWeather)
+    }
+}
+
+// Ensure Date extension is available
+extension Date {
+    var isToday: Bool {
+        Calendar.current.isDateInToday(self)
     }
 } 

@@ -3,6 +3,7 @@ import UserNotifications
 import BackgroundTasks
 import WeatherKit
 import CoreLocation
+import UIKit
 
 class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationService()
@@ -51,7 +52,7 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
         set { UserDefaults.standard.set(newValue, forKey: lastNotificationDateKey) }
     }
     
-    private override init() {
+    override init() {
         self.isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: highUVAlertsKey)
         self.isDailyUpdatesEnabled = UserDefaults.standard.bool(forKey: dailyUpdatesKey)
         self.isLocationChangesEnabled = UserDefaults.standard.bool(forKey: locationChangesKey)
@@ -384,6 +385,74 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
             print("Successfully scheduled immediate background task")
         } catch {
             print("Could not schedule immediate background task: \(error.localizedDescription)")
+        }
+    }
+
+    func sendUVHighlightNotification(summary: String, hourlyData: [UVData], threshold: Double) {
+        let center = UNUserNotificationCenter.current()
+
+        center.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized else {
+                print("NotificationService: Notifications not authorized, cannot send summary.")
+                return
+            }
+
+            let content = UNMutableNotificationContent()
+            content.title = "☀️ Daily UV Forecast"
+            content.sound = .default
+
+            let (body, subtitle) = self.createNotificationBody(
+                summary: summary,
+                hourlyData: hourlyData,
+                threshold: threshold
+            )
+            content.body = body
+            content.subtitle = subtitle
+
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+
+            center.add(request) { error in
+                if let error = error {
+                    print("NotificationService: Error scheduling daily summary notification: \(error.localizedDescription)")
+                } else {
+                    print("NotificationService: Daily summary notification scheduled successfully.")
+                }
+            }
+        }
+    }
+
+    private func createNotificationBody(summary: String, hourlyData: [UVData], threshold: Double) -> (body: String, subtitle: String) {
+        // Find max UV
+        let maxUV = hourlyData.max(by: { $0.uvIndex < $1.uvIndex })?.uvIndex ?? 0
+        let subtitle = "Peak UV today will be around \(maxUV)."
+
+        // Find times to avoid sun
+        let highUVTimes = hourlyData.filter { Double($0.uvIndex) >= threshold }
+
+        if highUVTimes.isEmpty {
+            let body = "Good news! The UV index will stay below your threshold of \(Int(threshold)) all day."
+            return (body, subtitle)
+        }
+
+        // Find contiguous blocks of high UV
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "h a"
+        
+        guard let firstHighUV = highUVTimes.first?.date, let lastHighUV = highUVTimes.last?.date else {
+             return ("UV will be high at times today. Remember to use sun protection.", subtitle)
+        }
+
+        let startTime = timeFormatter.string(from: firstHighUV)
+        let endTime = timeFormatter.string(from: lastHighUV.addingTimeInterval(3600)) // Add an hour to the end time for a more natural range
+        
+        let body = "UV index will be \(Int(threshold))+ from approximately \(startTime) to \(endTime). Plan accordingly!"
+        
+        // Add weather alert info if available
+        if summary != "No weather alerts." {
+            return ("\(body)\n\nAlert: \(summary)", subtitle)
+        } else {
+            return (body, subtitle)
         }
     }
 } 

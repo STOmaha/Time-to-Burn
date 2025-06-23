@@ -295,7 +295,7 @@ struct ContentView: View {
                     .foregroundStyle(.blue)
                 }
                 .chartXScale(domain: Calendar.current.startOfDay(for: Date())...Calendar.current.startOfDay(for: Date()).addingTimeInterval(24 * 3600))
-                .chartYScale(domain: 0...max(12, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
+                .chartYScale(domain: -0.5...max(12, Double(weatherViewModel.hourlyForecast.map { $0.uvIndex }.max() ?? 12)))
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .hour, count: 6)) { value in
                         AxisGridLine()
@@ -314,7 +314,7 @@ struct ContentView: View {
                         AxisGridLine()
                         AxisTick()
                         AxisValueLabel {
-                            if let intValue = value.as(Int.self) {
+                            if let intValue = value.as(Int.self), intValue >= 0 {
                                 Text("\(intValue)")
                                     .foregroundColor(.secondary)
                             }
@@ -533,7 +533,8 @@ struct UVIndexCard: View {
     var lastUpdated: Date?
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("UV Index Forecast")
             // Location and Last Updated
             HStack {
                 Image(systemName: "location.fill")

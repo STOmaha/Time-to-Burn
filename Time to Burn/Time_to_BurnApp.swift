@@ -12,14 +12,13 @@ import BackgroundTasks
 @main
 struct Time_to_BurnApp: App {
     @StateObject private var locationManager = LocationManager()
-    private var notificationService = NotificationService.shared
+    @StateObject private var notificationService = NotificationService()
     @StateObject private var weatherViewModel: WeatherViewModel
     
     init() {
-        // Register background task handlers BEFORE app finishes launching
-        NotificationService.shared.registerBackgroundTaskHandlers()
-        
-        _weatherViewModel = StateObject(wrappedValue: WeatherViewModel(notificationService: NotificationService.shared))
+        let notificationService = NotificationService()
+        _notificationService = StateObject(wrappedValue: notificationService)
+        _weatherViewModel = StateObject(wrappedValue: WeatherViewModel(notificationService: notificationService))
     }
     
     var body: some Scene {
@@ -28,6 +27,16 @@ struct Time_to_BurnApp: App {
                 .environmentObject(locationManager)
                 .environmentObject(notificationService)
                 .environmentObject(weatherViewModel)
+                .onAppear {
+                    // Register the background task handler.
+                    BackgroundService.shared.register()
+
+                    // If the user has already enabled the daily summary,
+                    // schedule it on app launch to ensure it's active.
+                    if UserDefaults.standard.bool(forKey: "isDailySummaryEnabled") {
+                        BackgroundService.shared.scheduleAppRefresh()
+                    }
+                }
         }
     }
 }
