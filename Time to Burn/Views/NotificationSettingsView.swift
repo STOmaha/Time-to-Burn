@@ -4,19 +4,8 @@ struct NotificationSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var notificationService: NotificationService
     @State private var showingPermissionAlert = false
-    @State private var showingTestNotification = false
     @State private var uvThreshold: Int
-    @State private var showingAlert = false
     @State private var isDailySummaryEnabled: Bool
-    
-    // Computed property to calculate time to burn based on current state
-    private var timeToBurn: String {
-        let minutes = notificationService.skinType.minutesToBurn(uvIndex: uvThreshold)
-        if minutes.isInfinite {
-            return "∞"
-        }
-        return String(format: "%.0f", minutes)
-    }
     
     init() {
         _uvThreshold = State(initialValue: NotificationService.shared.uvAlertThreshold)
@@ -44,28 +33,12 @@ struct NotificationSettingsView: View {
                     
                     if notificationService.isHighUVAlertsEnabled {
                         VStack(alignment: .leading) {
-                            HStack {
-                                Text("Alert Threshold: \(uvThreshold)")
-                                Spacer()
-                                Text("Est. Time to Burn: **\(timeToBurn) mins**")
-                            }
-                            .font(.subheadline)
-                            
+                            Text("Alert Threshold: \(uvThreshold)")
+                                .font(.subheadline)
                             Slider(value: uvThresholdBinding, in: 1...12, step: 1)
                         }
                         .padding(.vertical, 4)
                     }
-                }
-                
-                Section(header: Text("Skin Type")) {
-                    Picker("Your Skin Type", selection: $notificationService.skinType) {
-                        ForEach(SkinType.allCases) { type in
-                            Text(type.rawValue).tag(type)
-                        }
-                    }
-                    Text(notificationService.skinType.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
                 
                 Section(header: Text("Daily Summary")) {
@@ -81,38 +54,6 @@ struct NotificationSettingsView: View {
                     Text("Receive a notification every morning with a summary of the day's UV forecast and times to avoid sun exposure.")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                }
-                
-                Section {
-                    Button(action: {
-                        notificationService.testHighUVNotification()
-                    }) {
-                        HStack {
-                            Image(systemName: "bell.badge")
-                                .foregroundColor(.blue)
-                            Text("Test High UV Notification")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.gray)
-                        }
-                    }
-                    
-                    Button(action: {
-                        notificationService.triggerBackgroundUVCheck()
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundColor(.green)
-                            Text("Trigger Background UV Check")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.gray)
-                        }
-                    }
-                } header: {
-                    Text("Test Notifications")
-                } footer: {
-                    Text("Tap to test notifications and background checks")
                 }
             }
             .navigationTitle("Notifications")
@@ -139,8 +80,6 @@ struct NotificationSettingsView: View {
             }
         }
     }
-    
-    // ... rest of existing code ...
 }
 
 struct NotificationSettingsView_Previews: PreviewProvider {

@@ -2,43 +2,29 @@ import Foundation
 import WeatherKit
 
 struct UVData: Identifiable, Codable {
-    let id: UUID
-    let uvIndex: Int
+    let id = UUID()
     let date: Date
-    let timeToBurn: Int? // in minutes
-    let location: String?
-    let timestamp: Date?
-    let advice: String?
+    let uvIndex: Int
     
+    enum CodingKeys: String, CodingKey {
+        case date
+        case uvIndex = "value"
+    }
+
     init(from hourWeather: HourWeather) {
-        self.id = UUID()
-        self.uvIndex = Int(hourWeather.uvIndex.value)
         self.date = hourWeather.date
-        self.timeToBurn = UVData.calculateTimeToBurn(uvIndex: Int(hourWeather.uvIndex.value))
-        self.advice = UVData.getAdvice(uvIndex: Int(hourWeather.uvIndex.value))
-        self.location = nil
-        self.timestamp = nil
+        self.uvIndex = Int(hourWeather.uvIndex.value)
     }
 
     init(from currentWeather: CurrentWeather) {
-        self.id = UUID()
-        self.uvIndex = Int(currentWeather.uvIndex.value)
         self.date = currentWeather.date
-        self.timeToBurn = UVData.calculateTimeToBurn(uvIndex: Int(currentWeather.uvIndex.value))
-        self.advice = UVData.getAdvice(uvIndex: Int(currentWeather.uvIndex.value))
-        self.location = nil
-        self.timestamp = nil
+        self.uvIndex = Int(currentWeather.uvIndex.value)
     }
     
     // Add a more flexible initializer
-    init(uvIndex: Int, date: Date, timeToBurn: Int? = nil, advice: String? = nil, location: String? = nil, timestamp: Date? = nil) {
-        self.id = UUID()
-        self.uvIndex = uvIndex
+    init(uvIndex: Int, date: Date) {
         self.date = date
-        self.timeToBurn = timeToBurn ?? UVData.calculateTimeToBurn(uvIndex: uvIndex)
-        self.advice = advice ?? UVData.getAdvice(uvIndex: uvIndex)
-        self.location = location
-        self.timestamp = timestamp
+        self.uvIndex = uvIndex
     }
     
     static func calculateTimeToBurn(uvIndex: Int) -> Int {

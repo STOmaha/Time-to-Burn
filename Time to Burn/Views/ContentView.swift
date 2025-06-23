@@ -103,9 +103,8 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showingNotifications) {
-                NotificationCard()
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
+                NotificationSettingsView()
+                    .environmentObject(notificationService)
             }
             .task {
                 locationManager.requestLocation()
@@ -430,71 +429,6 @@ struct ContentView: View {
     }
 }
 
-private struct NotificationCard: View {
-    @EnvironmentObject private var notificationService: NotificationService
-    @State private var isDailySummaryEnabled: Bool = UserDefaults.standard.bool(forKey: "isDailySummaryEnabled")
-
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Daily Summary")) {
-                    Toggle("8 AM Daily Forecast", isOn: $isDailySummaryEnabled)
-                        .onChange(of: isDailySummaryEnabled) { _, newValue in
-                            UserDefaults.standard.set(newValue, forKey: "isDailySummaryEnabled")
-                            if newValue {
-                                BackgroundService.shared.scheduleAppRefresh()
-                            } else {
-                                BackgroundService.shared.cancel()
-                            }
-                        }
-                    Text("Receive a morning summary of the day's UV forecast.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Section(header: Text("High UV Alerts")) {
-                    Toggle("Enable High UV Alerts", isOn: $notificationService.isHighUVAlertsEnabled)
-                    
-                    if notificationService.isHighUVAlertsEnabled {
-                        VStack(alignment: .leading, spacing: 8) {
-                            let thresholdBinding = Binding<Double>(
-                                get: { Double(notificationService.uvAlertThreshold) },
-                                set: { notificationService.uvAlertThreshold = Int($0) }
-                            )
-                            Text("Alert Threshold: \(notificationService.uvAlertThreshold)")
-                                .font(.subheadline)
-                            Slider(value: thresholdBinding, in: 1...12, step: 1)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Notification Settings")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-}
-
-struct NotificationRow: View {
-    var title: String
-    var description: String
-    @Binding var isEnabled: Bool
-    
-    var body: some View {
-        VStack {
-            Toggle(isOn: $isEnabled) {
-                VStack(alignment: .leading) {
-                    Text(title)
-                        .font(.headline)
-                    Text(description)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding(.horizontal, 8)
-        }
-    }
-}
-
 struct UVIndexCard: View {
     var location: String
     var uvData: UVData?
@@ -537,17 +471,19 @@ struct UVIndexCard: View {
                         }
                         .font(.headline)
                         
-                        if uvData.uvIndex == 0 {
+                        let minutesToBurn = SunExposureCalculator.minutesToBurn(uvIndex: Double(uvData.uvIndex))
+                        
+                        if minutesToBurn.isInfinite {
                             Text("∞ minutes")
                                 .font(.title)
                                 .fontWeight(.semibold)
                         } else {
-                            Text("~\(uvData.timeToBurn ?? 0) minutes")
+                            Text("~\(Int(minutesToBurn)) minutes")
                                 .font(.title)
                                 .fontWeight(.semibold)
                         }
                         
-                        Text(uvData.advice ?? "Stay safe!")
+                        Text(getUVAdvice(for: uvData.uvIndex))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -581,6 +517,21 @@ struct UVIndexCard: View {
         case 6...7: return "High"
         case 8...10: return "Very High"
         default: return "Extreme"
+        }
+    }
+
+    private func getUVAdvice(for uvIndex: Int) -> String {
+        switch uvIndex {
+        case 0...2:
+            return "No protection needed. You can safely stay outside."
+        case 3...5:
+            return "Moderate risk of harm. Wear sunscreen, protective clothing, and seek shade during midday hours."
+        case 6...7:
+            return "High risk of harm. Seek shade and wear protective clothing, a wide-brimmed hat, and UV-blocking sunglasses."
+        case 8...10:
+            return "Very high risk of harm. Minimize sun exposure between 10 a.m. and 4 p.m."
+        default:
+            return "Extreme risk of harm. Avoid sun exposure and take all precautions."
         }
     }
 }
