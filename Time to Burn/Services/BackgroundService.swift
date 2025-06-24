@@ -6,7 +6,7 @@ class BackgroundService {
     static let shared = BackgroundService()
 
     // This identifier MUST be added to the Info.plist under "Permitted background task scheduler identifiers"
-    let backgroundTaskIdentifier = "com.steven-sell.Time-to-Burn.fetchUV"
+    let backgroundTaskIdentifier = "Time-to-Burn.Time-to-Burn.fetchUV"
 
     private let locationManager = CLLocationManager()
     private var currentLocation: CLLocation?

@@ -25,7 +25,7 @@ class NotificationService: NSObject, ObservableObject, UNUserNotificationCenterD
     
     private let highUVAlertsKey = "highUVAlertsEnabled"
     private let uvAlertThresholdKey = "uvAlertThreshold"
-    private let backgroundTaskIdentifier = "com.timetoburn.uvcheck"
+    private let backgroundTaskIdentifier = "Time-to-Burn.Time-to-Burn.uvcheck"
     private let weatherService = WeatherService.shared
     private let lastNotifiedUVKey = "lastNotifiedUVIndex"
     private let lastNotificationDateKey = "lastNotificationDate"

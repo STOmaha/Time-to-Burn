@@ -4,7 +4,8 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.steven-sell.Time-to-Burn.fetchUV</string>
+		<string>Time-to-Burn.Time-to-Burn.fetchUV</string>
+		<string>Time-to-Burn.Time-to-Burn.uvcheck</string>
 	</array>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Time to Burn will send you notifications about UV index changes and when you need to take precautions.</string>

@@ -9,8 +9,11 @@ class WeatherViewModel: ObservableObject {
     private let weatherService = WeatherService.shared
     private let notificationService: NotificationService
     private var backgroundUpdateTimer: Timer?
-    private let locationManager = LocationManager()
+    private let locationManager = LocationManager.shared
     private var nextScheduledUpdate: Date?
+    
+    // Mock data flag - set to true to use mock data instead of WeatherKit
+    @Published var useMockData = true
     
     @Published var currentUVData: UVData?
     @Published var hourlyForecast: [UVData] = []
@@ -23,6 +26,7 @@ class WeatherViewModel: ObservableObject {
     @Published var sunset: Date?
     @Published var moonrise: Date?
     @Published var moonset: Date?
+    @Published var errorMessage: String?
     
     private var lastNotifiedUVIndex: Int?
     
@@ -330,9 +334,126 @@ class WeatherViewModel: ObservableObject {
         saveHistoricalData()
     }
 
+    // MARK: - Mock Data Generation
+    
+    private func generateMockUVData() -> UVData {
+        let calendar = Calendar.current
+        let now = Date()
+        let hour = calendar.component(.hour, from: now)
+        
+        // Generate realistic UV data based on time of day
+        var mockUVIndex: Double
+        
+        if hour >= 6 && hour <= 18 {
+            // Daytime hours - higher UV
+            if hour >= 10 && hour <= 16 {
+                // Peak UV hours (10 AM - 4 PM)
+                mockUVIndex = Double.random(in: 6.0...10.0)
+            } else {
+                // Early morning/late afternoon
+                mockUVIndex = Double.random(in: 2.0...6.0)
+            }
+        } else {
+            // Nighttime hours - very low UV
+            mockUVIndex = Double.random(in: 0.0...1.0)
+        }
+        
+        return UVData(uvIndex: Int(mockUVIndex), date: now)
+    }
+    
+    private func generateMockHourlyForecast() -> [UVData] {
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfDay = calendar.startOfDay(for: now)
+        var mockData: [UVData] = []
+        
+        // Generate 48 half-hour data points for a full day
+        for i in 0..<48 {
+            let timeInterval = TimeInterval(i * 30 * 60) // 30 minutes each
+            let dataTime = startOfDay.addingTimeInterval(timeInterval)
+            let hour = calendar.component(.hour, from: dataTime)
+            
+            var mockUVIndex: Double
+            
+            if hour >= 6 && hour <= 18 {
+                // Daytime hours
+                if hour >= 10 && hour <= 16 {
+                    // Peak UV hours
+                    mockUVIndex = Double.random(in: 6.0...10.0)
+                } else {
+                    // Early morning/late afternoon
+                    mockUVIndex = Double.random(in: 2.0...6.0)
+                }
+            } else {
+                // Nighttime hours
+                mockUVIndex = Double.random(in: 0.0...1.0)
+            }
+            
+            mockData.append(UVData(uvIndex: Int(mockUVIndex), date: dataTime))
+        }
+        
+        return mockData
+    }
+    
+    private func generateMockSunTimes() {
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfDay = calendar.startOfDay(for: now)
+        
+        // Generate realistic sunrise/sunset times
+        var sunriseComponents = DateComponents()
+        sunriseComponents.hour = 6
+        sunriseComponents.minute = Int.random(in: 15...45)
+        sunrise = calendar.date(byAdding: sunriseComponents, to: startOfDay)
+        
+        var sunsetComponents = DateComponents()
+        sunsetComponents.hour = 20
+        sunsetComponents.minute = Int.random(in: 15...45)
+        sunset = calendar.date(byAdding: sunsetComponents, to: startOfDay)
+        
+        // Generate moonrise/moonset times (offset from sun times)
+        var moonriseComponents = DateComponents()
+        moonriseComponents.hour = 22
+        moonriseComponents.minute = Int.random(in: 0...59)
+        moonrise = calendar.date(byAdding: moonriseComponents, to: startOfDay)
+        
+        var moonsetComponents = DateComponents()
+        moonsetComponents.hour = 8
+        moonsetComponents.minute = Int.random(in: 0...59)
+        moonset = calendar.date(byAdding: moonsetComponents, to: startOfDay)
+    }
+    
+    private func fetchMockUVData() async {
+        print("WeatherViewModel: Using mock data mode")
+        await MainActor.run {
+            isLoading = true
+            error = nil
+        }
+        
+        // Simulate network delay
+        try? await Task.sleep(for: .seconds(1))
+        
+        await MainActor.run {
+            self.currentUVData = generateMockUVData()
+            self.hourlyForecast = generateMockHourlyForecast()
+            self.generateMockSunTimes()
+            self.lastUpdated = Date()
+            self.isLoading = false
+        }
+        
+        print("WeatherViewModel: Mock data generated successfully")
+    }
+
     func fetchUVData(for location: CLLocation) async {
         print("WeatherViewModel: Fetching UV data for location - \(location.coordinate)")
         print("WeatherViewModel: WeatherService shared instance: \(weatherService)")
+        
+        // Check if we should use mock data
+        if useMockData {
+            await fetchMockUVData()
+            return
+        }
+        
         await MainActor.run {
             isLoading = true
             error = nil
@@ -742,8 +863,47 @@ class WeatherViewModel: ObservableObject {
             "locationName": locationManager.locationName,
             "lastUpdated": lastUpdated?.description ?? "Never",
             "hasError": error != nil,
-            "errorDescription": error?.localizedDescription ?? "None"
+            "errorDescription": error?.localizedDescription ?? "None",
+            "useMockData": useMockData
         ]
+    }
+    
+    // MARK: - Mock Data Controls
+    
+    func toggleMockDataMode() {
+        useMockData.toggle()
+        print("WeatherViewModel: Mock data mode \(useMockData ? "enabled" : "disabled")")
+        
+        // Refresh data with new mode
+        Task {
+            if let location = locationManager.location {
+                await fetchUVData(for: location)
+            }
+        }
+    }
+    
+    func enableMockDataMode() {
+        useMockData = true
+        print("WeatherViewModel: Mock data mode enabled")
+        
+        // Refresh data with mock mode
+        Task {
+            if let location = locationManager.location {
+                await fetchUVData(for: location)
+            }
+        }
+    }
+    
+    func disableMockDataMode() {
+        useMockData = false
+        print("WeatherViewModel: Mock data mode disabled")
+        
+        // Refresh data with real WeatherKit
+        Task {
+            if let location = locationManager.location {
+                await fetchUVData(for: location)
+            }
+        }
     }
 }
 
