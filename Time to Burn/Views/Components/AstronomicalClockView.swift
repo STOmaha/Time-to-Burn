@@ -1,51 +1,69 @@
 import SwiftUI
+import CoreLocation
 
 struct AstronomicalClockView: View {
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
+    @EnvironmentObject private var locationManager: LocationManager
+    
+    // Configuration for positioning adjustments
+    private let verticalInset: CGFloat = 24 // Adjust this value to move elements inward from the border
     
     var body: some View {
         GeometryReader { geo in
             TimelineView(.periodic(from: Date(), by: 60)) { timeline in
                 let now = timeline.date
                 let sunT = timeFraction(for: now)
-                let moonT = (sunT + 0.5).truncatingRemainder(dividingBy: 1.0)
+                
+                // Calculate moon position based on real astronomical data
+                let moonT = calculateMoonTimeFraction(for: now, location: locationManager.location)
+                
                 let sunPos = positionOnPerimeter(t: sunT, geo: geo)
                 let moonPos = positionOnPerimeter(t: moonT, geo: geo)
                 
+                // Debug logging
+                // debugLog(sunT: sunT, moonT: moonT, sunPos: sunPos, moonPos: moonPos)
+                
                 ZStack(alignment: .top) {
-                    // Rounded rectangle border
+                    // Large rounded rectangle border, nearly touching the black border
                     RoundedRectangle(cornerRadius: min(geo.size.width, geo.size.height) * 0.18)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 2)
+                        .stroke(Color.white.opacity(0.7), lineWidth: 4)
                         .frame(
-                            width: geo.size.width * 0.96,
-                            height: geo.size.height * 0.96,
-                            alignment: .top
+                            width: geo.size.width * 0.98,
+                            height: geo.size.height * 0.98
                         )
-                        .position(x: geo.size.width / 2, y: geo.size.height * 0.48 + 8)
+                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
                     
                     // Time labels
                     TimeLabelsView(
-                        rectWidth: geo.size.width * 0.96,
-                        rectHeight: geo.size.height * 0.96,
-                        geo: geo
+                        rectWidth: geo.size.width * 0.98,
+                        rectHeight: geo.size.height * 0.98,
+                        geo: geo,
+                        verticalInset: verticalInset
                     )
                     
                     // Sun and Moon
                     SunMoonView(sunPos: sunPos, moonPos: moonPos)
+                        .zIndex(2)
                     
-                    // Astronomical markers
-                    AstronomicalMarkersView(weatherViewModel: weatherViewModel, geo: geo)
-                    
-                    // Loading indicator
-                    if weatherViewModel.sunrise == nil && weatherViewModel.sunset == nil && 
-                       weatherViewModel.moonrise == nil && weatherViewModel.moonset == nil {
-                        AstronomicalLoadingIndicatorView()
-                    }
+                    // Astronomical markers (sunrise/sunset from WeatherKit)
+                    AstronomicalMarkersView(weatherViewModel: weatherViewModel, geo: geo, verticalInset: verticalInset)
+                        .zIndex(2)
                 }
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .onAppear {
+                    print("🌍 AstronomicalClock: View appeared")
+                    print("🌍 AstronomicalClock: Location available: \(locationManager.location != nil)")
+                    if let location = locationManager.location {
+                        print("🌍 AstronomicalClock: Location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+                    }
+                    print("☀️ Sun: timeFraction=\(sunT), position=\(sunPos)")
+                    print("🌙 Moon: timeFraction=\(moonT), position=\(moonPos)")
+                    print("🌅 WeatherKit sunrise: \(weatherViewModel.sunriseTime?.description ?? "nil")")
+                    print("🌇 WeatherKit sunset: \(weatherViewModel.sunsetTime?.description ?? "nil")")
+                }
             }
         }
-        .ignoresSafeArea(edges: .top)
+        .ignoresSafeArea()
     }
     
     // MARK: - Helper Functions
@@ -55,9 +73,38 @@ struct AstronomicalClockView: View {
         let minute = calendar.component(.minute, from: date)
         let second = calendar.component(.second, from: date)
         let totalSeconds = Double(hour * 3600 + minute * 60 + second)
-        // 6am = 0, noon = 0.25, 6pm = 0.5, midnight = 0.75
+        // 6am (East) = 0, noon (South) = 0.25, 6pm (West) = 0.5, midnight (North) = 0.75
         let offsetSeconds = (totalSeconds - 6*3600 + 24*3600).truncatingRemainder(dividingBy: 24*3600)
-        return offsetSeconds / (24*3600)
+        let result = offsetSeconds / (24*3600)
+        print("☀️ Sun calculation: \(hour):\(minute):\(second) -> timeFraction=\(result)")
+        return result
+    }
+    
+    private func calculateMoonTimeFraction(for date: Date, location: CLLocation?) -> Double {
+        print("🌙 Moon calculation started for date: \(date)")
+        
+        guard let location = location else {
+            print("🌙 Moon: No location available, using fallback calculation")
+            // Fallback to simple offset if no location available
+            let sunT = timeFraction(for: date)
+            let fallbackT = (sunT + 0.5).truncatingRemainder(dividingBy: 1.0)
+            print("🌙 Moon: Fallback time fraction: \(fallbackT)")
+            return fallbackT
+        }
+        
+        print("🌙 Moon: Calculating position for location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+        
+        // Calculate moon's real position in the sky
+        let (azimuth, altitude) = MoonPositionCalculator.calculateMoonPosition(for: location, at: date)
+        
+        print("🌙 Moon: Calculated azimuth: \(azimuth)°, altitude: \(altitude)°")
+        
+        // Convert to time fraction for positioning on the clock
+        let timeFraction = MoonPositionCalculator.moonPositionToTimeFraction(azimuth: azimuth, altitude: altitude)
+        
+        print("🌙 Moon: Final time fraction: \(timeFraction)")
+        
+        return timeFraction
     }
     
     private func positionOnPerimeter(t: Double, geo: GeometryProxy) -> CGPoint {
@@ -66,8 +113,8 @@ struct AstronomicalClockView: View {
         let cornerRadius = min(rectWidth, rectHeight) * 0.18
         let centerX = geo.size.width / 2
         let centerY = geo.size.height / 2
-        let halfWidth = rectWidth / 2
-        let halfHeight = rectHeight / 2
+        let halfWidth = rectWidth / 2 - verticalInset // Apply inset to move elements inward
+        let halfHeight = rectHeight / 2 - verticalInset // Apply inset to move elements inward
         
         // Calculate the perimeter length to map time to position
         let straightLength = 2 * (rectWidth + rectHeight - 2 * cornerRadius)
@@ -75,44 +122,24 @@ struct AstronomicalClockView: View {
         let totalPerimeter = straightLength + cornerLength
         
         // Map time (0-1) to distance along perimeter
-        // 6am = 0, noon = 0.25, 6pm = 0.5, midnight = 0.75
+        // 6am (East) = 0, noon (South) = 0.25, 6pm (West) = 0.5, midnight (North) = 0.75
         let distance = t * totalPerimeter
         
         // Determine which segment we're on and calculate position
         var currentDistance = 0.0
         
-        // Left edge (6am position - bottom to top)
-        let leftEdgeLength = rectHeight - 2 * cornerRadius
-        if distance <= currentDistance + leftEdgeLength {
-            let progress = (distance - currentDistance) / leftEdgeLength
-            let x = centerX - halfWidth
+        // Right edge (6am position - East horizon, bottom to top)
+        let rightEdgeLength = rectHeight - 2 * cornerRadius
+        if distance <= currentDistance + rightEdgeLength {
+            let progress = (distance - currentDistance) / rightEdgeLength
+            let x = centerX + halfWidth
             let y = centerY + halfHeight - cornerRadius - progress * (rectHeight - 2 * cornerRadius)
             return CGPoint(x: x, y: y)
         }
-        currentDistance += leftEdgeLength
-        
-        // Top-left corner
-        let cornerArcLength = .pi * cornerRadius / 2
-        if distance <= currentDistance + cornerArcLength {
-            let progress = (distance - currentDistance) / cornerArcLength
-            let angle = progress * .pi / 2
-            let x = centerX - halfWidth + cornerRadius - cornerRadius * sin(angle)
-            let y = centerY - halfHeight + cornerRadius - cornerRadius * cos(angle)
-            return CGPoint(x: x, y: y)
-        }
-        currentDistance += cornerArcLength
-        
-        // Top edge (noon position - left to right)
-        let topEdgeLength = rectWidth - 2 * cornerRadius
-        if distance <= currentDistance + topEdgeLength {
-            let progress = (distance - currentDistance) / topEdgeLength
-            let x = centerX - halfWidth + cornerRadius + progress * (rectWidth - 2 * cornerRadius)
-            let y = centerY - halfHeight
-            return CGPoint(x: x, y: y)
-        }
-        currentDistance += topEdgeLength
+        currentDistance += rightEdgeLength
         
         // Top-right corner
+        let cornerArcLength = .pi * cornerRadius / 2
         if distance <= currentDistance + cornerArcLength {
             let progress = (distance - currentDistance) / cornerArcLength
             let angle = progress * .pi / 2
@@ -122,35 +149,35 @@ struct AstronomicalClockView: View {
         }
         currentDistance += cornerArcLength
         
-        // Right edge (6pm position - top to bottom)
-        let rightEdgeLength = rectHeight - 2 * cornerRadius
-        if distance <= currentDistance + rightEdgeLength {
-            let progress = (distance - currentDistance) / rightEdgeLength
-            let x = centerX + halfWidth
-            let y = centerY - halfHeight + cornerRadius + progress * (rectHeight - 2 * cornerRadius)
+        // Top edge (noon position - South, right to left)
+        let topEdgeLength = rectWidth - 2 * cornerRadius
+        if distance <= currentDistance + topEdgeLength {
+            let progress = (distance - currentDistance) / topEdgeLength
+            let x = centerX + halfWidth - cornerRadius - progress * (rectWidth - 2 * cornerRadius)
+            let y = centerY - halfHeight
             return CGPoint(x: x, y: y)
         }
-        currentDistance += rightEdgeLength
+        currentDistance += topEdgeLength
         
-        // Bottom-right corner
+        // Top-left corner
         if distance <= currentDistance + cornerArcLength {
             let progress = (distance - currentDistance) / cornerArcLength
             let angle = progress * .pi / 2
-            let x = centerX + halfWidth - cornerRadius + cornerRadius * sin(angle)
-            let y = centerY + halfHeight - cornerRadius + cornerRadius * cos(angle)
+            let x = centerX - halfWidth + cornerRadius - cornerRadius * sin(angle)
+            let y = centerY - halfHeight + cornerRadius - cornerRadius * cos(angle)
             return CGPoint(x: x, y: y)
         }
         currentDistance += cornerArcLength
         
-        // Bottom edge (midnight position - right to left)
-        let bottomEdgeLength = rectWidth - 2 * cornerRadius
-        if distance <= currentDistance + bottomEdgeLength {
-            let progress = (distance - currentDistance) / bottomEdgeLength
-            let x = centerX + halfWidth - cornerRadius - progress * (rectWidth - 2 * cornerRadius)
-            let y = centerY + halfHeight
+        // Left edge (6pm position - West horizon, top to bottom)
+        let leftEdgeLength = rectHeight - 2 * cornerRadius
+        if distance <= currentDistance + leftEdgeLength {
+            let progress = (distance - currentDistance) / leftEdgeLength
+            let x = centerX - halfWidth
+            let y = centerY - halfHeight + cornerRadius + progress * (rectHeight - 2 * cornerRadius)
             return CGPoint(x: x, y: y)
         }
-        currentDistance += bottomEdgeLength
+        currentDistance += leftEdgeLength
         
         // Bottom-left corner
         if distance <= currentDistance + cornerArcLength {
@@ -160,10 +187,42 @@ struct AstronomicalClockView: View {
             let y = centerY + halfHeight - cornerRadius + cornerRadius * sin(angle)
             return CGPoint(x: x, y: y)
         }
+        currentDistance += cornerArcLength
         
-        // Fallback to left edge (6am position)
-        return CGPoint(x: centerX - halfWidth, y: centerY)
+        // Bottom edge (midnight position - North, left to right)
+        let bottomEdgeLength = rectWidth - 2 * cornerRadius
+        if distance <= currentDistance + bottomEdgeLength {
+            let progress = (distance - currentDistance) / bottomEdgeLength
+            let x = centerX - halfWidth + cornerRadius + progress * (rectWidth - 2 * cornerRadius)
+            let y = centerY + halfHeight
+            return CGPoint(x: x, y: y)
+        }
+        currentDistance += bottomEdgeLength
+        
+        // Bottom-right corner
+        if distance <= currentDistance + cornerArcLength {
+            let progress = (distance - currentDistance) / cornerArcLength
+            let angle = progress * .pi / 2
+            let x = centerX + halfWidth - cornerRadius + cornerRadius * sin(angle)
+            let y = centerY + halfHeight - cornerRadius + cornerRadius * cos(angle)
+            return CGPoint(x: x, y: y)
+        }
+        
+        // Fallback to right edge (6am position - East horizon)
+        return CGPoint(x: centerX + halfWidth, y: centerY)
     }
+    
+    // MARK: - Debug Functions
+    // private func debugLog(sunT: Double, moonT: Double, sunPos: CGPoint, moonPos: CGPoint) {
+    //     print("🌍 AstronomicalClock: Location available: \(locationManager.location != nil)")
+    //     if let location = locationManager.location {
+    //         print("🌍 AstronomicalClock: Location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+    //     } else {
+    //         print("🌍 AstronomicalClock: No location available")
+    //     }
+    //     print("☀️ Sun: timeFraction=\(sunT), position=\(sunPos)")
+    //     print("🌙 Moon: timeFraction=\(moonT), position=\(moonPos)")
+    // }
 }
 
 // MARK: - Supporting Views
@@ -171,28 +230,29 @@ struct TimeLabelsView: View {
     let rectWidth: CGFloat
     let rectHeight: CGFloat
     let geo: GeometryProxy
+    let verticalInset: CGFloat
     
     var body: some View {
         Group {
             Text("6am")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.white.opacity(0.8))
-                .position(x: geo.size.width / 2 - rectWidth / 2, y: geo.size.height / 2)
+                .position(x: geo.size.width / 2 + rectWidth / 2 - verticalInset, y: geo.size.height / 2)
             
             Text("Noon")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.white.opacity(0.8))
-                .position(x: geo.size.width / 2, y: geo.size.height / 2 - rectHeight / 2)
+                .position(x: geo.size.width / 2, y: geo.size.height / 2 - rectHeight / 2 + verticalInset)
             
             Text("6pm")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.white.opacity(0.8))
-                .position(x: geo.size.width / 2 + rectWidth / 2, y: geo.size.height / 2)
+                .position(x: geo.size.width / 2 - rectWidth / 2 + verticalInset, y: geo.size.height / 2)
             
             Text("Midnight")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundColor(.white.opacity(0.8))
-                .position(x: geo.size.width / 2, y: geo.size.height / 2 + rectHeight / 2)
+                .position(x: geo.size.width / 2, y: geo.size.height / 2 + rectHeight / 2 - verticalInset)
         }
     }
 }
@@ -223,11 +283,12 @@ struct SunMoonView: View {
 struct AstronomicalMarkersView: View {
     let weatherViewModel: WeatherViewModel
     let geo: GeometryProxy
+    let verticalInset: CGFloat
     
     var body: some View {
         Group {
             // Sunrise marker
-            if let sunrise = weatherViewModel.sunrise {
+            if let sunrise = weatherViewModel.sunriseTime {
                 let sunriseT = timeFraction(for: sunrise)
                 let sunrisePos = positionOnPerimeter(t: sunriseT, geo: geo)
                 VStack(spacing: 2) {
@@ -240,10 +301,13 @@ struct AstronomicalMarkersView: View {
                         .foregroundColor(.orange)
                 }
                 .position(sunrisePos)
+                .onAppear {
+                    print("🌅 Sunrise marker displayed at: \(sunrise), position: \(sunrisePos)")
+                }
             }
             
             // Sunset marker
-            if let sunset = weatherViewModel.sunset {
+            if let sunset = weatherViewModel.sunsetTime {
                 let sunsetT = timeFraction(for: sunset)
                 let sunsetPos = positionOnPerimeter(t: sunsetT, geo: geo)
                 VStack(spacing: 2) {
@@ -256,38 +320,21 @@ struct AstronomicalMarkersView: View {
                         .foregroundColor(.pink)
                 }
                 .position(sunsetPos)
-            }
-            
-            // Moonrise marker
-            if let moonrise = weatherViewModel.moonrise {
-                let moonriseT = timeFraction(for: moonrise)
-                let moonrisePos = positionOnPerimeter(t: moonriseT, geo: geo)
-                VStack(spacing: 2) {
-                    Image(systemName: "moonrise.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(.cyan)
-                        .shadow(radius: 4)
-                    Text(moonrise, style: .time)
-                        .font(.caption2)
-                        .foregroundColor(.cyan)
+                .onAppear {
+                    print("🌇 Sunset marker displayed at: \(sunset), position: \(sunsetPos)")
                 }
-                .position(moonrisePos)
             }
+        }
+        .onAppear {
+            print("🌅🌇 AstronomicalMarkersView appeared")
+            print("🌅🌇 WeatherKit sunrise: \(weatherViewModel.sunriseTime?.description ?? "nil")")
+            print("🌇 WeatherKit sunset: \(weatherViewModel.sunsetTime?.description ?? "nil")")
             
-            // Moonset marker
-            if let moonset = weatherViewModel.moonset {
-                let moonsetT = timeFraction(for: moonset)
-                let moonsetPos = positionOnPerimeter(t: moonsetT, geo: geo)
-                VStack(spacing: 2) {
-                    Image(systemName: "moonset.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(.indigo)
-                        .shadow(radius: 4)
-                    Text(moonset, style: .time)
-                        .font(.caption2)
-                        .foregroundColor(.indigo)
-                }
-                .position(moonsetPos)
+            if weatherViewModel.sunriseTime == nil {
+                print("🌅 No sunrise data available from WeatherKit")
+            }
+            if weatherViewModel.sunsetTime == nil {
+                print("🌇 No sunset data available from WeatherKit")
             }
         }
     }
@@ -298,6 +345,7 @@ struct AstronomicalMarkersView: View {
         let minute = calendar.component(.minute, from: date)
         let second = calendar.component(.second, from: date)
         let totalSeconds = Double(hour * 3600 + minute * 60 + second)
+        // 6am (East) = 0, noon (South) = 0.25, 6pm (West) = 0.5, midnight (North) = 0.75
         let offsetSeconds = (totalSeconds - 6*3600 + 24*3600).truncatingRemainder(dividingBy: 24*3600)
         return offsetSeconds / (24*3600)
     }
@@ -308,8 +356,8 @@ struct AstronomicalMarkersView: View {
         let cornerRadius = min(rectWidth, rectHeight) * 0.18
         let centerX = geo.size.width / 2
         let centerY = geo.size.height / 2
-        let halfWidth = rectWidth / 2
-        let halfHeight = rectHeight / 2
+        let halfWidth = rectWidth / 2 - verticalInset // Apply inset to move elements inward
+        let halfHeight = rectHeight / 2 - verticalInset // Apply inset to move elements inward
         
         let straightLength = 2 * (rectWidth + rectHeight - 2 * cornerRadius)
         let cornerLength = 2 * .pi * cornerRadius
@@ -318,38 +366,18 @@ struct AstronomicalMarkersView: View {
         
         var currentDistance = 0.0
         
-        // Left edge
-        let leftEdgeLength = rectHeight - 2 * cornerRadius
-        if distance <= currentDistance + leftEdgeLength {
-            let progress = (distance - currentDistance) / leftEdgeLength
-            let x = centerX - halfWidth
+        // Right edge (6am position - East horizon, bottom to top)
+        let rightEdgeLength = rectHeight - 2 * cornerRadius
+        if distance <= currentDistance + rightEdgeLength {
+            let progress = (distance - currentDistance) / rightEdgeLength
+            let x = centerX + halfWidth
             let y = centerY + halfHeight - cornerRadius - progress * (rectHeight - 2 * cornerRadius)
             return CGPoint(x: x, y: y)
         }
-        currentDistance += leftEdgeLength
-        
-        // Top-left corner
-        let cornerArcLength = .pi * cornerRadius / 2
-        if distance <= currentDistance + cornerArcLength {
-            let progress = (distance - currentDistance) / cornerArcLength
-            let angle = progress * .pi / 2
-            let x = centerX - halfWidth + cornerRadius - cornerRadius * sin(angle)
-            let y = centerY - halfHeight + cornerRadius - cornerRadius * cos(angle)
-            return CGPoint(x: x, y: y)
-        }
-        currentDistance += cornerArcLength
-        
-        // Top edge
-        let topEdgeLength = rectWidth - 2 * cornerRadius
-        if distance <= currentDistance + topEdgeLength {
-            let progress = (distance - currentDistance) / topEdgeLength
-            let x = centerX - halfWidth + cornerRadius + progress * (rectWidth - 2 * cornerRadius)
-            let y = centerY - halfHeight
-            return CGPoint(x: x, y: y)
-        }
-        currentDistance += topEdgeLength
+        currentDistance += rightEdgeLength
         
         // Top-right corner
+        let cornerArcLength = .pi * cornerRadius / 2
         if distance <= currentDistance + cornerArcLength {
             let progress = (distance - currentDistance) / cornerArcLength
             let angle = progress * .pi / 2
@@ -359,35 +387,35 @@ struct AstronomicalMarkersView: View {
         }
         currentDistance += cornerArcLength
         
-        // Right edge
-        let rightEdgeLength = rectHeight - 2 * cornerRadius
-        if distance <= currentDistance + rightEdgeLength {
-            let progress = (distance - currentDistance) / rightEdgeLength
-            let x = centerX + halfWidth
-            let y = centerY - halfHeight + cornerRadius + progress * (rectHeight - 2 * cornerRadius)
+        // Top edge (noon position - South, right to left)
+        let topEdgeLength = rectWidth - 2 * cornerRadius
+        if distance <= currentDistance + topEdgeLength {
+            let progress = (distance - currentDistance) / topEdgeLength
+            let x = centerX + halfWidth - cornerRadius - progress * (rectWidth - 2 * cornerRadius)
+            let y = centerY - halfHeight
             return CGPoint(x: x, y: y)
         }
-        currentDistance += rightEdgeLength
+        currentDistance += topEdgeLength
         
-        // Bottom-right corner
+        // Top-left corner
         if distance <= currentDistance + cornerArcLength {
             let progress = (distance - currentDistance) / cornerArcLength
             let angle = progress * .pi / 2
-            let x = centerX + halfWidth - cornerRadius + cornerRadius * sin(angle)
-            let y = centerY + halfHeight - cornerRadius + cornerRadius * cos(angle)
+            let x = centerX - halfWidth + cornerRadius - cornerRadius * sin(angle)
+            let y = centerY - halfHeight + cornerRadius - cornerRadius * cos(angle)
             return CGPoint(x: x, y: y)
         }
         currentDistance += cornerArcLength
         
-        // Bottom edge
-        let bottomEdgeLength = rectWidth - 2 * cornerRadius
-        if distance <= currentDistance + bottomEdgeLength {
-            let progress = (distance - currentDistance) / bottomEdgeLength
-            let x = centerX + halfWidth - cornerRadius - progress * (rectWidth - 2 * cornerRadius)
-            let y = centerY + halfHeight
+        // Left edge (6pm position - West horizon, top to bottom)
+        let leftEdgeLength = rectHeight - 2 * cornerRadius
+        if distance <= currentDistance + leftEdgeLength {
+            let progress = (distance - currentDistance) / leftEdgeLength
+            let x = centerX - halfWidth
+            let y = centerY - halfHeight + cornerRadius + progress * (rectHeight - 2 * cornerRadius)
             return CGPoint(x: x, y: y)
         }
-        currentDistance += bottomEdgeLength
+        currentDistance += leftEdgeLength
         
         // Bottom-left corner
         if distance <= currentDistance + cornerArcLength {
@@ -397,21 +425,28 @@ struct AstronomicalMarkersView: View {
             let y = centerY + halfHeight - cornerRadius + cornerRadius * sin(angle)
             return CGPoint(x: x, y: y)
         }
+        currentDistance += cornerArcLength
         
-        return CGPoint(x: centerX - halfWidth, y: centerY)
-    }
-}
-
-struct AstronomicalLoadingIndicatorView: View {
-    var body: some View {
-        VStack {
-            ProgressView()
-                .scaleEffect(1.5)
-                .foregroundColor(.white)
-            Text("Loading astronomical data...")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.8))
-                .padding(.top, 8)
+        // Bottom edge (midnight position - North, left to right)
+        let bottomEdgeLength = rectWidth - 2 * cornerRadius
+        if distance <= currentDistance + bottomEdgeLength {
+            let progress = (distance - currentDistance) / bottomEdgeLength
+            let x = centerX - halfWidth + cornerRadius + progress * (rectWidth - 2 * cornerRadius)
+            let y = centerY + halfHeight
+            return CGPoint(x: x, y: y)
         }
+        currentDistance += bottomEdgeLength
+        
+        // Bottom-right corner
+        if distance <= currentDistance + cornerArcLength {
+            let progress = (distance - currentDistance) / cornerArcLength
+            let angle = progress * .pi / 2
+            let x = centerX + halfWidth - cornerRadius + cornerRadius * sin(angle)
+            let y = centerY + halfHeight - cornerRadius + cornerRadius * cos(angle)
+            return CGPoint(x: x, y: y)
+        }
+        
+        // Fallback to right edge (6am position - East horizon)
+        return CGPoint(x: centerX + halfWidth, y: centerY)
     }
 } 

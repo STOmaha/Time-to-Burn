@@ -21,17 +21,8 @@ struct UVData: Identifiable, Codable {
         self.uvIndex = Int(currentWeather.uvIndex.value)
     }
     
-    // Add a more flexible initializer
     init(uvIndex: Int, date: Date) {
         self.date = date
         self.uvIndex = uvIndex
-    }
-    
-    static func calculateTimeToBurn(uvIndex: Int) -> Int {
-        return UVColorUtils.calculateTimeToBurn(uvIndex: uvIndex)
-    }
-    
-    static func getAdvice(uvIndex: Int) -> String {
-        return UVColorUtils.getUVAdvice(uvIndex: uvIndex)
     }
 } 

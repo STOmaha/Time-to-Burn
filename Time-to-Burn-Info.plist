@@ -2,21 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>Time-to-Burn.Time-to-Burn.fetchUV</string>
-		<string>Time-to-Burn.Time-to-Burn.uvcheck</string>
-	</array>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>Time to Burn will send you notifications about UV index changes and when you need to take precautions.</string>
-	<key>UIBackgroundFetchInterval</key>
-	<integer>900</integer>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>location</string>
-		<string>remote-notification</string>
-		<string>fetch</string>
-		<string>processing</string>
-	</array>
 </dict>
 </plist>

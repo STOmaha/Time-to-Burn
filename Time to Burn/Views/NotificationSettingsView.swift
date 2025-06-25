@@ -1,83 +1,60 @@
 import SwiftUI
 
 struct NotificationSettingsView: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var notificationService: NotificationService
-    @State private var showingPermissionAlert = false
-    @State private var uvThreshold: Int
-    @State private var isDailySummaryEnabled: Bool
-    
-    init() {
-        _uvThreshold = State(initialValue: NotificationService.shared.uvAlertThreshold)
-        _isDailySummaryEnabled = State(initialValue: UserDefaults.standard.bool(forKey: "isDailySummaryEnabled"))
-    }
-    
-    // Custom binding to convert Int state to Double for the Slider
-    private var uvThresholdBinding: Binding<Double> {
-        Binding<Double>(
-            get: {
-                return Double(self.uvThreshold)
-            },
-            set: {
-                self.uvThreshold = Int($0)
-                notificationService.uvAlertThreshold = self.uvThreshold
-            }
-        )
-    }
+    @State private var uvThreshold = 6
+    @State private var isHighUVAlertsEnabled = false
     
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("High UV Alerts")) {
-                    Toggle("Enable High UV Alerts", isOn: $notificationService.isHighUVAlertsEnabled)
+                Section(header: Text("UV Alert Settings")) {
+                    Toggle("Enable High UV Alerts", isOn: $isHighUVAlertsEnabled)
                     
-                    if notificationService.isHighUVAlertsEnabled {
+                    if isHighUVAlertsEnabled {
                         VStack(alignment: .leading) {
-                            Text("Alert Threshold: \(uvThreshold)")
-                                .font(.subheadline)
-                            Slider(value: uvThresholdBinding, in: 1...12, step: 1)
+                            Text("UV Index Threshold")
+                                .font(.headline)
+                            Text("Get notified when UV index reaches this level or higher")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Picker("UV Threshold", selection: $uvThreshold) {
+                                Text("3 - Moderate").tag(3)
+                                Text("6 - High").tag(6)
+                                Text("8 - Very High").tag(8)
+                                Text("11 - Extreme").tag(11)
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
                         }
-                        .padding(.vertical, 4)
                     }
                 }
                 
-                Section(header: Text("Daily Summary")) {
-                    Toggle("8 AM Daily Forecast", isOn: $isDailySummaryEnabled)
-                        .onChange(of: isDailySummaryEnabled) { _, newValue in
-                            UserDefaults.standard.set(newValue, forKey: "isDailySummaryEnabled")
-                            if newValue {
-                                BackgroundService.shared.scheduleAppRefresh()
-                            } else {
-                                BackgroundService.shared.cancel()
-                            }
-                        }
-                    Text("Receive a notification every morning with a summary of the day's UV forecast and times to avoid sun exposure.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                Section(header: Text("About")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Time to Burn")
+                            .font(.headline)
+                        Text("Monitor UV exposure and get alerts when conditions are dangerous for your skin.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
-            .navigationTitle("Notifications")
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
+        }
+        .onAppear {
+            // Load saved settings
+            self.uvThreshold = UserDefaults.standard.integer(forKey: "uvAlertThreshold")
+            if self.uvThreshold == 0 {
+                self.uvThreshold = 6
             }
-            .alert("Notification Permission Required", isPresented: $showingPermissionAlert) {
-                Button("Open Settings", role: .none) {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Please enable notifications in Settings to receive UV alerts and updates.")
-            }
-            .onAppear {
-                self.uvThreshold = notificationService.uvAlertThreshold
-            }
+            self.isHighUVAlertsEnabled = UserDefaults.standard.bool(forKey: "highUVAlertsEnabled")
+        }
+        .onChange(of: uvThreshold) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: "uvAlertThreshold")
+        }
+        .onChange(of: isHighUVAlertsEnabled) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: "highUVAlertsEnabled")
         }
     }
 }
@@ -85,6 +62,5 @@ struct NotificationSettingsView: View {
 struct NotificationSettingsView_Previews: PreviewProvider {
     static var previews: some View {
         NotificationSettingsView()
-            .environmentObject(NotificationService.shared)
     }
 } 

@@ -3,9 +3,10 @@ import Charts
 
 struct UVChartView: View {
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
-    @EnvironmentObject private var notificationService: NotificationService
+    @State private var selectedTime: Date?
     @State private var isDragging = false
-    @State private var selectedTime = Date()
+    
+    private let uvThreshold = 6 // Default UV threshold
     
     var body: some View {
         VStack(spacing: 16) {
@@ -28,10 +29,13 @@ struct UVChartView: View {
                     .font(.headline)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
-                Text(formatHour(isDragging ? selectedTime : Date()))
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.blue)
+                Text(formatHour(isDragging ? (selectedTime ?? Date()) : Date()))
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.7))
+                    .cornerRadius(8)
                 
                 if isDragging, let uvLevel = getUVLevelForTime(selectedTime) {
                     Text("• UV \(uvLevel)")
@@ -109,7 +113,7 @@ struct UVChartView: View {
     private func getUVExposureWarning() -> String? {
         guard let currentUV = weatherViewModel.currentUVData?.uvIndex else { return nil }
         
-        if currentUV >= notificationService.uvAlertThreshold {
+        if currentUV >= uvThreshold {
             return "⚠️ High UV exposure detected! Take precautions."
         }
         return nil
@@ -123,11 +127,12 @@ struct UVChartView: View {
         return UVColorUtils.formatKeyTime(date)
     }
     
-    private func getUVLevelForTime(_ time: Date) -> Int? {
+    private func getUVLevelForTime(_ time: Date?) -> Int? {
+        guard let time = time else { return nil }
         let calendar = Calendar.current
         let hour = calendar.component(.hour, from: time)
         
-        return weatherViewModel.hourlyForecast.first { 
+        return weatherViewModel.hourlyUVData.first { 
             calendar.component(.hour, from: $0.date) == hour 
         }?.uvIndex
     }
@@ -171,14 +176,14 @@ struct UVChartView: View {
     // MARK: - Chart Marks
     @ChartContentBuilder
     private var chartMarks: some ChartContent {
-        let todayData = weatherViewModel.hourlyForecast.filter { isToday($0.date) }
+        let todayData = weatherViewModel.hourlyUVData.filter { isToday($0.date) }
         // Danger Zone Layer and AreaMark per point
         ForEach(todayData) { data in
-            if data.uvIndex >= notificationService.uvAlertThreshold {
+            if data.uvIndex >= uvThreshold {
                 RectangleMark(
                     xStart: .value("Start", data.date.addingTimeInterval(-1800)),
                     xEnd: .value("End", data.date.addingTimeInterval(1800)),
-                    yStart: .value("Threshold", Double(notificationService.uvAlertThreshold)),
+                    yStart: .value("Threshold", Double(uvThreshold)),
                     yEnd: .value("Max", 12.0)
                 )
                 .foregroundStyle(Color.red.opacity(0.15))
@@ -205,7 +210,7 @@ struct UVChartView: View {
             .foregroundStyle(getChartColor(for: data.uvIndex))
         }
         // Dashed threshold line
-        RuleMark(y: .value("Threshold", notificationService.uvAlertThreshold))
+        RuleMark(y: .value("Threshold", uvThreshold))
             .lineStyle(StrokeStyle(lineWidth: 2, dash: [6]))
             .foregroundStyle(Color.red)
             .annotation(position: .top, alignment: .leading) {
@@ -217,7 +222,7 @@ struct UVChartView: View {
                     .cornerRadius(4)
             }
         // Blue vertical bar: follows touch or animates back to now
-        RuleMark(x: .value("Selected", isDragging ? selectedTime : Date()))
+        RuleMark(x: .value("Selected", isDragging ? (selectedTime ?? Date()) : Date()))
             .lineStyle(StrokeStyle(lineWidth: 2))
             .foregroundStyle(Color.blue)
     }

@@ -3,63 +3,55 @@ import CoreLocation
 
 struct MainContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
-    @EnvironmentObject private var notificationService: NotificationService
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
-    @StateObject private var astronomicalClockViewModel = AstronomicalClockViewModel()
-    @State private var showingNotifications = false
-    @State private var showingUVChart = false
     
     var body: some View {
-        NavigationView {
+        GeometryReader { geo in
             ZStack {
-                // Dynamic background color based on current UV value
-                UVColorUtils.getUVColor(weatherViewModel.currentUVData?.uvIndex ?? 0)
+                // Dark background color for astronomical theme
+                Color.black
                     .ignoresSafeArea()
                 
-                // Main content inside rounded rectangle and perimeter track
-                VStack(spacing: 0) {
-                    Spacer(minLength: 8)
-                    ZStack {
-                        // Rounded rectangle border and perimeter track
-                        AstronomicalClockView()
-                            .environmentObject(weatherViewModel)
-                            .environmentObject(astronomicalClockViewModel)
-                            .allowsHitTesting(false)
-                        
-                        // Scrollable content inside the rounded rectangle
-                        ScrollView(.vertical, showsIndicators: false) {
-                            VStack(spacing: 20) {
-                                // Forecast Card
-                                UVForecastCardView()
-                                    .environmentObject(weatherViewModel)
-                                    .environmentObject(locationManager)
-                                    .environmentObject(notificationService)
-                                    .padding(.horizontal)
-                                    .padding(.top, 8)
-                                
-                                // Chart Card
-                                UVChartView()
-                                    .environmentObject(weatherViewModel)
-                                    .environmentObject(notificationService)
-                                    .padding(.bottom, 16)
-                            }
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 8)
-                    }
-                    Spacer(minLength: 8)
+                // Astronomical perimeter (Sun, Moon, Rectangle, Markers)
+                AstronomicalClockView()
+                    .frame(width: geo.size.width * 0.96, height: geo.size.height * 0.96)
+                    .zIndex(2)
+                
+                // Interior content (UV Data and Chart)
+                VStack(spacing: 20) {
+                    Spacer(minLength: geo.size.height * 0.18)
+                    UVForecastCardView()
+                        .environmentObject(weatherViewModel)
+                        .padding(.horizontal, geo.size.width * 0.08)
+                    UVChartView()
+                        .environmentObject(weatherViewModel)
+                        .padding(.horizontal, geo.size.width * 0.08)
+                    Spacer(minLength: geo.size.height * 0.12)
                 }
+                .frame(width: geo.size.width * 0.92, height: geo.size.height * 0.92)
+                .zIndex(3)
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: NotificationSettingsView()) {
-                        Image(systemName: "bell")
-                    }
+            .ignoresSafeArea()
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(destination: NotificationSettingsView()) {
+                    Image(systemName: "bell")
                 }
             }
         }
         .onAppear {
             locationManager.weatherViewModel = weatherViewModel
+            
+            // Fetch weather data when view appears
+            Task {
+                await weatherViewModel.refreshData()
+            }
+        }
+        .alert("WeatherKit Error", isPresented: $weatherViewModel.showErrorAlert) {
+            Button("OK") { }
+        } message: {
+            Text(weatherViewModel.errorMessage)
         }
     }
 }
