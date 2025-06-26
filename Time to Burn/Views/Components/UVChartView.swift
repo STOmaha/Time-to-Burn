@@ -6,11 +6,6 @@ struct UVChartCardView: View {
         UVChartView()
             .environmentObject(weatherViewModel)
             .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Color.yellow.opacity(0.18))
-                    .shadow(color: Color.yellow.opacity(0.18), radius: 16, x: 0, y: 8)
-            )
     }
 }
 
@@ -26,11 +21,15 @@ struct UVChartView: View {
     
     private let chartHeight: CGFloat = 180
     private let chartPadding: CGFloat = 24
+    private let yAxisMargin: CGFloat = 40 // Space for Y-axis labels on the right
     private let yMax: CGFloat = 12
     private let avoidStartHour = 11
     private let avoidEndHour = 15
     
     var body: some View {
+        let selectedUV = getSelectedUV()
+        let pastelColor = UVColorUtils.getPastelUVColor(selectedUV)
+        
         VStack(spacing: 16) {
             // Now/Selected time and UV index
             HStack(spacing: 8) {
@@ -55,27 +54,30 @@ struct UVChartView: View {
             // Chart area
             GeometryReader { geo in
                 ZStack {
-                    // Card background removed
+                    // Dynamic pastel background
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(pastelColor)
+                        .shadow(color: pastelColor.opacity(0.18), radius: 16, x: 0, y: 8)
                     // Chart drawing
                     Canvas { context, size in
                         let chartRect = CGRect(x: chartPadding, y: chartPadding, width: size.width - 2*chartPadding, height: chartHeight)
                         let uvData = getChartUVData()
                         guard uvData.count > 1 else { return }
                         
-                        // Draw Y-axis ticks and labels (0, 2, ..., 12)
+                        // Draw Y-axis ticks and labels (0, 2, ..., 12) on the right side
                         for y in stride(from: 0, through: Int(yMax), by: 2) {
                             let yPos = chartRect.maxY - chartRect.height * CGFloat(y) / yMax
-                            // Tick
+                            // Tick on the right
                             let tick = Path { path in
-                                path.move(to: CGPoint(x: chartRect.minX - 8, y: yPos))
-                                path.addLine(to: CGPoint(x: chartRect.minX, y: yPos))
+                                path.move(to: CGPoint(x: chartRect.maxX, y: yPos))
+                                path.addLine(to: CGPoint(x: chartRect.maxX + 8, y: yPos))
                             }
                             context.stroke(tick, with: .color(.gray), lineWidth: 1)
-                            // Label
+                            // Label on the right
                             let label = Text("\(y)").font(.caption2).foregroundColor(.secondary)
                             let resolved = context.resolve(label)
-                            let textSize = resolved.measure(in: CGSize(width: 20, height: 12))
-                            let textPoint = CGPoint(x: chartRect.minX - 10 - textSize.width, y: yPos - textSize.height/2)
+                            let textSize = resolved.measure(in: CGSize(width: 30, height: 16))
+                            let textPoint = CGPoint(x: chartRect.maxX + 12, y: yPos - textSize.height/2)
                             context.draw(resolved, at: textPoint)
                         }
                         // Draw X-axis ticks and labels (every 3 hours)
@@ -271,5 +273,13 @@ struct UVChartView: View {
         if uv == 0 { return "∞" }
         let minutes = UVColorUtils.calculateTimeToBurn(uvIndex: uv)
         return "\(minutes) minutes"
+    }
+    private func getSelectedUV() -> Int {
+        let uvData = getChartUVData()
+        guard uvData.count > 1 else { return 0 }
+        let fraction = selectedFraction ?? getNowFraction()
+        let idx = Int(round(fraction * CGFloat(uvData.count - 1)))
+        let point = uvData[min(max(idx, 0), uvData.count - 1)]
+        return point.uv
     }
 } 
