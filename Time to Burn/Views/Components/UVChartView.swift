@@ -4,17 +4,11 @@ struct UVChartCardView: View {
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Avoid UV exposure: 11 AM-3 PM")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.orange)
-                    .cornerRadius(8)
-                Spacer()
-            }
+            Text("Avoid UV exposure: 11 AM–3 PM")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.secondary)
+                .padding(.bottom, 2)
             UVChartView()
                 .environmentObject(weatherViewModel)
                 .frame(height: 260)
@@ -45,18 +39,6 @@ struct UVChartView: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            // Always show Avoid UV Exposure bar
-            Text("Avoid UV exposure: 11 AM-3 PM")
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.orange)
-                .cornerRadius(8)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 8)
-            
             // Now/Selected time and UV index
             HStack(spacing: 8) {
                 let (displayTime, displayUV, displayColor) = getDisplayTimeUV()

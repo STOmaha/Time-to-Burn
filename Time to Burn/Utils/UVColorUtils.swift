@@ -68,4 +68,15 @@ struct UVColorUtils {
         default: return 5 // For UV index 12 and above
         }
     }
+    
+    static func getPastelUVColor(_ uvIndex: Int) -> Color {
+        let base = getUVColor(uvIndex)
+        // Linearly interpolate with white for a pastel effect
+        let pastel = Color(
+            red: 1.0 - (1.0 - base.components().r) * 0.18,
+            green: 1.0 - (1.0 - base.components().g) * 0.18,
+            blue: 1.0 - (1.0 - base.components().b) * 0.18
+        )
+        return pastel
+    }
 } 

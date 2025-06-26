@@ -5,6 +5,11 @@ struct UVHomeView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     
+    var pastelBackground: Color {
+        let uv = weatherViewModel.currentUVData?.uvIndex ?? 0
+        return UVColorUtils.getPastelUVColor(uv)
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -17,7 +22,7 @@ struct UVHomeView: View {
             .padding(.horizontal)
             .padding(.bottom, 32)
         }
-        .background(Color.yellow.opacity(0.18).ignoresSafeArea())
+        .background(pastelBackground.ignoresSafeArea())
         .navigationTitle("UV Index")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

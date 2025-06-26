@@ -73,8 +73,8 @@ struct AstronomicalClockView: View {
                     geo: geo,
                     clockRadius: clockRadius
                 )
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
+                }
+                .frame(width: geo.size.width, height: geo.size.height)
             .onAppear {
                 print("🌍 AstronomicalClock: View appeared")
                 print("☀️ Sun: angle=\(sunAngle)°")
