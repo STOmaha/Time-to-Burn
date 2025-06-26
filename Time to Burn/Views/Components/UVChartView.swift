@@ -3,22 +3,14 @@ import SwiftUI
 struct UVChartCardView: View {
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Avoid UV exposure: 11 AM–3 PM")
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundColor(.secondary)
-                .padding(.bottom, 2)
-            UVChartView()
-                .environmentObject(weatherViewModel)
-                .frame(height: 260)
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Color.yellow.opacity(0.18))
-                .shadow(color: Color.yellow.opacity(0.18), radius: 16, x: 0, y: 8)
-        )
+        UVChartView()
+            .environmentObject(weatherViewModel)
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color.yellow.opacity(0.18))
+                    .shadow(color: Color.yellow.opacity(0.18), radius: 16, x: 0, y: 8)
+            )
     }
 }
 
@@ -30,7 +22,8 @@ struct UVChartView: View {
     @State private var isDragging = false
     @Namespace private var animation
     
-    private let uvThreshold = 6
+    @State private var userThreshold: Int = UserDefaults.standard.integer(forKey: "uvUserThreshold") == 0 ? 6 : UserDefaults.standard.integer(forKey: "uvUserThreshold")
+    
     private let chartHeight: CGFloat = 180
     private let chartPadding: CGFloat = 24
     private let yMax: CGFloat = 12
@@ -127,14 +120,15 @@ struct UVChartView: View {
                             context.stroke(line, with: .color(Color.gray.opacity(0.18)), lineWidth: 1)
                         }
                         // Draw threshold line
-                        let thresholdY = chartRect.maxY - chartRect.height * CGFloat(uvThreshold) / yMax
+                        let thresholdY = chartRect.maxY - chartRect.height * CGFloat(userThreshold) / yMax
                         let thresholdLine = Path { path in
                             path.move(to: CGPoint(x: chartRect.minX, y: thresholdY))
                             path.addLine(to: CGPoint(x: chartRect.maxX, y: thresholdY))
                         }
                         context.stroke(thresholdLine, with: .color(.red), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
                         // Threshold label
-                        let labelRect = CGRect(x: chartRect.minX + 6, y: thresholdY - 18, width: 80, height: 18)
+                        let labelHeight: CGFloat = 18
+                        let labelRect = CGRect(x: chartRect.minX + 6, y: thresholdY - labelHeight/2, width: 80, height: labelHeight)
                         // Draw background
                         let labelBg = Path(roundedRect: labelRect, cornerRadius: 6)
                         context.fill(labelBg, with: .color(.red))
@@ -206,6 +200,29 @@ struct UVChartView: View {
                 }
             }
             .frame(height: chartHeight + 2*chartPadding + 24)
+            // Notification threshold and slider
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Notification Threshold:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("UV \(userThreshold)")
+                        .font(.headline)
+                        .foregroundColor(.red)
+                }
+                // Time to Burn Estimate (moved above slider)
+                Text("Time to Burn at this threshold: ~\(getTimeToBurnString(for: userThreshold))")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                Slider(value: Binding(
+                    get: { Double(userThreshold) },
+                    set: { newValue in
+                        userThreshold = Int(newValue.rounded())
+                        UserDefaults.standard.set(userThreshold, forKey: "uvUserThreshold")
+                    }
+                ), in: 1...11, step: 1)
+            }
+            .padding(.top, 8)
         }
     }
     
@@ -249,5 +266,10 @@ struct UVChartView: View {
     }
     private func formatHour(_ date: Date) -> String {
         UVColorUtils.formatHour(date)
+    }
+    private func getTimeToBurnString(for uv: Int) -> String {
+        if uv == 0 { return "∞" }
+        let minutes = UVColorUtils.calculateTimeToBurn(uvIndex: uv)
+        return "\(minutes) minutes"
     }
 } 
