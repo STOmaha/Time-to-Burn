@@ -1,229 +1,271 @@
 import SwiftUI
-import Charts
 
-struct UVChartView: View {
+struct UVChartCardView: View {
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
-    @State private var selectedTime: Date?
-    @State private var isDragging = false
-    
-    private let uvThreshold = 6 // Default UV threshold
-    
     var body: some View {
-        VStack(spacing: 16) {
-            // UV Exposure Warning
-            if let warningText = getUVExposureWarning() {
-                Text(warningText)
-                    .font(.caption)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Avoid UV exposure: 11 AM-3 PM")
+                    .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Color.orange)
                     .cornerRadius(8)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                Spacer()
             }
+            UVChartView()
+                .environmentObject(weatherViewModel)
+                .frame(height: 260)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(Color.yellow.opacity(0.18))
+                .shadow(color: Color.yellow.opacity(0.18), radius: 16, x: 0, y: 8)
+        )
+    }
+}
+
+struct UVChartView: View {
+    @EnvironmentObject private var weatherViewModel: WeatherViewModel
+    var data: [UVData]? = nil
+    @GestureState private var dragOffset: CGFloat? = nil
+    @State private var selectedFraction: CGFloat? = nil // 0...1, nil = current time
+    @State private var isDragging = false
+    @Namespace private var animation
+    
+    private let uvThreshold = 6
+    private let chartHeight: CGFloat = 180
+    private let chartPadding: CGFloat = 24
+    private let yMax: CGFloat = 12
+    private let avoidStartHour = 11
+    private let avoidEndHour = 15
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            // Always show Avoid UV Exposure bar
+            Text("Avoid UV exposure: 11 AM-3 PM")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.orange)
+                .cornerRadius(8)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 8)
             
-            // Current Time Indicator
-            HStack {
+            // Now/Selected time and UV index
+            HStack(spacing: 8) {
+                let (displayTime, displayUV, displayColor) = getDisplayTimeUV()
                 Text(isDragging ? "Selected:" : "Now:")
                     .font(.headline)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
-                Text(formatHour(isDragging ? (selectedTime ?? Date()) : Date()))
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.black.opacity(0.7))
-                    .cornerRadius(8)
-                
-                if isDragging, let uvLevel = getUVLevelForTime(selectedTime) {
-                    Text("• UV \(uvLevel)")
+                Text(displayTime)
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.blue)
+                if let uv = displayUV {
+                    Text("• UV \(uv)")
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(UVColorUtils.getUVColor(uvLevel))
+                        .foregroundColor(displayColor)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            // Show the entire 24-hour period in a single view
-            ZStack(alignment: .bottom) {
-                ScrollView {
-                    Chart {
-                        chartMarks
+            // Chart area
+            GeometryReader { geo in
+                ZStack {
+                    // Card background removed
+                    // Chart drawing
+                    Canvas { context, size in
+                        let chartRect = CGRect(x: chartPadding, y: chartPadding, width: size.width - 2*chartPadding, height: chartHeight)
+                        let uvData = getChartUVData()
+                        guard uvData.count > 1 else { return }
+                        
+                        // Draw Y-axis ticks and labels (0, 2, ..., 12)
+                        for y in stride(from: 0, through: Int(yMax), by: 2) {
+                            let yPos = chartRect.maxY - chartRect.height * CGFloat(y) / yMax
+                            // Tick
+                            let tick = Path { path in
+                                path.move(to: CGPoint(x: chartRect.minX - 8, y: yPos))
+                                path.addLine(to: CGPoint(x: chartRect.minX, y: yPos))
+                            }
+                            context.stroke(tick, with: .color(.gray), lineWidth: 1)
+                            // Label
+                            let label = Text("\(y)").font(.caption2).foregroundColor(.secondary)
+                            let resolved = context.resolve(label)
+                            let textSize = resolved.measure(in: CGSize(width: 20, height: 12))
+                            let textPoint = CGPoint(x: chartRect.minX - 10 - textSize.width, y: yPos - textSize.height/2)
+                            context.draw(resolved, at: textPoint)
+                        }
+                        // Draw X-axis ticks and labels (every 3 hours)
+                        let calendar = Calendar.current
+                        let startOfDay = calendar.startOfDay(for: uvData.first!.date)
+                        for hour in stride(from: 0, through: 24, by: 3) {
+                            guard let tickDate = calendar.date(byAdding: .hour, value: hour, to: startOfDay) else { continue }
+                            let totalSeconds = uvData.last!.date.timeIntervalSince(uvData.first!.date)
+                            let tickSeconds = tickDate.timeIntervalSince(uvData.first!.date)
+                            let fraction = CGFloat(tickSeconds / totalSeconds)
+                            let x = chartRect.minX + chartRect.width * fraction
+                            // Tick
+                            let tick = Path { path in
+                                path.move(to: CGPoint(x: x, y: chartRect.maxY))
+                                path.addLine(to: CGPoint(x: x, y: chartRect.maxY + 6))
+                            }
+                            context.stroke(tick, with: .color(.gray), lineWidth: 1)
+                            // Label
+                            let hourLabel: String
+                            if hour == 0 || hour == 24 {
+                                hourLabel = "12am"
+                            } else if hour == 12 {
+                                hourLabel = "12pm"
+                            } else if hour < 12 {
+                                hourLabel = "\(hour)am"
+                            } else {
+                                hourLabel = "\(hour-12)pm"
+                            }
+                            let label = Text(hourLabel).font(.caption2).foregroundColor(.secondary)
+                            let resolved = context.resolve(label)
+                            let textSize = resolved.measure(in: CGSize(width: 32, height: 12))
+                            let textPoint = CGPoint(x: x - textSize.width/2, y: chartRect.maxY + 8)
+                            context.draw(resolved, at: textPoint)
+                        }
+                        // Draw grid lines
+                        for y in stride(from: 0, through: yMax, by: 2) {
+                            let yPos = chartRect.maxY - chartRect.height * CGFloat(y) / yMax
+                            let line = Path { path in
+                                path.move(to: CGPoint(x: chartRect.minX, y: yPos))
+                                path.addLine(to: CGPoint(x: chartRect.maxX, y: yPos))
+                            }
+                            context.stroke(line, with: .color(Color.gray.opacity(0.18)), lineWidth: 1)
+                        }
+                        // Draw threshold line
+                        let thresholdY = chartRect.maxY - chartRect.height * CGFloat(uvThreshold) / yMax
+                        let thresholdLine = Path { path in
+                            path.move(to: CGPoint(x: chartRect.minX, y: thresholdY))
+                            path.addLine(to: CGPoint(x: chartRect.maxX, y: thresholdY))
+                        }
+                        context.stroke(thresholdLine, with: .color(.red), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                        // Threshold label
+                        let labelRect = CGRect(x: chartRect.minX + 6, y: thresholdY - 18, width: 80, height: 18)
+                        // Draw background
+                        let labelBg = Path(roundedRect: labelRect, cornerRadius: 6)
+                        context.fill(labelBg, with: .color(.red))
+                        // Draw text centered in labelRect
+                        let resolved = context.resolve(Text("UV Threshold").font(.caption2).foregroundColor(.white))
+                        let textSize = resolved.measure(in: labelRect.size)
+                        let textPoint = CGPoint(x: labelRect.midX - textSize.width/2, y: labelRect.midY - textSize.height/2)
+                        context.draw(resolved, at: textPoint)
+                        
+                        // Draw UV line as gradient
+                        var uvPath = Path()
+                        for (i, point) in uvData.enumerated() {
+                            let x = chartRect.minX + chartRect.width * CGFloat(point.fraction)
+                            let y = chartRect.maxY - chartRect.height * CGFloat(point.uv) / yMax
+                            if i == 0 {
+                                uvPath.move(to: CGPoint(x: x, y: y))
+                            } else {
+                                uvPath.addLine(to: CGPoint(x: x, y: y))
+                            }
+                        }
+                        // Draw per-segment gradient
+                        for i in 1..<uvData.count {
+                            let prev = uvData[i-1]
+                            let curr = uvData[i]
+                            let x1 = chartRect.minX + chartRect.width * CGFloat(prev.fraction)
+                            let y1 = chartRect.maxY - chartRect.height * CGFloat(prev.uv) / yMax
+                            let x2 = chartRect.minX + chartRect.width * CGFloat(curr.fraction)
+                            let y2 = chartRect.maxY - chartRect.height * CGFloat(curr.uv) / yMax
+                            let color1 = getChartColor(for: prev.uv)
+                            let color2 = getChartColor(for: curr.uv)
+                            let segPath = Path { path in
+                                path.move(to: CGPoint(x: x1, y: y1))
+                                path.addLine(to: CGPoint(x: x2, y: y2))
+                            }
+                            let gradient = Gradient(colors: [color1, color2])
+                            context.stroke(segPath, with: .linearGradient(gradient, startPoint: CGPoint(x: x1, y: y1), endPoint: CGPoint(x: x2, y: y2)), lineWidth: 4)
+                        }
+                        // Draw vertical Now/Selected line
+                        let nowFraction = getNowFraction()
+                        let selected = selectedFraction ?? nowFraction
+                        let nowX = chartRect.minX + chartRect.width * selected
+                        let nowLine = Path { path in
+                            path.move(to: CGPoint(x: nowX, y: chartRect.minY))
+                            path.addLine(to: CGPoint(x: nowX, y: chartRect.maxY))
+                        }
+                        context.stroke(nowLine, with: .color(.blue), lineWidth: 2)
                     }
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: .hour, count: 3)) { value in
-                            if let date = value.as(Date.self) {
-                                AxisValueLabel {
-                                    Text(formatKeyTime(date))
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
+                    .frame(height: chartHeight + 2*chartPadding + 24)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .updating($dragOffset) { value, state, _ in
+                                let geoWidth = geo.size.width - 2*chartPadding
+                                let x = min(max(value.location.x - chartPadding, 0), geoWidth)
+                                state = x / geoWidth
+                            }
+                            .onChanged { value in
+                                isDragging = true
+                                let geoWidth = geo.size.width - 2*chartPadding
+                                let x = min(max(value.location.x - chartPadding, 0), geoWidth)
+                                selectedFraction = x / geoWidth
+                            }
+                            .onEnded { _ in
+                                isDragging = false
+                                withAnimation(.easeOut(duration: 0.6)) {
+                                    selectedFraction = nil
                                 }
                             }
-                        }
-                    }
-                    .chartYAxis {
-                        AxisMarks(position: .leading) { value in
-                            AxisValueLabel {
-                                Text("\(value.as(Int.self) ?? 0)")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                    .chartYScale(domain: 0...12)
-                    .chartXScale(domain: startOfToday()...endOfToday())
-                    .chartOverlay { proxy in
-                        Rectangle()
-                            .fill(.clear)
-                            .contentShape(Rectangle())
-                            .gesture(
-                                DragGesture()
-                                    .onChanged { value in
-                                        isDragging = true
-                                        let location = value.location
-                                        if let date = proxy.value(atX: location.x, as: Date.self) {
-                                            selectedTime = date
-                                        }
-                                    }
-                                    .onEnded { _ in
-                                        isDragging = false
-                                        withAnimation(.easeOut(duration: 0.6)) {
-                                            selectedTime = Date()
-                                        }
-                                    }
-                            )
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 200, maxHeight: 220)
-                }
-                .refreshable {
-                    await weatherViewModel.refreshData()
+                    )
                 }
             }
+            .frame(height: chartHeight + 2*chartPadding + 24)
         }
-        .padding()
-        .background(Color(.systemBackground).opacity(0.9))
-        .cornerRadius(20)
-        .shadow(radius: 8)
-        .padding(.horizontal)
     }
     
     // MARK: - Helper Functions
-    private func getUVExposureWarning() -> String? {
-        guard let currentUV = weatherViewModel.currentUVData?.uvIndex else { return nil }
-        
-        if currentUV >= uvThreshold {
-            return "⚠️ High UV exposure detected! Take precautions."
-        }
-        return nil
-    }
-    
-    private func formatHour(_ date: Date) -> String {
-        return UVColorUtils.formatHour(date)
-    }
-    
-    private func formatKeyTime(_ date: Date) -> String {
-        return UVColorUtils.formatKeyTime(date)
-    }
-    
-    private func getUVLevelForTime(_ time: Date?) -> Int? {
-        guard let time = time else { return nil }
+    private func getChartUVData() -> [(fraction: CGFloat, uv: Int, date: Date)] {
         let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: time)
-        
-        return weatherViewModel.hourlyUVData.first { 
-            calendar.component(.hour, from: $0.date) == hour 
-        }?.uvIndex
+        let usedData: [UVData]
+        if let data = data {
+            usedData = data
+        } else {
+            let today = Date()
+            usedData = weatherViewModel.hourlyUVData.filter { calendar.isDate($0.date, inSameDayAs: today) }
+        }
+        guard let first = usedData.first, let last = usedData.last else { return [] }
+        let totalSeconds = last.date.timeIntervalSince(first.date)
+        return usedData.map { d in
+            let fraction = CGFloat(d.date.timeIntervalSince(first.date) / totalSeconds)
+            return (fraction, d.uvIndex, d.date)
+        }
     }
-    
+    private func getNowFraction() -> CGFloat {
+        let uvData = getChartUVData()
+        guard let first = uvData.first, let last = uvData.last else { return 0 }
+        let now = Date()
+        let totalSeconds = last.date.timeIntervalSince(first.date)
+        let nowSeconds = now.timeIntervalSince(first.date)
+        return CGFloat(min(max(nowSeconds / totalSeconds, 0), 1))
+    }
+    private func getDisplayTimeUV() -> (String, Int?, Color) {
+        let uvData = getChartUVData()
+        guard uvData.count > 1 else { return ("--", nil, .gray) }
+        let fraction = selectedFraction ?? getNowFraction()
+        let idx = Int(round(fraction * CGFloat(uvData.count - 1)))
+        let point = uvData[min(max(idx, 0), uvData.count - 1)]
+        let time = formatHour(point.date)
+        let color = getChartColor(for: point.uv)
+        return (time, point.uv, color)
+    }
     private func getChartColor(for uvIndex: Int) -> Color {
-        return UVColorUtils.getUVColor(uvIndex)
+        UVColorUtils.getUVColor(uvIndex)
     }
-    
-    private func legendItem(color: Color, range: String, label: String) -> some View {
-        HStack {
-            Circle()
-                .fill(color)
-                .frame(width: 12, height: 12)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(range)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text(label)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-        }
-    }
-    
-    private func isToday(_ date: Date) -> Bool {
-        let calendar = Calendar.current
-        return calendar.isDateInToday(date)
-    }
-    
-    private func startOfToday() -> Date {
-        Calendar.current.startOfDay(for: Date())
-    }
-    
-    private func endOfToday() -> Date {
-        var components = DateComponents()
-        components.day = 1
-        components.second = -1
-        return Calendar.current.date(byAdding: components, to: startOfToday()) ?? Date()
-    }
-    
-    // MARK: - Chart Marks
-    @ChartContentBuilder
-    private var chartMarks: some ChartContent {
-        let todayData = weatherViewModel.hourlyUVData.filter { isToday($0.date) }
-        // Danger Zone Layer and AreaMark per point
-        ForEach(todayData) { data in
-            if data.uvIndex >= uvThreshold {
-                RectangleMark(
-                    xStart: .value("Start", data.date.addingTimeInterval(-1800)),
-                    xEnd: .value("End", data.date.addingTimeInterval(1800)),
-                    yStart: .value("Threshold", Double(uvThreshold)),
-                    yEnd: .value("Max", 12.0)
-                )
-                .foregroundStyle(Color.red.opacity(0.15))
-            }
-            AreaMark(
-                x: .value("Time", data.date),
-                y: .value("UV Index", data.uvIndex)
-            )
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [getChartColor(for: data.uvIndex).opacity(0.3), getChartColor(for: data.uvIndex).opacity(0.1)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-        }
-        // Thicker, color-transitioning line for the whole day
-        ForEach(todayData) { data in
-            LineMark(
-                x: .value("Time", data.date),
-                y: .value("UV Index", data.uvIndex)
-            )
-            .lineStyle(StrokeStyle(lineWidth: 5))
-            .foregroundStyle(getChartColor(for: data.uvIndex))
-        }
-        // Dashed threshold line
-        RuleMark(y: .value("Threshold", uvThreshold))
-            .lineStyle(StrokeStyle(lineWidth: 2, dash: [6]))
-            .foregroundStyle(Color.red)
-            .annotation(position: .top, alignment: .leading) {
-                Text("UV Threshold")
-                    .font(.caption2)
-                    .foregroundColor(.red)
-                    .padding(.horizontal, 4)
-                    .background(Color(.systemBackground).opacity(0.8))
-                    .cornerRadius(4)
-            }
-        // Blue vertical bar: follows touch or animates back to now
-        RuleMark(x: .value("Selected", isDragging ? (selectedTime ?? Date()) : Date()))
-            .lineStyle(StrokeStyle(lineWidth: 2))
-            .foregroundStyle(Color.blue)
+    private func formatHour(_ date: Date) -> String {
+        UVColorUtils.formatHour(date)
     }
 } 

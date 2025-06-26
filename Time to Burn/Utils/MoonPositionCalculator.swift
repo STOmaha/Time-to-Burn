@@ -84,6 +84,23 @@ struct MoonPositionCalculator {
         }
     }
     
+    /// Converts azimuth to clock angle for circular astronomical clock
+    /// Clock: 0° = east (6am), 90° = south (noon), 180° = west (6pm), 270° = north (midnight)
+    /// Azimuth: 0° = north, 90° = east, 180° = south, 270° = west
+    static func azimuthToClockAngle(azimuth: Double) -> Double {
+        let normalizedAzimuth = (azimuth + 360).truncatingRemainder(dividingBy: 360)
+        
+        // Convert azimuth to clock angle
+        // Azimuth 90° (east) = Clock 0° (east)
+        // Azimuth 180° (south) = Clock 90° (south)
+        // Azimuth 270° (west) = Clock 180° (west)
+        // Azimuth 0°/360° (north) = Clock 270° (north)
+        
+        let clockAngle = (90 - normalizedAzimuth + 360).truncatingRemainder(dividingBy: 360)
+        
+        return clockAngle
+    }
+    
     // MARK: - Astronomical Calculations
     
     /// Calculate Julian Day Number

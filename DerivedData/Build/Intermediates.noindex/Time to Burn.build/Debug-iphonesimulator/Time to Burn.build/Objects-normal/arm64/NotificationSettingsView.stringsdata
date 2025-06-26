@@ -1,0 +1,112 @@
+{
+  "source": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/Time to Burn/Views/NotificationSettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 42
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Alert Settings",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 10
+        }
+      },
+      {
+        "comment": "",
+        "key": "About",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 32
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enable High UV Alerts",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 11
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Index Threshold",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 15
+        }
+      },
+      {
+        "comment": "",
+        "key": "Get notified when UV index reaches this level or higher",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 17
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Threshold",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 21
+        }
+      },
+      {
+        "comment": "",
+        "key": "3 - Moderate",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 22
+        }
+      },
+      {
+        "comment": "",
+        "key": "6 - High",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 23
+        }
+      },
+      {
+        "comment": "",
+        "key": "8 - Very High",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 24
+        }
+      },
+      {
+        "comment": "",
+        "key": "11 - Extreme",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 25
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time to Burn",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 34
+        }
+      },
+      {
+        "comment": "",
+        "key": "Monitor UV exposure and get alerts when conditions are dangerous for your skin.",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 36
+        }
+      }
+    ]
+  },
+  "version": 1
+}

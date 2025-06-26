@@ -22,6 +22,9 @@ class WeatherViewModel: ObservableObject {
     // Sun times
     @Published var sunriseTime: Date?
     @Published var sunsetTime: Date?
+    // Moon times
+    @Published var moonriseTime: Date?
+    @Published var moonsetTime: Date?
     
     init(locationManager: LocationManager) {
         self.locationManager = locationManager
@@ -102,6 +105,8 @@ class WeatherViewModel: ObservableObject {
                 self.hourlyUVData = processedHourlyData
                 self.sunriseTime = todayDayWeather?.sun.sunrise
                 self.sunsetTime = todayDayWeather?.sun.sunset
+                self.moonriseTime = todayDayWeather?.moon.moonrise
+                self.moonsetTime = todayDayWeather?.moon.moonset
                 self.lastUpdated = Date()
                 self.isLoading = false
                 
@@ -109,6 +114,8 @@ class WeatherViewModel: ObservableObject {
                 print("WeatherViewModel: Current UV Index: \(self.currentUVData?.uvIndex ?? 0)")
                 print("WeatherViewModel: Sunrise: \(self.sunriseTime?.description ?? "nil")")
                 print("WeatherViewModel: Sunset: \(self.sunsetTime?.description ?? "nil")")
+                print("WeatherViewModel: Moonrise: \(self.moonriseTime?.description ?? "nil")")
+                print("WeatherViewModel: Moonset: \(self.moonsetTime?.description ?? "nil")")
                 print("WeatherViewModel: Last Updated: \(self.lastUpdated?.description ?? "nil")")
             }
             

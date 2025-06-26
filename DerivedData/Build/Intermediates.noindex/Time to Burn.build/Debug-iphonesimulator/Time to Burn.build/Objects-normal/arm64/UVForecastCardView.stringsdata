@@ -1,0 +1,48 @@
+{
+  "source": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/Time to Burn/Views/Components/UVForecastCardView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Updated %@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 31
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Index Forecast",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 16
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 43
+        }
+      },
+      {
+        "comment": "",
+        "key": "~%@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 61
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time to Burn:",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 56
+        }
+      }
+    ]
+  },
+  "version": 1
+}

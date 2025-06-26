@@ -1,0 +1,128 @@
+{
+  "source": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/Time to Burn/Views/Components/UVChartView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "• UV %lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 41
+        }
+      },
+      {
+        "comment": "",
+        "key": "Selected:",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 28
+        }
+      },
+      {
+        "comment": "",
+        "key": "Now:",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 28
+        }
+      },
+      {
+        "comment": "",
+        "key": "Threshold",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 213
+        }
+      },
+      {
+        "comment": "",
+        "key": "Selected",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 225
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 69
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 184
+        }
+      },
+      {
+        "comment": "",
+        "key": "End",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 185
+        }
+      },
+      {
+        "comment": "",
+        "key": "Threshold",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 186
+        }
+      },
+      {
+        "comment": "",
+        "key": "Max",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 187
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 192
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Index",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 193
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 206
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Index",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 207
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Threshold",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 217
+        }
+      }
+    ]
+  },
+  "version": 1
+}

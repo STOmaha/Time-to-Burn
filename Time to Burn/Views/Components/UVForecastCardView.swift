@@ -5,90 +5,69 @@ struct UVForecastCardView: View {
     @EnvironmentObject private var locationManager: LocationManager
     
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 4)
-            VStack(alignment: .leading, spacing: 16) {
-                // Header
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("UV Index Forecast")
+        let uv = weatherViewModel.currentUVData?.uvIndex ?? 0
+        let uvColor = UVColorUtils.getUVColor(uv)
+        let advice = UVColorUtils.getUVAdvice(uvIndex: uv)
+        let level = UVColorUtils.getUVCategory(for: uv)
+        let timeToBurn = getTimeToBurnString()
+        
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("UV Index Forecast")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "location.fill")
                             .font(.subheadline)
-                            .fontWeight(.semibold)
                             .foregroundColor(.primary)
-                        HStack(spacing: 4) {
-                            Image(systemName: "location.fill")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(locationManager.locationName)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    Spacer()
-                    if let lastUpdated = weatherViewModel.lastUpdated {
-                        Text("Updated \(UVColorUtils.formatHour(lastUpdated))")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                // Main Content
-                HStack(alignment: .center, spacing: 20) {
-                    ZStack {
-                        Circle()
-                            .fill(UVColorUtils.getUVColor(weatherViewModel.currentUVData?.uvIndex ?? 0).opacity(0.12))
-                            .frame(width: 64, height: 64)
-                        VStack(spacing: 2) {
-                            Text("\(weatherViewModel.currentUVData?.uvIndex ?? 0)")
-                                .font(.system(size: 44, weight: .bold, design: .rounded))
-                                .foregroundColor(UVColorUtils.getUVColor(weatherViewModel.currentUVData?.uvIndex ?? 0))
-                            Text(getUVLevelText(uv: weatherViewModel.currentUVData?.uvIndex ?? 0))
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(UVColorUtils.getUVColor(weatherViewModel.currentUVData?.uvIndex ?? 0))
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "hourglass")
-                                .foregroundColor(.primary)
-                            Text("Time to Burn:")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.primary)
-                        }
-                        Text("~\(getTimeToBurnString())")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                        Text(locationManager.locationName)
+                            .font(.subheadline)
                             .foregroundColor(.primary)
                     }
-                    Spacer()
                 }
-                // Description
-                Text(getAdviceText(uv: weatherViewModel.currentUVData?.uvIndex ?? 0))
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                if let lastUpdated = weatherViewModel.lastUpdated {
+                    Text("Updated \(UVColorUtils.formatHour(lastUpdated))")
+                        .font(.caption)
+                        .foregroundColor(.primary.opacity(0.7))
+                }
             }
-            .padding(20)
+            HStack(alignment: .center, spacing: 18) {
+                VStack(alignment: .center, spacing: 2) {
+                    Text("\(uv)")
+                        .font(.system(size: 56, weight: .bold, design: .rounded))
+                        .foregroundColor(uvColor.opacity(0.85))
+                    Text(level)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(uvColor.opacity(0.85))
+                }
+                Spacer()
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "hourglass")
+                            .foregroundColor(.primary)
+                        Text("Time to Burn:")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                    }
+                    Text("~\(timeToBurn)")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                }
+            }
+            Text(advice)
+                .font(.body)
+                .foregroundColor(.primary)
+                .padding(.top, 2)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 8)
-    }
-    
-    private func getUVLevelText(uv: Int) -> String {
-        switch uv {
-        case 0...2: return "Low"
-        case 3...5: return "Moderate"
-        case 6...7: return "High"
-        case 8...10: return "Very High"
-        default: return "Extreme"
-        }
-    }
-    
-    private func getAdviceText(uv: Int) -> String {
-        return UVColorUtils.getUVAdvice(uvIndex: uv)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(uvColor.opacity(0.18))
+                .shadow(color: uvColor.opacity(0.18), radius: 16, x: 0, y: 8)
+        )
     }
     
     private func getTimeToBurnString() -> String {
@@ -96,5 +75,17 @@ struct UVForecastCardView: View {
         if uv == 0 { return "∞" }
         let minutes = UVColorUtils.calculateTimeToBurn(uvIndex: uv)
         return "\(minutes) minutes"
+    }
+}
+
+// MARK: - Color Extension for Darker/Complementary Color
+extension Color {
+    func darker(by amount: CGFloat = 0.2) -> Color {
+        let uiColor = UIColor(self)
+        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0, alpha: CGFloat = 0
+        if uiColor.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) {
+            return Color(hue: hue, saturation: saturation, brightness: max(brightness - amount, 0), opacity: Double(alpha))
+        }
+        return self
     }
 } 
