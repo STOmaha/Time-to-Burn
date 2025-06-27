@@ -33,7 +33,7 @@ struct UVForecastCardView: View {
                         .foregroundColor(.primary.opacity(0.7))
                 }
             }
-            HStack(alignment: .center, spacing: 18) {
+            HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .center, spacing: 2) {
                     Text("\(uv)")
                         .font(.system(size: 56, weight: .bold, design: .rounded))
@@ -43,8 +43,9 @@ struct UVForecastCardView: View {
                         .fontWeight(.semibold)
                         .foregroundColor(uvColor.opacity(0.85))
                 }
+                .offset(x: 20)
                 Spacer()
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .center, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: "hourglass")
                             .foregroundColor(.primary)
@@ -53,9 +54,10 @@ struct UVForecastCardView: View {
                             .foregroundColor(.primary)
                     }
                     Text("~\(timeToBurn)")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
                 }
+                Spacer()
             }
             Text(advice)
                 .font(.body)

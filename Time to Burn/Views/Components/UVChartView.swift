@@ -42,25 +42,29 @@ struct UVChartView: View {
         
         VStack(spacing: 10) {
             // Now/Selected time and UV index
-            HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 let (displayTime, displayUV, displayColor) = getDisplayTimeUV()
-                Text(isDragging ? "Selected:" : "Now:")
-                    .font(.headline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.white)
-                Text(displayTime)
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                if let uv = displayUV {
-                    Text("• UV \(uv)")
+                HStack(spacing: 8) {
+                    Text(isDragging ? "Selected:" : "Now:")
                         .font(.headline)
-                        .fontWeight(.semibold)
+                        .fontWeight(.medium)
                         .foregroundColor(displayColor)
-                    Text("• Time to Burn: \(getTimeToBurnString(for: uv))")
+                    Text(displayTime)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(displayColor)
+                    if let uv = displayUV {
+                        Text("• UV \(uv)")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(displayColor)
+                    }
+                }
+                if let uv = displayUV {
+                    Text("Time to Burn: \(getTimeToBurnString(for: uv))")
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(displayColor.opacity(0.9))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -254,7 +258,7 @@ struct UVChartView: View {
                 Text("Time to Burn at this threshold: ~\(getTimeToBurnString(for: userThreshold))")
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(getChartColor(for: userThreshold).opacity(0.8))
                 ZStack {
                     Slider(value: Binding(
                         get: { Double(userThreshold) },
