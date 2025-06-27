@@ -15,15 +15,6 @@ struct ContentView: View {
                     Text("UV")
                 }
             
-            // Clock Tab - Astronomical clock
-            AstronomicalClockTabView()
-                .environmentObject(locationManager)
-                .environmentObject(weatherViewModel)
-                .tabItem {
-                    Image(systemName: "clock.fill")
-                    Text("Clock")
-                }
-            
             // Forecast Tab - Today's UV chart and tomorrow's estimate
             ForecastView()
                 .environmentObject(locationManager)
@@ -52,5 +43,14 @@ struct ContentView: View {
                 }
         }
         .accentColor(.orange) // UV-themed accent color
+        .onAppear {
+            // Ensure TabBar has proper contrast
+            let appearance = UITabBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = UIColor.systemBackground
+            
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
     }
 } 

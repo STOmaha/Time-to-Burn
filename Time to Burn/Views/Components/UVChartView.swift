@@ -5,7 +5,16 @@ struct UVChartCardView: View {
     var body: some View {
         UVChartView()
             .environmentObject(weatherViewModel)
-            .padding(20)
+    }
+}
+
+struct CustomSliderThumb: View {
+    var body: some View {
+        Image("AngrySun")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 36, height: 36)
+            .shadow(radius: 2)
     }
 }
 
@@ -15,12 +24,13 @@ struct UVChartView: View {
     @GestureState private var dragOffset: CGFloat? = nil
     @State private var selectedFraction: CGFloat? = nil // 0...1, nil = current time
     @State private var isDragging = false
+    @State private var currentTime = Date() // Track current time for real-time updates
     @Namespace private var animation
     
     @State private var userThreshold: Int = UserDefaults.standard.integer(forKey: "uvUserThreshold") == 0 ? 6 : UserDefaults.standard.integer(forKey: "uvUserThreshold")
     
     private let chartHeight: CGFloat = 180
-    private let chartPadding: CGFloat = 24
+    private let chartPadding: CGFloat = 12
     private let yAxisMargin: CGFloat = 40 // Space for Y-axis labels on the right
     private let yMax: CGFloat = 12
     private let avoidStartHour = 11
@@ -28,9 +38,26 @@ struct UVChartView: View {
     
     var body: some View {
         let selectedUV = getSelectedUV()
-        let pastelColor = UVColorUtils.getPastelUVColor(selectedUV)
+        let uvRanges = getUVAboveThresholdRanges()
         
-        VStack(spacing: 16) {
+        VStack(spacing: 10) {
+            // Apple-style warning if UV exceeds threshold
+            if !uvRanges.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(uvRanges.enumerated()), id: \.offset) { index, range in
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Avoid UV Between: \(range.0) – \(range.1)")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
             // Now/Selected time and UV index
             HStack(spacing: 8) {
                 let (displayTime, displayUV, displayColor) = getDisplayTimeUV()
@@ -54,10 +81,6 @@ struct UVChartView: View {
             // Chart area
             GeometryReader { geo in
                 ZStack {
-                    // Dynamic pastel background
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(pastelColor)
-                        .shadow(color: pastelColor.opacity(0.18), radius: 16, x: 0, y: 8)
                     // Chart drawing
                     Canvas { context, size in
                         let chartRect = CGRect(x: chartPadding, y: chartPadding, width: size.width - 2*chartPadding, height: chartHeight)
@@ -77,13 +100,13 @@ struct UVChartView: View {
                             let label = Text("\(y)").font(.caption2).foregroundColor(.secondary)
                             let resolved = context.resolve(label)
                             let textSize = resolved.measure(in: CGSize(width: 30, height: 16))
-                            let textPoint = CGPoint(x: chartRect.maxX + 12, y: yPos - textSize.height/2)
+                            let textPoint = CGPoint(x: chartRect.maxX + 2, y: yPos - textSize.height/2)
                             context.draw(resolved, at: textPoint)
                         }
                         // Draw X-axis ticks and labels (every 3 hours)
                         let calendar = Calendar.current
                         let startOfDay = calendar.startOfDay(for: uvData.first!.date)
-                        for hour in stride(from: 0, through: 24, by: 3) {
+                        for hour in stride(from: 0, through: 24, by: 6) {
                             guard let tickDate = calendar.date(byAdding: .hour, value: hour, to: startOfDay) else { continue }
                             let totalSeconds = uvData.last!.date.timeIntervalSince(uvData.first!.date)
                             let tickSeconds = tickDate.timeIntervalSince(uvData.first!.date)
@@ -109,7 +132,7 @@ struct UVChartView: View {
                             let label = Text(hourLabel).font(.caption2).foregroundColor(.secondary)
                             let resolved = context.resolve(label)
                             let textSize = resolved.measure(in: CGSize(width: 32, height: 12))
-                            let textPoint = CGPoint(x: x - textSize.width/2, y: chartRect.maxY + 8)
+                            let textPoint = CGPoint(x: x - textSize.width/2, y: chartRect.maxY + 12)
                             context.draw(resolved, at: textPoint)
                         }
                         // Draw grid lines
@@ -128,46 +151,55 @@ struct UVChartView: View {
                             path.addLine(to: CGPoint(x: chartRect.maxX, y: thresholdY))
                         }
                         context.stroke(thresholdLine, with: .color(.red), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                        
+                        // Draw danger zone bars only where UV is above threshold
+                        for i in 1..<uvData.count {
+                            let prev = uvData[i-1]
+                            let curr = uvData[i]
+                            
+                            // Only draw if either point is above threshold
+                            if prev.uv > userThreshold || curr.uv > userThreshold {
+                                let x1 = chartRect.minX + chartRect.width * CGFloat(prev.fraction)
+                                let x2 = chartRect.minX + chartRect.width * CGFloat(curr.fraction)
+                                
+                                // Calculate the UV values at each point
+                                let y1 = chartRect.maxY - chartRect.height * CGFloat(prev.uv) / yMax
+                                let y2 = chartRect.maxY - chartRect.height * CGFloat(curr.uv) / yMax
+                                
+                                // Create a rectangle from the threshold line up to the UV curve
+                                let dangerBar = Path { path in
+                                    path.move(to: CGPoint(x: x1, y: thresholdY))
+                                    path.addLine(to: CGPoint(x: x2, y: thresholdY))
+                                    path.addLine(to: CGPoint(x: x2, y: y2))
+                                    path.addLine(to: CGPoint(x: x1, y: y1))
+                                    path.closeSubpath()
+                                }
+                                context.fill(dangerBar, with: .color(.red.opacity(0.2)))
+                            }
+                        }
+                        
                         // Threshold label
                         let labelHeight: CGFloat = 18
-                        let labelRect = CGRect(x: chartRect.minX + 6, y: thresholdY - labelHeight/2, width: 80, height: labelHeight)
+                        let labelRect = CGRect(x: chartRect.minX - 10, y: thresholdY - labelHeight/2, width: 80, height: labelHeight)
                         // Draw background
                         let labelBg = Path(roundedRect: labelRect, cornerRadius: 6)
                         context.fill(labelBg, with: .color(.red))
                         // Draw text centered in labelRect
                         let resolved = context.resolve(Text("UV Threshold").font(.caption2).foregroundColor(.white))
                         let textSize = resolved.measure(in: labelRect.size)
-                        let textPoint = CGPoint(x: labelRect.midX - textSize.width/2, y: labelRect.midY - textSize.height/2)
+                        let textPoint = CGPoint(x: labelRect.midX, y: labelRect.midY)
                         context.draw(resolved, at: textPoint)
                         
-                        // Draw UV line as gradient
-                        var uvPath = Path()
-                        for (i, point) in uvData.enumerated() {
-                            let x = chartRect.minX + chartRect.width * CGFloat(point.fraction)
-                            let y = chartRect.maxY - chartRect.height * CGFloat(point.uv) / yMax
-                            if i == 0 {
-                                uvPath.move(to: CGPoint(x: x, y: y))
-                            } else {
-                                uvPath.addLine(to: CGPoint(x: x, y: y))
-                            }
+                        // Collect points
+                        let uvPoints = uvData.map { point in
+                            CGPoint(
+                                x: chartRect.minX + chartRect.width * CGFloat(point.fraction),
+                                y: chartRect.maxY - chartRect.height * CGFloat(point.uv) / yMax
+                            )
                         }
-                        // Draw per-segment gradient
-                        for i in 1..<uvData.count {
-                            let prev = uvData[i-1]
-                            let curr = uvData[i]
-                            let x1 = chartRect.minX + chartRect.width * CGFloat(prev.fraction)
-                            let y1 = chartRect.maxY - chartRect.height * CGFloat(prev.uv) / yMax
-                            let x2 = chartRect.minX + chartRect.width * CGFloat(curr.fraction)
-                            let y2 = chartRect.maxY - chartRect.height * CGFloat(curr.uv) / yMax
-                            let color1 = getChartColor(for: prev.uv)
-                            let color2 = getChartColor(for: curr.uv)
-                            let segPath = Path { path in
-                                path.move(to: CGPoint(x: x1, y: y1))
-                                path.addLine(to: CGPoint(x: x2, y: y2))
-                            }
-                            let gradient = Gradient(colors: [color1, color2])
-                            context.stroke(segPath, with: .linearGradient(gradient, startPoint: CGPoint(x: x1, y: y1), endPoint: CGPoint(x: x2, y: y2)), lineWidth: 4)
-                        }
+                        let smoothUVPath = catmullRomSpline(points: uvPoints)
+                        context.stroke(smoothUVPath, with: .linearGradient(Gradient(colors: uvPoints.enumerated().map { getChartColor(for: uvData[$0.offset].uv) }), startPoint: uvPoints.first ?? .zero, endPoint: uvPoints.last ?? .zero), lineWidth: 6)
+                        
                         // Draw vertical Now/Selected line
                         let nowFraction = getNowFraction()
                         let selected = selectedFraction ?? nowFraction
@@ -178,30 +210,47 @@ struct UVChartView: View {
                         }
                         context.stroke(nowLine, with: .color(.blue), lineWidth: 2)
                     }
-                    .frame(height: chartHeight + 2*chartPadding + 24)
-                    .gesture(
+                    .frame(height: chartHeight + 2*chartPadding + 12)
+                            .gesture(
                         DragGesture(minimumDistance: 0)
                             .updating($dragOffset) { value, state, _ in
                                 let geoWidth = geo.size.width - 2*chartPadding
                                 let x = min(max(value.location.x - chartPadding, 0), geoWidth)
                                 state = x / geoWidth
                             }
-                            .onChanged { value in
-                                isDragging = true
+                                    .onChanged { value in
+                                        isDragging = true
                                 let geoWidth = geo.size.width - 2*chartPadding
                                 let x = min(max(value.location.x - chartPadding, 0), geoWidth)
                                 selectedFraction = x / geoWidth
-                            }
-                            .onEnded { _ in
-                                isDragging = false
-                                withAnimation(.easeOut(duration: 0.6)) {
+                                    }
+                                    .onEnded { _ in
+                                        isDragging = false
+                                let nowFraction = getNowFraction()
+                                guard let start = selectedFraction else {
                                     selectedFraction = nil
+                                    return
+                                }
+                                let animationDuration = 0.1
+                                let animationSteps = 60
+                                let stepDuration = animationDuration / Double(animationSteps)
+                                let delta = nowFraction - start
+                                for step in 1...animationSteps {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + stepDuration * Double(step)) {
+                                        let progress = Double(step) / Double(animationSteps)
+                                        withAnimation(.linear(duration: stepDuration)) {
+                                            selectedFraction = start + delta * progress
+                                        }
+                                        if step == animationSteps {
+                                            selectedFraction = nil
+                                        }
+                                    }
                                 }
                             }
                     )
                 }
             }
-            .frame(height: chartHeight + 2*chartPadding + 24)
+            .frame(height: chartHeight + 2*chartPadding - 8)
             // Notification threshold and slider
             VStack(spacing: 8) {
                 HStack {
@@ -216,15 +265,30 @@ struct UVChartView: View {
                 Text("Time to Burn at this threshold: ~\(getTimeToBurnString(for: userThreshold))")
                     .font(.footnote)
                     .foregroundColor(.secondary)
-                Slider(value: Binding(
-                    get: { Double(userThreshold) },
-                    set: { newValue in
-                        userThreshold = Int(newValue.rounded())
-                        UserDefaults.standard.set(userThreshold, forKey: "uvUserThreshold")
+                ZStack {
+                    Slider(value: Binding(
+                        get: { Double(userThreshold) },
+                        set: { newValue in
+                            userThreshold = Int(newValue.rounded())
+                            UserDefaults.standard.set(userThreshold, forKey: "uvUserThreshold")
+                        }
+                    ), in: 1...11, step: 1)
+                    .accentColor(.red)
+                    GeometryReader { geo in
+                        let sliderWidth = geo.size.width
+                        let fraction = CGFloat(userThreshold - 1) / 10.0 // 1...11 mapped to 0...1
+                        let x = fraction * (sliderWidth - 36) + 18 // Center the thumb
+                        CustomSliderThumb()
+                            .position(x: x, y: geo.size.height / 2)
                     }
-                ), in: 1...11, step: 1)
+                    .allowsHitTesting(false)
+                }
+                .frame(height: 36)
             }
             .padding(.top, 8)
+        }
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            currentTime = Date()
         }
     }
     
@@ -248,20 +312,47 @@ struct UVChartView: View {
     private func getNowFraction() -> CGFloat {
         let uvData = getChartUVData()
         guard let first = uvData.first, let last = uvData.last else { return 0 }
-        let now = Date()
         let totalSeconds = last.date.timeIntervalSince(first.date)
-        let nowSeconds = now.timeIntervalSince(first.date)
+        let nowSeconds = currentTime.timeIntervalSince(first.date)
         return CGFloat(min(max(nowSeconds / totalSeconds, 0), 1))
     }
     private func getDisplayTimeUV() -> (String, Int?, Color) {
         let uvData = getChartUVData()
         guard uvData.count > 1 else { return ("--", nil, .gray) }
-        let fraction = selectedFraction ?? getNowFraction()
-        let idx = Int(round(fraction * CGFloat(uvData.count - 1)))
-        let point = uvData[min(max(idx, 0), uvData.count - 1)]
-        let time = formatHour(point.date)
-        let color = getChartColor(for: point.uv)
-        return (time, point.uv, color)
+        
+        if isDragging {
+            // When dragging, interpolate the selected time and UV value
+            let fraction = selectedFraction ?? getNowFraction()
+            let idx = fraction * CGFloat(uvData.count - 1)
+            let lowerIdx = Int(floor(idx))
+            let upperIdx = min(lowerIdx + 1, uvData.count - 1)
+            let interpolationFactor = idx - CGFloat(lowerIdx)
+            let lowerDate = uvData[lowerIdx].date
+            let upperDate = uvData[upperIdx].date
+            let interpolatedTime = lowerDate.addingTimeInterval(
+                (upperDate.timeIntervalSince(lowerDate)) * Double(interpolationFactor)
+            )
+            let lowerUV = uvData[lowerIdx].uv
+            let upperUV = uvData[upperIdx].uv
+            let interpolatedUV = Int(round(CGFloat(lowerUV) * (1 - interpolationFactor) + CGFloat(upperUV) * interpolationFactor))
+            let color = getChartColor(for: interpolatedUV)
+            let time = formatHour(interpolatedTime)
+            return (time, interpolatedUV, color)
+        } else {
+            // When not dragging, show the actual current time
+            let time = formatHour(currentTime)
+            // Find the UV value at the current time by interpolating between data points
+            let fraction = getNowFraction()
+            let idx = fraction * CGFloat(uvData.count - 1)
+            let lowerIdx = Int(floor(idx))
+            let upperIdx = min(lowerIdx + 1, uvData.count - 1)
+            let interpolationFactor = idx - CGFloat(lowerIdx)
+            let lowerUV = uvData[lowerIdx].uv
+            let upperUV = uvData[upperIdx].uv
+            let interpolatedUV = Int(round(CGFloat(lowerUV) * (1 - interpolationFactor) + CGFloat(upperUV) * interpolationFactor))
+            let color = getChartColor(for: interpolatedUV)
+            return (time, interpolatedUV, color)
+        }
     }
     private func getChartColor(for uvIndex: Int) -> Color {
         UVColorUtils.getUVColor(uvIndex)
@@ -277,9 +368,87 @@ struct UVChartView: View {
     private func getSelectedUV() -> Int {
         let uvData = getChartUVData()
         guard uvData.count > 1 else { return 0 }
-        let fraction = selectedFraction ?? getNowFraction()
-        let idx = Int(round(fraction * CGFloat(uvData.count - 1)))
-        let point = uvData[min(max(idx, 0), uvData.count - 1)]
-        return point.uv
+        
+        if isDragging {
+            // When dragging, use the selected point
+            let fraction = selectedFraction ?? getNowFraction()
+            let idx = Int(round(fraction * CGFloat(uvData.count - 1)))
+            let point = uvData[min(max(idx, 0), uvData.count - 1)]
+            return point.uv
+        } else {
+            // When not dragging, interpolate UV for current time
+            let fraction = getNowFraction()
+            let idx = fraction * CGFloat(uvData.count - 1)
+            let lowerIdx = Int(floor(idx))
+            let upperIdx = min(lowerIdx + 1, uvData.count - 1)
+            let interpolationFactor = idx - CGFloat(lowerIdx)
+            
+            let lowerUV = uvData[lowerIdx].uv
+            let upperUV = uvData[upperIdx].uv
+            let interpolatedUV = Int(round(CGFloat(lowerUV) * (1 - interpolationFactor) + CGFloat(upperUV) * interpolationFactor))
+            
+            return interpolatedUV
+        }
+    }
+    private func catmullRomSpline(points: [CGPoint], granularity: Int = 12) -> Path {
+        guard points.count > 3 else {
+            var path = Path()
+            if let first = points.first {
+                path.move(to: first)
+                for pt in points.dropFirst() { path.addLine(to: pt) }
+            }
+            return path
+        }
+        var path = Path()
+        let n = points.count
+        let pts = [points[0]] + points + [points[n-1]]
+        path.move(to: points[0])
+        for i in 1..<n {
+            let p0 = pts[i-1], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2]
+            for j in 1...granularity {
+                let t = CGFloat(j) / CGFloat(granularity)
+                let tt = t * t
+                let ttt = tt * t
+                let x = 0.5 * ((2 * p1.x) +
+                    (-p0.x + p2.x) * t +
+                    (2*p0.x - 5*p1.x + 4*p2.x - p3.x) * tt +
+                    (-p0.x + 3*p1.x - 3*p2.x + p3.x) * ttt)
+                let y = 0.5 * ((2 * p1.y) +
+                    (-p0.y + p2.y) * t +
+                    (2*p0.y - 5*p1.y + 4*p2.y - p3.y) * tt +
+                    (-p0.y + 3*p1.y - 3*p2.y + p3.y) * ttt)
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+        }
+        return path
+    }
+    // Helper to get all contiguous time ranges where UV > threshold
+    private func getUVAboveThresholdRanges() -> [(String, String)] {
+        let uvData = getChartUVData()
+        guard uvData.count > 1 else { return [] }
+        var ranges: [(Date, Date)] = []
+        var currentStart: Date? = nil
+        for i in 0..<uvData.count {
+            let uv = uvData[i].uv
+            let date = uvData[i].date
+            if uv > userThreshold {
+                if currentStart == nil { currentStart = date }
+            } else {
+                if let start = currentStart {
+                    ranges.append((start, date))
+                    currentStart = nil
+                }
+            }
+        }
+        // If the last range goes to the end
+        if let start = currentStart {
+            ranges.append((start, uvData.last!.date))
+        }
+        // Format as strings
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return ranges.map { (start, end) in
+            (formatter.string(from: start), formatter.string(from: end))
+        }
     }
 } 

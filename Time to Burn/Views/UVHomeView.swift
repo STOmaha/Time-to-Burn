@@ -22,7 +22,10 @@ struct UVHomeView: View {
             .padding(.horizontal)
             .padding(.bottom, 32)
         }
-        .background(pastelBackground.ignoresSafeArea())
+        .refreshable {
+            await weatherViewModel.refreshData()
+        }
+        .background(pastelBackground)
         .navigationTitle("UV Index")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

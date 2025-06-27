@@ -72,9 +72,20 @@ class WeatherViewModel: ObservableObject {
         return Calendar.current.date(byAdding: components, to: startOfDay()) ?? Date()
     }
     
+    private func startOfWeek() -> Date {
+        Calendar.current.startOfDay(for: Date())
+    }
+    
+    private func endOfWeek() -> Date {
+        var components = DateComponents()
+        components.day = 7
+        components.second = -1
+        return Calendar.current.date(byAdding: components, to: startOfWeek()) ?? Date()
+    }
+    
     private func processHourlyData(from forecast: Forecast<HourWeather>) -> [UVData] {
-        let startTime = startOfDay()
-        let endTime = endOfDay()
+        let startTime = startOfWeek()
+        let endTime = endOfWeek()
 
         return forecast
             .filter { startTime...endTime ~= $0.date }
