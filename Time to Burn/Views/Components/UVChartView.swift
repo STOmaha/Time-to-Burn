@@ -74,6 +74,10 @@ struct UVChartView: View {
                         .font(.headline)
                         .fontWeight(.semibold)
                         .foregroundColor(displayColor)
+                    Text("• Time to Burn: \(getTimeToBurnString(for: uv))")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white.opacity(0.9))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
