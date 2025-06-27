@@ -62,18 +62,18 @@ struct UVChartView: View {
             HStack(spacing: 8) {
                 let (displayTime, displayUV, displayColor) = getDisplayTimeUV()
                 Text(isDragging ? "Selected:" : "Now:")
-                    .font(.headline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
                 Text(displayTime)
-                    .font(.title3)
+                    .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(.blue)
+                    .foregroundColor(.white)
                 if let uv = displayUV {
                     Text("• UV \(uv)")
-                        .font(.headline)
+                        .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundColor(displayColor)
+                        .foregroundColor(.white)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -255,16 +255,19 @@ struct UVChartView: View {
             VStack(spacing: 8) {
                 HStack {
                     Text("Notification Threshold:")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
                     Text("UV \(userThreshold)")
-                        .font(.headline)
-                        .foregroundColor(.red)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
                 }
                 // Time to Burn Estimate (moved above slider)
                 Text("Time to Burn at this threshold: ~\(getTimeToBurnString(for: userThreshold))")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
+                    .font(.headline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
                 ZStack {
                     Slider(value: Binding(
                         get: { Double(userThreshold) },
