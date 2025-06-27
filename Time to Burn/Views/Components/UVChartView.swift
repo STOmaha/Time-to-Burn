@@ -41,23 +41,6 @@ struct UVChartView: View {
         let uvRanges = getUVAboveThresholdRanges()
         
         VStack(spacing: 10) {
-            // Apple-style warning if UV exceeds threshold
-            if !uvRanges.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(uvRanges.enumerated()), id: \.offset) { index, range in
-                        HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                                .font(.system(size: 14, weight: .medium))
-                            Text("Avoid UV Between: \(range.0) – \(range.1)")
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(.primary)
-                                .lineLimit(1)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
             // Now/Selected time and UV index
             HStack(spacing: 8) {
                 let (displayTime, displayUV, displayColor) = getDisplayTimeUV()
@@ -261,11 +244,11 @@ struct UVChartView: View {
                     Text("Notification Threshold:")
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(getChartColor(for: userThreshold).opacity(0.9))
                     Text("UV \(userThreshold)")
                         .font(.headline)
                         .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .foregroundColor(getChartColor(for: userThreshold))
                 }
                 // Time to Burn Estimate (moved above slider)
                 Text("Time to Burn at this threshold: ~\(getTimeToBurnString(for: userThreshold))")
