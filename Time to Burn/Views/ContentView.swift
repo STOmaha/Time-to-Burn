@@ -24,6 +24,15 @@ struct ContentView: View {
                     Text("Forecast")
                 }
             
+            // Timer Tab - Sun exposure timer
+            TimerView()
+                .environmentObject(locationManager)
+                .environmentObject(weatherViewModel)
+                .tabItem {
+                    Image(systemName: "timer")
+                    Text("Timer")
+                }
+            
             // Map Tab - Location search
             MapView()
                 .environmentObject(locationManager)
