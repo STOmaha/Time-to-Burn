@@ -3,9 +3,12 @@ import SwiftUI
 struct MeView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
-    @State private var notificationsEnabled = true
+    @EnvironmentObject private var notificationManager: NotificationManager
+    @StateObject private var onboardingManager = OnboardingManager.shared
     @State private var darkModeEnabled = true
     @State private var unitsMetric = true
+    @State private var showingDailySummaryAlert = false
+    @State private var showingResetOnboardingAlert = false
     
     var body: some View {
         NavigationView {
@@ -17,123 +20,150 @@ struct MeView: View {
                             .font(.largeTitle)
                             .foregroundColor(.orange)
                         
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Time to Burn User")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Sun Safety User")
                                 .font(.headline)
-                                .fontWeight(.medium)
-                            Text("UV Protection Expert")
-                                .font(.caption)
+                                .fontWeight(.semibold)
+                            Text("Stay protected, stay healthy")
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
                         
                         Spacer()
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 4)
                 }
                 
-                // Settings Section
-                Section("Settings") {
+                // Notifications Section
+                Section("Notifications") {
+                    HStack {
+                        Image(systemName: notificationManager.isAuthorized ? "bell.fill" : "bell.slash.fill")
+                            .foregroundColor(notificationManager.isAuthorized ? .green : .red)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(notificationManager.isAuthorized ? "Notifications Enabled" : "Notifications Disabled")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text(notificationManager.isAuthorized ? "You'll receive UV alerts and reminders" : "Enable to get UV alerts and reminders")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        if !notificationManager.isAuthorized {
+                            Button("Enable") {
+                                Task {
+                                    await notificationManager.requestNotificationPermission()
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                        }
+                    }
+                    
                     NavigationLink(destination: NotificationSettingsView()) {
                         HStack {
-                            Image(systemName: "bell.fill")
+                            Image(systemName: "gear")
                                 .foregroundColor(.blue)
-                                .frame(width: 24)
-                            Text("Notifications")
-                            Spacer()
+                            Text("Notification Settings")
                         }
-                    }
-                    
-                    HStack {
-                        Image(systemName: "moon.fill")
-                            .foregroundColor(.purple)
-                            .frame(width: 24)
-                        Text("Dark Mode")
-                        Spacer()
-                        Toggle("", isOn: $darkModeEnabled)
-                    }
-                    
-                    HStack {
-                        Image(systemName: "thermometer")
-                            .foregroundColor(.red)
-                            .frame(width: 24)
-                        Text("Units")
-                        Spacer()
-                        Picker("Units", selection: $unitsMetric) {
-                            Text("Metric").tag(true)
-                            Text("Imperial").tag(false)
-                        }
-                        .pickerStyle(SegmentedPickerStyle())
-                        .frame(width: 120)
                     }
                 }
                 
                 // Location Section
                 Section("Location") {
                     HStack {
-                        Image(systemName: "location.fill")
-                            .foregroundColor(.green)
-                            .frame(width: 24)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Current Location")
+                        let isAuthorized = locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways
+                        Image(systemName: isAuthorized ? "location.fill" : "location.slash.fill")
+                            .foregroundColor(isAuthorized ? .green : .red)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(isAuthorized ? "Location Enabled" : "Location Disabled")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                            Text(locationManager.locationName)
+                            Text(isAuthorized ? "Getting UV data for your area" : "Enable to get local UV data")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
+                        
                         Spacer()
-                    }
-                    
-                    Button(action: {
-                        // TODO: Implement location refresh
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundColor(.blue)
-                                .frame(width: 24)
-                            Text("Refresh Location")
-                                .foregroundColor(.blue)
+                        
+                        if !isAuthorized {
+                            Button("Enable") {
+                                Task {
+                                    locationManager.requestLocation()
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundColor(.blue)
                         }
                     }
                 }
                 
-                // App Info Section
-                Section("App Info") {
-                    HStack {
-                        Image(systemName: "info.circle.fill")
-                            .foregroundColor(.gray)
-                            .frame(width: 24)
-                        Text("Version")
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundColor(.secondary)
-                    }
+                // App Settings Section
+                Section("App Settings") {
+                    Toggle("Dark Mode", isOn: $darkModeEnabled)
+                        .onChange(of: darkModeEnabled) { oldValue, newValue in
+                            // Handle dark mode toggle
+                        }
                     
+                    Toggle("Metric Units", isOn: $unitsMetric)
+                        .onChange(of: unitsMetric) { oldValue, newValue in
+                            // Handle units toggle
+                        }
+                }
+                
+                // Daily Summary Section
+                Section("Daily Summary") {
                     HStack {
-                        Image(systemName: "questionmark.circle.fill")
-                            .foregroundColor(.gray)
-                            .frame(width: 24)
-                        Text("Help & Support")
+                        Image(systemName: "chart.bar.fill")
+                            .foregroundColor(.purple)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Daily Summary")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text("Get a summary of your daily sun exposure")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
                         Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.secondary)
-                            .font(.caption)
-                    }
-                    
-                    HStack {
-                        Image(systemName: "star.fill")
-                            .foregroundColor(.yellow)
-                            .frame(width: 24)
-                        Text("Rate App")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(.secondary)
-                            .font(.caption)
+                        
+                        Button("Schedule") {
+                            showingDailySummaryAlert = true
+                        }
+                        .font(.caption)
+                        .foregroundColor(.blue)
                     }
                 }
+                
+                // Developer Section (for testing)
+                Section("Developer") {
+                    Button("Reset Onboarding") {
+                        showingResetOnboardingAlert = true
+                    }
+                    .foregroundColor(.red)
+                }
             }
-            .navigationTitle("Me")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationTitle("Settings")
+            .alert("Schedule Daily Summary", isPresented: $showingDailySummaryAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Schedule") {
+                    notificationManager.scheduleDailySummary(at: Date(), totalExposure: 0)
+                }
+            } message: {
+                Text("You'll receive a daily summary of your sun exposure at 6 PM each day.")
+            }
+            .alert("Reset Onboarding", isPresented: $showingResetOnboardingAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Reset", role: .destructive) {
+                    onboardingManager.startOnboarding()
+                }
+            } message: {
+                Text("This will show the onboarding flow again. This is useful for testing.")
+            }
         }
     }
 } 

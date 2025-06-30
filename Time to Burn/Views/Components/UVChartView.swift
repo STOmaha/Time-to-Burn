@@ -37,17 +37,14 @@ struct UVChartView: View {
     private let avoidEndHour = 15
     
     var body: some View {
-        let selectedUV = getSelectedUV()
-        let uvRanges = getUVAboveThresholdRanges()
-        
         VStack(spacing: 10) {
             // Now/Selected time and UV index
             VStack(alignment: .leading, spacing: 4) {
                 let (displayTime, displayUV, displayColor) = getDisplayTimeUV()
                 HStack(spacing: 8) {
-                    Text(isDragging ? "Selected:" : "Now:")
-                        .font(.headline)
-                        .fontWeight(.medium)
+                Text(isDragging ? "Selected:" : "Now:")
+                    .font(.headline)
+                    .fontWeight(.medium)
                         .foregroundColor(displayColor)
                     Text(displayTime)
                         .font(.headline)
@@ -55,8 +52,8 @@ struct UVChartView: View {
                         .foregroundColor(displayColor)
                     if let uv = displayUV {
                         Text("• UV \(uv)")
-                            .font(.headline)
-                            .fontWeight(.semibold)
+                        .font(.headline)
+                        .fontWeight(.semibold)
                             .foregroundColor(displayColor)
                     }
                 }
@@ -177,7 +174,7 @@ struct UVChartView: View {
                         context.fill(labelBg, with: .color(.red))
                         // Draw text centered in labelRect
                         let resolved = context.resolve(Text("UV Threshold").font(.caption2).foregroundColor(.white))
-                        let textSize = resolved.measure(in: labelRect.size)
+                        let _ = resolved.measure(in: labelRect.size)
                         let textPoint = CGPoint(x: labelRect.midX, y: labelRect.midY)
                         context.draw(resolved, at: textPoint)
                         

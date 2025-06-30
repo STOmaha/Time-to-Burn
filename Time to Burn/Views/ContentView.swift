@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
+    @StateObject private var timerViewModel = TimerViewModel()
     
     var body: some View {
         TabView {
@@ -28,6 +29,7 @@ struct ContentView: View {
             TimerView()
                 .environmentObject(locationManager)
                 .environmentObject(weatherViewModel)
+                .environmentObject(timerViewModel)
                 .tabItem {
                     Image(systemName: "timer")
                     Text("Timer")
@@ -60,6 +62,12 @@ struct ContentView: View {
             
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
+        .onChange(of: weatherViewModel.currentUVData?.uvIndex) { _, newUVIndex in
+            // Update timer when UV index changes
+            if let uvIndex = newUVIndex {
+                timerViewModel.updateUVIndex(uvIndex)
+            }
         }
     }
 } 

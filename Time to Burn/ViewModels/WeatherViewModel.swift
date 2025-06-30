@@ -2,11 +2,13 @@ import Foundation
 import WeatherKit
 import CoreLocation
 import SwiftUI
+import UserNotifications
 
 @MainActor
 class WeatherViewModel: ObservableObject {
     private let weatherService = WeatherService.shared
     private let locationManager: LocationManager
+    private let notificationManager = NotificationManager.shared
     
     // Published properties for UI updates
     @Published var isLoading = false
@@ -25,6 +27,9 @@ class WeatherViewModel: ObservableObject {
     // Moon times
     @Published var moonriseTime: Date?
     @Published var moonsetTime: Date?
+    
+    // UV threshold monitoring
+    private var lastUVThresholdAlert: Int = 0
     
     init(locationManager: LocationManager) {
         self.locationManager = locationManager
@@ -58,7 +63,13 @@ class WeatherViewModel: ObservableObject {
     // MARK: - Private Methods
     private func requestAuthorizations() async {
         print("WeatherViewModel: Requesting authorizations")
-        print("WeatherViewModel: Notifications permission requested")
+        
+        // Request notification permissions
+        let notificationGranted = await notificationManager.requestNotificationPermission()
+        print("WeatherViewModel: Notification permission granted: \(notificationGranted)")
+        
+        // Setup notification categories
+        notificationManager.setupNotificationCategories()
     }
     
     private func startOfDay() -> Date {
@@ -121,6 +132,9 @@ class WeatherViewModel: ObservableObject {
                 self.lastUpdated = Date()
                 self.isLoading = false
                 
+                // Check for UV threshold alerts
+                self.checkUVThresholdAlert()
+                
                 print("WeatherViewModel: Weather data updated successfully")
                 print("WeatherViewModel: Current UV Index: \(self.currentUVData?.uvIndex ?? 0)")
                 print("WeatherViewModel: Sunrise: \(self.sunriseTime?.description ?? "nil")")
@@ -138,6 +152,25 @@ class WeatherViewModel: ObservableObject {
                 self.errorMessage = "WeatherKit Error: \(error.localizedDescription)\nDomain: \((error as NSError).domain)\nCode: \((error as NSError).code)"
                 self.showErrorAlert = true
             }
+        }
+    }
+    
+    // MARK: - UV Threshold Monitoring
+    private func checkUVThresholdAlert() {
+        guard let currentUV = currentUVData?.uvIndex else { return }
+        
+        let threshold = notificationManager.notificationSettings.uvThreshold
+        
+        // Only send alert if UV is above threshold and we haven't already alerted for this UV level
+        if currentUV >= threshold && lastUVThresholdAlert != currentUV {
+            notificationManager.scheduleUVThresholdAlert(uvIndex: currentUV, threshold: threshold)
+            lastUVThresholdAlert = currentUV
+            print("WeatherViewModel: UV threshold alert scheduled for UV \(currentUV)")
+        }
+        
+        // Reset alert tracking if UV drops below threshold
+        if currentUV < threshold {
+            lastUVThresholdAlert = 0
         }
     }
     
@@ -170,7 +203,10 @@ class WeatherViewModel: ObservableObject {
             "locationName": locationManager.locationName,
             "lastUpdated": lastUpdated?.description ?? "Never",
             "hasError": error != nil,
-            "errorDescription": error?.localizedDescription ?? "None"
+            "errorDescription": error?.localizedDescription ?? "None",
+            "notificationsAuthorized": notificationManager.isAuthorized,
+            "currentUVIndex": currentUVData?.uvIndex ?? 0,
+            "uvThreshold": notificationManager.notificationSettings.uvThreshold
         ]
     }
 } 

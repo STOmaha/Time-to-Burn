@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B08275CA2E1160A100242AE1 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B08275C92E1160A100242AE1 /* WidgetKit.framework */; };
+		B08275CC2E1160A100242AE1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B08275CB2E1160A100242AE1 /* SwiftUI.framework */; };
+		B08275DD2E1160A200242AE1 /* TimeToBurnWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B08275C72E1160A100242AE1 /* TimeToBurnWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		B074DCA62DFB19AA009E1727 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,17 +27,61 @@
 			remoteGlobalIDString = B074DC972DFB19A8009E1727;
 			remoteInfo = "Time to Burn";
 		};
+		B08275DB2E1160A200242AE1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B074DC902DFB19A8009E1727 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B08275C62E1160A100242AE1;
+			remoteInfo = TimeToBurnWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B08275E22E1160A200242AE1 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B08275DD2E1160A200242AE1 /* TimeToBurnWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		B074DC982DFB19A8009E1727 /* Time to Burn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Time to Burn.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B074DCA52DFB19AA009E1727 /* Time to BurnTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Time to BurnTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B074DCAF2DFB19AA009E1727 /* Time to BurnUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Time to BurnUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B08275C72E1160A100242AE1 /* TimeToBurnWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimeToBurnWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B08275C92E1160A100242AE1 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		B08275CB2E1160A100242AE1 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B08275DE2E1160A200242AE1 /* Exceptions for "TimeToBurnWidget" folder in "TimeToBurnWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B08275C62E1160A100242AE1 /* TimeToBurnWidgetExtension */;
+		};
+		B08275E62E11649100242AE1 /* Exceptions for "Time to Burn" folder in "TimeToBurnWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Models/UVExposureAttributes.swift,
+			);
+			target = B08275C62E1160A100242AE1 /* TimeToBurnWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B074DC9A2DFB19A8009E1727 /* Time to Burn */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B08275E62E11649100242AE1 /* Exceptions for "Time to Burn" folder in "TimeToBurnWidgetExtension" target */,
+			);
 			path = "Time to Burn";
 			sourceTree = "<group>";
 		};
@@ -43,6 +93,14 @@
 		B074DCB22DFB19AA009E1727 /* Time to BurnUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Time to BurnUITests";
+			sourceTree = "<group>";
+		};
+		B08275CD2E1160A100242AE1 /* TimeToBurnWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B08275DE2E1160A200242AE1 /* Exceptions for "TimeToBurnWidget" folder in "TimeToBurnWidgetExtension" target */,
+			);
+			path = TimeToBurnWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -69,6 +127,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B08275C42E1160A100242AE1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B08275CC2E1160A100242AE1 /* SwiftUI.framework in Frameworks */,
+				B08275CA2E1160A100242AE1 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -78,6 +145,8 @@
 				B074DC9A2DFB19A8009E1727 /* Time to Burn */,
 				B074DCA82DFB19AA009E1727 /* Time to BurnTests */,
 				B074DCB22DFB19AA009E1727 /* Time to BurnUITests */,
+				B08275CD2E1160A100242AE1 /* TimeToBurnWidget */,
+				B08275C82E1160A100242AE1 /* Frameworks */,
 				B074DC992DFB19A8009E1727 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,8 +157,18 @@
 				B074DC982DFB19A8009E1727 /* Time to Burn.app */,
 				B074DCA52DFB19AA009E1727 /* Time to BurnTests.xctest */,
 				B074DCAF2DFB19AA009E1727 /* Time to BurnUITests.xctest */,
+				B08275C72E1160A100242AE1 /* TimeToBurnWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B08275C82E1160A100242AE1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B08275C92E1160A100242AE1 /* WidgetKit.framework */,
+				B08275CB2E1160A100242AE1 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -102,10 +181,12 @@
 				B074DC942DFB19A8009E1727 /* Sources */,
 				B074DC952DFB19A8009E1727 /* Frameworks */,
 				B074DC962DFB19A8009E1727 /* Resources */,
+				B08275E22E1160A200242AE1 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B08275DC2E1160A200242AE1 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				B074DC9A2DFB19A8009E1727 /* Time to Burn */,
@@ -163,6 +244,28 @@
 			productReference = B074DCAF2DFB19AA009E1727 /* Time to BurnUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		B08275C62E1160A100242AE1 /* TimeToBurnWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B08275DF2E1160A200242AE1 /* Build configuration list for PBXNativeTarget "TimeToBurnWidgetExtension" */;
+			buildPhases = (
+				B08275C32E1160A100242AE1 /* Sources */,
+				B08275C42E1160A100242AE1 /* Frameworks */,
+				B08275C52E1160A100242AE1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B08275CD2E1160A100242AE1 /* TimeToBurnWidget */,
+			);
+			name = TimeToBurnWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = TimeToBurnWidgetExtension;
+			productReference = B08275C72E1160A100242AE1 /* TimeToBurnWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +287,9 @@
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = B074DC972DFB19A8009E1727;
 					};
+					B08275C62E1160A100242AE1 = {
+						CreatedOnToolsVersion = 16.4;
+					};
 				};
 			};
 			buildConfigurationList = B074DC932DFB19A8009E1727 /* Build configuration list for PBXProject "Time to Burn" */;
@@ -203,6 +309,7 @@
 				B074DC972DFB19A8009E1727 /* Time to Burn */,
 				B074DCA42DFB19AA009E1727 /* Time to BurnTests */,
 				B074DCAE2DFB19AA009E1727 /* Time to BurnUITests */,
+				B08275C62E1160A100242AE1 /* TimeToBurnWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +330,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B074DCAD2DFB19AA009E1727 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B08275C52E1160A100242AE1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +367,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B08275C32E1160A100242AE1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -265,6 +386,11 @@
 			isa = PBXTargetDependency;
 			target = B074DC972DFB19A8009E1727 /* Time to Burn */;
 			targetProxy = B074DCB02DFB19AA009E1727 /* PBXContainerItemProxy */;
+		};
+		B08275DC2E1160A200242AE1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B08275C62E1160A100242AE1 /* TimeToBurnWidgetExtension */;
+			targetProxy = B08275DB2E1160A200242AE1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -544,6 +670,62 @@
 			};
 			name = Release;
 		};
+		B08275E02E1160A200242AE1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7E693E4L97;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TimeToBurnWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = TimeToBurnWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Time-to-Burn.Time-to-Burn.TimeToBurnWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B08275E12E1160A200242AE1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7E693E4L97;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TimeToBurnWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = TimeToBurnWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "Time-to-Burn.Time-to-Burn.TimeToBurnWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -579,6 +761,15 @@
 			buildConfigurations = (
 				B074DCC02DFB19AA009E1727 /* Debug */,
 				B074DCC12DFB19AA009E1727 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B08275DF2E1160A200242AE1 /* Build configuration list for PBXNativeTarget "TimeToBurnWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B08275E02E1160A200242AE1 /* Debug */,
+				B08275E12E1160A200242AE1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -25,7 +25,11 @@ struct ForecastView: View {
         dateFormatter.dateFormat = "MMM d"
         let date = dateFormatter.string(from: day)
         
-        return (dayName, date)
+        // Check if this is today
+        let isToday = calendar.isDateInToday(day)
+        let displayDayName = isToday ? "Today" : dayName
+        
+        return (displayDayName, date)
     }
     
     private func getMaxUV(for uvData: [UVData]) -> Int {
@@ -64,25 +68,28 @@ struct ForecastView: View {
     }
     
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 24) {
-                ForEach(0..<7, id: \.self) { dayOffset in
-                    DayForecastCard(
-                        dayOffset: dayOffset,
-                        uvData: getUVData(forDayOffset: dayOffset),
-                        userThreshold: userThreshold,
-                        dayInfo: getDayNameAndDate(forDayOffset: dayOffset)
-                    )
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 24) {
+                    ForEach(0..<7, id: \.self) { dayOffset in
+                        DayForecastCard(
+                            dayOffset: dayOffset,
+                            uvData: getUVData(forDayOffset: dayOffset),
+                            userThreshold: userThreshold,
+                            dayInfo: getDayNameAndDate(forDayOffset: dayOffset)
+                        )
+                    }
                 }
+                .padding(.horizontal)
+                .padding(.top, 24)
+                .padding(.bottom, 32)
             }
-            .padding(.horizontal)
-            .padding(.top)
-        }
-        .navigationTitle("7-Day UV Forecast")
-        .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            Task {
-                await weatherViewModel.refreshData()
+            .navigationTitle("7-Day UV Forecast")
+            .navigationBarTitleDisplayMode(.large)
+            .onAppear {
+                Task {
+                    await weatherViewModel.refreshData()
+                }
             }
         }
     }
@@ -168,11 +175,11 @@ struct DayForecastCard: View {
                     .font(.system(size: 48, weight: .bold, design: .rounded))
                     .foregroundColor(UVColorUtils.getUVColor(getMaxUV()))
                 Text("Peak UV")
-                    .font(.caption)
+                    .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
                 Text("~\(UVColorUtils.calculateTimeToBurn(uvIndex: getMaxUV())) min")
-                    .font(.caption2)
+                    .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
             }
@@ -183,8 +190,8 @@ struct DayForecastCard: View {
                 // Day header
                 VStack(alignment: .leading, spacing: 2) {
                     Text(dayInfo.dayName)
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                        .font(.title2)
+                        .fontWeight(.bold)
                         .foregroundColor(.primary)
                     Text(dayInfo.date)
                         .font(.subheadline)
@@ -216,17 +223,6 @@ struct DayForecastCard: View {
                                     .foregroundColor(.primary)
                             }
                             
-                            // Average burn time for all danger periods
-                            HStack(spacing: 6) {
-                                Image(systemName: "timer")
-                                    .foregroundColor(.red)
-                                    .font(.system(size: 10, weight: .medium))
-                                Text("Average burn time: \(getAverageTimeToBurnForRanges(warningRanges))")
-                                    .font(.caption)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.red)
-                            }
-                            
                             ForEach(Array(warningRanges.enumerated()), id: \.offset) { index, range in
                                 HStack(spacing: 8) {
                                     Circle()
@@ -242,14 +238,14 @@ struct DayForecastCard: View {
                                 }
                             }
                         }
-                        .padding(10)
+                        .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.red.opacity(0.08))
+                                .fill(UVColorUtils.getPastelUVColor(getMaxUV()).opacity(0.18))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(Color.red.opacity(0.15), lineWidth: 1)
+                                .stroke(UVColorUtils.getUVColor(getMaxUV()).opacity(0.15), lineWidth: 1)
                         )
                     } else {
                         // Safe day
@@ -257,18 +253,18 @@ struct DayForecastCard: View {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.green)
                                 .font(.system(size: 12, weight: .medium))
-                            Text("UV below threshold - Safe for outdoor activities")
+                            Text("UV below threshold - Safe")
                                 .font(.subheadline)
                                 .foregroundColor(.primary)
                         }
-                        .padding(10)
+                        .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.green.opacity(0.08))
+                                .fill(UVColorUtils.getPastelUVColor(getMaxUV()).opacity(0.10))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(Color.green.opacity(0.15), lineWidth: 1)
+                                .stroke(UVColorUtils.getUVColor(getMaxUV()).opacity(0.10), lineWidth: 1)
                         )
                     }
                 } else {
@@ -276,7 +272,7 @@ struct DayForecastCard: View {
                     Text("No UV data available")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                        .padding(10)
+                        .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color(.systemGray6))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -284,15 +280,11 @@ struct DayForecastCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(16)
+        .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(UVColorUtils.getUVColor(getMaxUV()).opacity(0.08))
-                )
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                .fill(UVColorUtils.getPastelUVColor(getMaxUV()))
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
         )
     }
 } 
