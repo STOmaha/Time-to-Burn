@@ -25,8 +25,8 @@ struct ContentView: View {
                     Text("Forecast")
                 }
             
-            // Timer Tab - Sun exposure timer
-            TimerView()
+            // Timer Tab - Dynamic sun exposure timer
+            DynamicTimerView()
                 .environmentObject(locationManager)
                 .environmentObject(weatherViewModel)
                 .environmentObject(timerViewModel)

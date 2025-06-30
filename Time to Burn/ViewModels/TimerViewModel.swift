@@ -17,6 +17,7 @@ class TimerViewModel: ObservableObject {
     private var timer: Timer?
     private let sunscreenReapplyInterval: TimeInterval = 2 * 60 * 60 // 2 hours in seconds
     private let notificationManager = NotificationManager.shared
+    private let sharedDataManager = SharedDataManager.shared
     
     // Background timer persistence using system clock
     private var timerStartTime: Date?
@@ -30,12 +31,14 @@ class TimerViewModel: ObservableObject {
         calculateTimeToBurn()
         loadPersistedData()
         setupBackgroundHandling()
+        updateSharedData()
     }
     
     // MARK: - Timer Control
     func startTimer() {
         guard currentUVIndex > 0 else {
             isUVZero = true
+            updateSharedData()
             return
         }
         
@@ -58,6 +61,7 @@ class TimerViewModel: ObservableObject {
         scheduleNotifications()
         
         savePersistedData()
+        updateSharedData()
     }
     
     func pauseTimer() {
@@ -78,6 +82,7 @@ class TimerViewModel: ObservableObject {
         endBackgroundTask()
         
         savePersistedData()
+        updateSharedData()
     }
     
     func resetTimer() {
@@ -90,6 +95,7 @@ class TimerViewModel: ObservableObject {
         lastBackgroundTime = nil
         
         savePersistedData()
+        updateSharedData()
     }
     
     func applySunscreen() {
@@ -109,6 +115,7 @@ class TimerViewModel: ObservableObject {
         notificationManager.scheduleSunscreenReminder(at: Date().addingTimeInterval(sunscreenReapplyInterval))
         
         savePersistedData()
+        updateSharedData()
     }
     
     // MARK: - UV Index Updates
@@ -122,6 +129,7 @@ class TimerViewModel: ObservableObject {
             if isTimerRunning {
                 pauseTimer()
             }
+            updateSharedData()
             return
         } else {
             isUVZero = false
@@ -139,6 +147,8 @@ class TimerViewModel: ObservableObject {
         if uvIndex >= 1 && !isTimerRunning && !isUVZero {
             startTimer()
         }
+        
+        updateSharedData()
     }
     
     private func calculateTimeToBurn() {
@@ -178,6 +188,45 @@ class TimerViewModel: ObservableObject {
         
         // Update Live Activity
         updateLiveActivity()
+        
+        // Update shared data for widget
+        updateSharedData()
+    }
+    
+    // MARK: - Shared Data Updates
+    private func updateSharedData() {
+        let exposureStatus: SharedUVData.ExposureStatus
+        if currentUVIndex == 0 {
+            exposureStatus = .noUV
+        } else {
+            let totalExposure = totalExposureTime + elapsedTime
+            let maxExposure = TimeInterval(timeToBurn)
+            
+            if totalExposure >= maxExposure {
+                exposureStatus = .exceeded
+            } else if totalExposure >= maxExposure * 0.8 {
+                exposureStatus = .warning
+            } else {
+                exposureStatus = .safe
+            }
+        }
+        
+        let sharedData = SharedUVData(
+            currentUVIndex: currentUVIndex,
+            timeToBurn: timeToBurn,
+            elapsedTime: elapsedTime,
+            totalExposureTime: totalExposureTime,
+            isTimerRunning: isTimerRunning,
+            lastSunscreenApplication: lastSunscreenApplication,
+            sunscreenReapplyTimeRemaining: getSunscreenReapplyTimeRemaining(),
+            exposureStatus: exposureStatus,
+            exposureProgress: getExposureProgress()
+        )
+        
+        sharedDataManager.saveSharedData(sharedData)
+        
+        // Debug logging
+        print("TimerViewModel: Updated shared data - UV: \(currentUVIndex), Timer Running: \(isTimerRunning), Progress: \(getExposureProgress())")
     }
     
     // MARK: - Background Handling
@@ -368,5 +417,27 @@ class TimerViewModel: ObservableObject {
         
         let timeSinceApplication = Date().timeIntervalSince(lastApplication)
         return max(0, sunscreenReapplyInterval - timeSinceApplication)
+    }
+    
+    // MARK: - Debug/Testing Methods
+    func forceUpdateSharedData() {
+        print("TimerViewModel: Force updating shared data")
+        updateSharedData()
+    }
+    
+    func testSharedData() {
+        let testData = SharedUVData(
+            currentUVIndex: 7,
+            timeToBurn: 25,
+            elapsedTime: 900,
+            totalExposureTime: 1800,
+            isTimerRunning: true,
+            lastSunscreenApplication: Date().addingTimeInterval(-1800),
+            sunscreenReapplyTimeRemaining: 1800,
+            exposureStatus: .warning,
+            exposureProgress: 0.6
+        )
+        sharedDataManager.saveSharedData(testData)
+        print("TimerViewModel: Test data saved - UV: 7, Timer Running: true")
     }
 } 
