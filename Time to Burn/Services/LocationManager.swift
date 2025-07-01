@@ -78,6 +78,14 @@ extension LocationManager: CLLocationManagerDelegate {
             self.location = location
             print("✅ LocationManager: Updated location successfully")
             
+            // Store location for widget in shared UserDefaults
+            let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared")
+            let locationData: [String: Double] = [
+                "latitude": location.coordinate.latitude,
+                "longitude": location.coordinate.longitude
+            ]
+            userDefaults?.set(locationData, forKey: "widgetLastKnownLocation")
+            
             // Notify WeatherViewModel of new location
             if let weatherViewModel = weatherViewModel {
                 print("🔄 LocationManager: Triggering weather data fetch...")

@@ -5,7 +5,18 @@
 	<key>colors</key>
 	<array/>
 	<key>images</key>
-	<array/>
+	<array>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/Time to Burn/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameAngrySun</string>
+			<key>relativePath</key>
+			<string>./AngrySun.imageset</string>
+			<key>swiftSymbol</key>
+			<string>angrySun</string>
+		</dict>
+	</array>
 	<key>symbols</key>
 	<array/>
 </dict>

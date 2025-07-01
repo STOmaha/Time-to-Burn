@@ -69,7 +69,7 @@ struct UVInfoCard: View {
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(.green)
                     } else {
-                        Text("~\(timerViewModel.timeToBurn) min")
+                        Text("~\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: currentUV)) min")
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(uvColor)
                     }
@@ -157,10 +157,18 @@ struct TimerDisplayCard: View {
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
             
-            Text(timerViewModel.formatTime(timerViewModel.elapsedTime))
-                .font(.system(size: 64, weight: .bold, design: .monospaced))
-                .foregroundColor(timerViewModel.getExposureStatus().color)
-                .padding(.vertical, 8)
+            // Show remaining time when timer is running, elapsed time when paused
+            if timerViewModel.isTimerRunning {
+                Text(timerViewModel.getRemainingTime())
+                    .font(.system(size: 64, weight: .bold, design: .monospaced))
+                    .foregroundColor(timerViewModel.getExposureStatus().color)
+                    .padding(.vertical, 8)
+            } else {
+                Text(timerViewModel.formatTime(timerViewModel.elapsedTime))
+                    .font(.system(size: 64, weight: .bold, design: .monospaced))
+                    .foregroundColor(timerViewModel.getExposureStatus().color)
+                    .padding(.vertical, 8)
+            }
             
             HStack(spacing: 20) {
                 VStack(spacing: 4) {
@@ -168,6 +176,16 @@ struct TimerDisplayCard: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text(timerViewModel.formatTime(timerViewModel.elapsedTime))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                }
+                
+                VStack(spacing: 4) {
+                    Text("Remaining")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(timerViewModel.getRemainingTime())
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(.primary)
@@ -261,39 +279,65 @@ struct TimerControlsCard: View {
     @EnvironmentObject private var timerViewModel: TimerViewModel
     
     var body: some View {
-        HStack(spacing: 16) {
-            Button(action: {
-                if timerViewModel.isTimerRunning {
-                    timerViewModel.pauseTimer()
-                } else {
-                    timerViewModel.startTimer()
+        VStack(spacing: 16) {
+            // Main timer control
+            HStack(spacing: 16) {
+                Button(action: {
+                    switch timerViewModel.currentState {
+                    case .notStarted, .paused:
+                        timerViewModel.startTimer()
+                    case .running:
+                        timerViewModel.pauseTimer()
+                    case .sunscreenApplied:
+                        timerViewModel.resumeTimer()
+                    case .exceeded:
+                        timerViewModel.resetTimer()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: getTimerButtonIcon())
+                        Text(getTimerButtonText())
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(getTimerButtonColor())
+                    .cornerRadius(12)
                 }
-            }) {
-                HStack {
-                    Image(systemName: timerViewModel.isTimerRunning ? "pause.fill" : "play.fill")
-                    Text(timerViewModel.isTimerRunning ? "Pause" : "Start")
+                
+                Button(action: {
+                    timerViewModel.resetTimer()
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Reset")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.red)
+                    .cornerRadius(12)
                 }
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(timerViewModel.isTimerRunning ? Color.orange : Color.green)
-                .cornerRadius(12)
             }
             
-            Button(action: {
-                timerViewModel.resetTimer()
-            }) {
-                HStack {
-                    Image(systemName: "arrow.clockwise")
-                    Text("Reset")
+            // Sunscreen button (show when timer is running or paused)
+            if timerViewModel.currentState == .running || timerViewModel.currentState == .paused {
+                Button(action: {
+                    timerViewModel.applySunscreen()
+                }) {
+                    HStack {
+                        Image(systemName: "drop.fill")
+                        Text("Apply Sunscreen")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.blue)
+                    .cornerRadius(12)
                 }
-                .font(.headline)
-                .foregroundColor(.white)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color.red)
-                .cornerRadius(12)
             }
         }
         .padding(20)
@@ -302,5 +346,44 @@ struct TimerControlsCard: View {
                 .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
         )
+    }
+    
+    private func getTimerButtonIcon() -> String {
+        switch timerViewModel.currentState {
+        case .notStarted, .paused:
+            return "play.fill"
+        case .running:
+            return "pause.fill"
+        case .sunscreenApplied:
+            return "play.fill"
+        case .exceeded:
+            return "arrow.clockwise"
+        }
+    }
+    
+    private func getTimerButtonText() -> String {
+        switch timerViewModel.currentState {
+        case .notStarted:
+            return "Start"
+        case .running:
+            return "Pause"
+        case .paused:
+            return "Resume"
+        case .sunscreenApplied:
+            return "Resume"
+        case .exceeded:
+            return "Reset"
+        }
+    }
+    
+    private func getTimerButtonColor() -> Color {
+        switch timerViewModel.currentState {
+        case .notStarted, .paused, .sunscreenApplied:
+            return .green
+        case .running:
+            return .orange
+        case .exceeded:
+            return .red
+        }
     }
 } 

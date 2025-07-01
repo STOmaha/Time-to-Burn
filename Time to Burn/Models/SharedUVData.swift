@@ -65,19 +65,14 @@ class SharedDataManager: ObservableObject {
     func saveSharedData(_ data: SharedUVData) {
         if let encoded = try? JSONEncoder().encode(data) {
             userDefaults?.set(encoded, forKey: "sharedUVData")
-            print("SharedDataManager: Saved data - UV: \(data.currentUVIndex), Timer Running: \(data.isTimerRunning)")
-        } else {
-            print("SharedDataManager: Failed to encode data")
         }
     }
     
     func loadSharedData() -> SharedUVData? {
         guard let data = userDefaults?.data(forKey: "sharedUVData"),
               let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) else {
-            print("SharedDataManager: No shared data found or failed to decode")
             return nil
         }
-        print("SharedDataManager: Loaded data - UV: \(decoded.currentUVIndex), Timer Running: \(decoded.isTimerRunning)")
         return decoded
     }
     

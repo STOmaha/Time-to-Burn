@@ -4,18 +4,50 @@
     "Localizable": [
       {
         "comment": "",
-        "key": "Settings",
+        "key": "Notification Settings",
         "location": {
           "startingColumn": 30,
-          "startingLine": 42
+          "startingLine": 163
         }
       },
       {
         "comment": "",
-        "key": "UV Alert Settings",
+        "key": "Enable Notifications",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 168
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sunscreen Reminders",
         "location": {
           "startingColumn": 38,
-          "startingLine": 10
+          "startingLine": 36
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sun Exposure Warnings",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 58
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Index Alerts",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 98
+        }
+      },
+      {
+        "comment": "",
+        "key": "Daily Summary",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 131
         }
       },
       {
@@ -23,15 +55,119 @@
         "key": "About",
         "location": {
           "startingColumn": 38,
-          "startingLine": 32
+          "startingLine": 153
         }
       },
       {
         "comment": "",
-        "key": "Enable High UV Alerts",
+        "key": "Enable",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "Notifications Enabled",
+        "location": {
+          "startingColumn": 69,
+          "startingLine": 17
+        }
+      },
+      {
+        "comment": "",
+        "key": "Notifications Disabled",
+        "location": {
+          "startingColumn": 95,
+          "startingLine": 17
+        }
+      },
+      {
+        "comment": "",
+        "key": "You'll receive alerts for sun protection",
+        "location": {
+          "startingColumn": 69,
+          "startingLine": 19
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enable notifications to get sun protection alerts",
+        "location": {
+          "startingColumn": 114,
+          "startingLine": 19
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sunscreen Reapply Alerts",
         "location": {
           "startingColumn": 28,
-          "startingLine": 11
+          "startingLine": 37
+        }
+      },
+      {
+        "comment": "",
+        "key": "You'll be reminded to reapply sunscreen every 2 hours after applying it in the Timer tab.",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 49
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reminder Interval",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 45
+        }
+      },
+      {
+        "comment": "",
+        "key": "Exposure Limit Alerts",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 59
+        }
+      },
+      {
+        "comment": "",
+        "key": "You'll be alerted when approaching or exceeding your safe sun exposure time based on current UV levels.",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 89
+        }
+      },
+      {
+        "comment": "",
+        "key": "Warning Levels",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 67
+        }
+      },
+      {
+        "comment": "",
+        "key": "Approaching Limit (80% of safe time)",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 77
+        }
+      },
+      {
+        "comment": "",
+        "key": "Exposure Exceeded (100% of safe time)",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 84
+        }
+      },
+      {
+        "comment": "",
+        "key": "High UV Alerts",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 99
         }
       },
       {
@@ -39,7 +175,7 @@
         "key": "UV Index Threshold",
         "location": {
           "startingColumn": 34,
-          "startingLine": 15
+          "startingLine": 104
         }
       },
       {
@@ -47,7 +183,7 @@
         "key": "Get notified when UV index reaches this level or higher",
         "location": {
           "startingColumn": 34,
-          "startingLine": 17
+          "startingLine": 107
         }
       },
       {
@@ -55,7 +191,7 @@
         "key": "UV Threshold",
         "location": {
           "startingColumn": 36,
-          "startingLine": 21
+          "startingLine": 111
         }
       },
       {
@@ -63,7 +199,7 @@
         "key": "3 - Moderate",
         "location": {
           "startingColumn": 38,
-          "startingLine": 22
+          "startingLine": 112
         }
       },
       {
@@ -71,7 +207,7 @@
         "key": "6 - High",
         "location": {
           "startingColumn": 38,
-          "startingLine": 23
+          "startingLine": 113
         }
       },
       {
@@ -79,7 +215,7 @@
         "key": "8 - Very High",
         "location": {
           "startingColumn": 38,
-          "startingLine": 24
+          "startingLine": 114
         }
       },
       {
@@ -87,7 +223,39 @@
         "key": "11 - Extreme",
         "location": {
           "startingColumn": 38,
-          "startingLine": 25
+          "startingLine": 115
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current threshold: UV %lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 122
+        }
+      },
+      {
+        "comment": "",
+        "key": "Daily Exposure Summary",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 132
+        }
+      },
+      {
+        "comment": "",
+        "key": "Receive a daily summary of your sun exposure at 8:00 PM",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 144
+        }
+      },
+      {
+        "comment": "",
+        "key": "Summary Time",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 140
         }
       },
       {
@@ -95,7 +263,7 @@
         "key": "Time to Burn",
         "location": {
           "startingColumn": 30,
-          "startingLine": 34
+          "startingLine": 155
         }
       },
       {
@@ -103,7 +271,31 @@
         "key": "Monitor UV exposure and get alerts when conditions are dangerous for your skin.",
         "location": {
           "startingColumn": 30,
-          "startingLine": 36
+          "startingLine": 157
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 169
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 174
+        }
+      },
+      {
+        "comment": "",
+        "key": "To receive sun protection alerts, please enable notifications in Settings.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 176
         }
       }
     ]

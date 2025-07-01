@@ -1,0 +1,112 @@
+{
+  "source": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/Time to Burn/Views/Components/UVExposureChartView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "UV Exposure Over Time",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 12
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Index",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 20
+        }
+      },
+      {
+        "comment": "",
+        "key": "Now",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 41
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Index",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 28
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 34
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Index",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 35
+        }
+      },
+      {
+        "comment": "",
+        "key": "Exposure Progress",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 74
+        }
+      },
+      {
+        "comment": "",
+        "key": "Category",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 81
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 82
+        }
+      },
+      {
+        "comment": "",
+        "key": "Max Safe",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 87
+        }
+      },
+      {
+        "comment": "",
+        "key": "Max Safe",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 91
+        }
+      },
+      {
+        "comment": "",
+        "key": "Exposure Statistics",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 130
+        }
+      }
+    ]
+  },
+  "version": 1
+}

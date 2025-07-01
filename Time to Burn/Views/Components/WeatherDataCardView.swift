@@ -61,7 +61,7 @@ struct WeatherDataCardView: View {
     private func getTimeToBurnString() -> String {
         let uv = weatherViewModel.currentUVData?.uvIndex ?? 0
         if uv == 0 { return "∞" }
-        let minutes = UVColorUtils.calculateTimeToBurn(uvIndex: uv)
+        let minutes = UVColorUtils.calculateTimeToBurnMinutes(uvIndex: uv)
         return "\(minutes) minutes"
     }
 } 

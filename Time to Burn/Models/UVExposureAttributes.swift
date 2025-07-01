@@ -7,6 +7,7 @@ struct UVExposureAttributes: ActivityAttributes {
         var totalExposureTime: TimeInterval
         var isTimerRunning: Bool
         var lastSunscreenApplication: Date?
+        var uvChangeNotification: String?
     }
     
     var uvIndex: Int

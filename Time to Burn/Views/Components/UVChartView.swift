@@ -353,7 +353,7 @@ struct UVChartView: View {
     }
     private func getTimeToBurnString(for uv: Int) -> String {
         if uv == 0 { return "∞" }
-        let minutes = UVColorUtils.calculateTimeToBurn(uvIndex: uv)
+        let minutes = UVColorUtils.calculateTimeToBurnMinutes(uvIndex: uv)
         return "\(minutes) minutes"
     }
     private func getSelectedUV() -> Int {

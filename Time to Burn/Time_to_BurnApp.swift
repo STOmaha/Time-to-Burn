@@ -34,6 +34,18 @@ struct Time_to_BurnApp: App {
                     .environmentObject(locationManager)
                     .environmentObject(weatherViewModel)
                     .environmentObject(notificationManager)
+                    .onAppear {
+                        // Fetch initial UV data when app appears
+                        Task {
+                            await weatherViewModel.refreshData()
+                        }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                        // Refresh data when app becomes active
+                        Task {
+                            await weatherViewModel.refreshData()
+                        }
+                    }
             } else {
                 OnboardingView()
                     .environmentObject(locationManager)

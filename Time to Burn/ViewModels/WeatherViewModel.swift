@@ -31,6 +31,9 @@ class WeatherViewModel: ObservableObject {
     // UV threshold monitoring
     private var lastUVThresholdAlert: Int = 0
     
+    // Background refresh timer
+    private var backgroundRefreshTimer: Timer?
+    
     init(locationManager: LocationManager) {
         self.locationManager = locationManager
         
@@ -42,6 +45,9 @@ class WeatherViewModel: ObservableObject {
             let isWeatherKitWorking = await testWeatherKitConnectivity()
             print("WeatherViewModel: WeatherKit connectivity test result: \(isWeatherKitWorking)")
         }
+        
+        // Start background refresh
+        startBackgroundRefresh()
     }
     
     // MARK: - Public Methods
@@ -58,6 +64,20 @@ class WeatherViewModel: ObservableObject {
     
     func appBecameActive() {
         print("WeatherViewModel: App became active")
+        // Refresh data when app becomes active
+        Task {
+            await refreshData()
+        }
+    }
+    
+    func appWillResignActive() {
+        print("WeatherViewModel: App will resign active")
+        // Keep background refresh running
+    }
+    
+    func appDidEnterBackground() {
+        print("WeatherViewModel: App did enter background")
+        // Keep background refresh running for Live Activity updates
     }
     
     // MARK: - Private Methods
@@ -123,7 +143,10 @@ class WeatherViewModel: ObservableObject {
             let processedHourlyData = processHourlyData(from: hourlyForecast)
             
             await MainActor.run {
-                self.currentUVData = UVData(from: currentWeather)
+                let newUVData = UVData(from: currentWeather)
+                let previousUV = self.currentUVData?.uvIndex
+                
+                self.currentUVData = newUVData
                 self.hourlyUVData = processedHourlyData
                 self.sunriseTime = todayDayWeather?.sun.sunrise
                 self.sunsetTime = todayDayWeather?.sun.sunset
@@ -136,7 +159,8 @@ class WeatherViewModel: ObservableObject {
                 self.checkUVThresholdAlert()
                 
                 print("WeatherViewModel: Weather data updated successfully")
-                print("WeatherViewModel: Current UV Index: \(self.currentUVData?.uvIndex ?? 0)")
+                print("WeatherViewModel: Current UV Index: \(newUVData.uvIndex)")
+                print("WeatherViewModel: Previous UV Index: \(previousUV ?? 0)")
                 print("WeatherViewModel: Sunrise: \(self.sunriseTime?.description ?? "nil")")
                 print("WeatherViewModel: Sunset: \(self.sunsetTime?.description ?? "nil")")
                 print("WeatherViewModel: Moonrise: \(self.moonriseTime?.description ?? "nil")")
@@ -208,5 +232,46 @@ class WeatherViewModel: ObservableObject {
             "currentUVIndex": currentUVData?.uvIndex ?? 0,
             "uvThreshold": notificationManager.notificationSettings.uvThreshold
         ]
+    }
+    
+    // MARK: - UV Data Access
+    func getCurrentUVIndex() -> Int {
+        return currentUVData?.uvIndex ?? 0
+    }
+    
+    func getCurrentUVData() -> UVData? {
+        return currentUVData
+    }
+    
+    // MARK: - Background Refresh
+    private func startBackgroundRefresh() {
+        print("WeatherViewModel: Starting background refresh timer")
+        
+        // Stop existing timer if running
+        stopBackgroundRefresh()
+        
+        // Create timer that fires every 5 minutes (300 seconds)
+        backgroundRefreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+            print("WeatherViewModel: Background refresh timer fired")
+            Task {
+                await self?.refreshData()
+            }
+        }
+        
+        // Also refresh immediately
+        Task {
+            await refreshData()
+        }
+    }
+    
+    private func stopBackgroundRefresh() {
+        backgroundRefreshTimer?.invalidate()
+        backgroundRefreshTimer = nil
+    }
+    
+    deinit {
+        // Stop timer synchronously in deinit
+        backgroundRefreshTimer?.invalidate()
+        backgroundRefreshTimer = nil
     }
 } 

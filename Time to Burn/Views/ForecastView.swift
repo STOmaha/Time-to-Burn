@@ -164,7 +164,7 @@ struct DayForecastCard: View {
         
         guard count > 0 else { return "N/A" }
         let averageUV = totalUV / count
-        return "~\(UVColorUtils.calculateTimeToBurn(uvIndex: averageUV)) min"
+        return "~\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: averageUV)) min"
     }
     
     var body: some View {
@@ -178,7 +178,7 @@ struct DayForecastCard: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
-                Text("~\(UVColorUtils.calculateTimeToBurn(uvIndex: getMaxUV())) min")
+                Text("~\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: getMaxUV())) min")
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
@@ -232,7 +232,7 @@ struct DayForecastCard: View {
                                         .font(.subheadline)
                                         .foregroundColor(.primary)
                                     Spacer()
-                                    Text("~\(UVColorUtils.calculateTimeToBurn(uvIndex: getMaxUV())) min")
+                                    Text("~\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: getMaxUV())) min")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }

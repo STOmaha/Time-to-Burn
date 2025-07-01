@@ -62,12 +62,28 @@ struct ContentView: View {
             
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
+            
+            // Sync timer with current UV data when view appears
+            if let currentUV = weatherViewModel.currentUVData?.uvIndex {
+                timerViewModel.syncWithCurrentUVData(uvIndex: currentUV)
+            }
         }
         .onChange(of: weatherViewModel.currentUVData?.uvIndex) { _, newUVIndex in
             // Update timer when UV index changes
             if let uvIndex = newUVIndex {
                 timerViewModel.updateUVIndex(uvIndex)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            // Refresh widget when app becomes active
+            timerViewModel.refreshWidget()
+            weatherViewModel.appBecameActive()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            weatherViewModel.appWillResignActive()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            weatherViewModel.appDidEnterBackground()
         }
     }
 } 

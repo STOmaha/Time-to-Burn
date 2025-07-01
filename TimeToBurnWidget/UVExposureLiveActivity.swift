@@ -6,72 +6,63 @@ struct UVExposureLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: UVExposureAttributes.self) { context in
             // Lock screen/banner UI
-            VStack(spacing: 8) {
+            let currentTotalExposure = context.state.totalExposureTime + context.state.elapsedTime
+            let maxExposure = TimeInterval(context.attributes.maxExposureTime)
+            let progress = min(currentTotalExposure / maxExposure, 1.0)
+            let status = getExposureStatus(progress: progress)
+            let statusColor = getStatusColor(status: status)
+            let progressPercent = Int(progress * 100)
+
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Image(systemName: "sun.max.fill")
-                        .foregroundColor(.orange)
-                    Text("UV Exposure")
-                        .font(.headline)
-                        .fontWeight(.semibold)
+                    Text("Exposure Progress")
+                        .font(.title3).fontWeight(.bold)
                     Spacer()
-                    Text("UV \(context.attributes.uvIndex)")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(getUVColor(context.attributes.uvIndex))
+                    Text(status)
+                        .font(.headline)
+                        .foregroundColor(statusColor)
                 }
                 
-                // Progress bar
-                let progress = context.state.isTimerRunning ? 
-                    (context.state.elapsedTime / TimeInterval(context.attributes.maxExposureTime)) : 0.0
-                
-                ProgressView(value: min(progress, 1.0))
-                    .progressViewStyle(LinearProgressViewStyle(tint: getUVColor(context.attributes.uvIndex)))
-                    .scaleEffect(y: 2)
+                ProgressView(value: progress)
+                    .progressViewStyle(LinearProgressViewStyle(tint: statusColor))
+                    .frame(height: 8)
+                    .cornerRadius(4)
                 
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Exposure")
+                        Text("Current Session")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Text(formatTime(context.state.elapsedTime))
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                            .font(.title3)
+                            .fontWeight(.semibold)
                     }
-                    
                     Spacer()
-                    
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("Max")
+                    VStack(alignment: .center, spacing: 2) {
+                        Text("Progress")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text(formatTime(TimeInterval(context.attributes.maxExposureTime)))
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                        Text("\(progressPercent)%")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(statusColor)
                     }
-                }
-                
-                // Sunscreen status
-                if let lastApplication = context.state.lastSunscreenApplication {
-                    let timeSinceApplication = Date().timeIntervalSince(lastApplication)
-                    let timeUntilReapply = max(0, 7200 - timeSinceApplication) // 2 hours
-                    
-                    HStack {
-                        Image(systemName: "drop.fill")
-                            .foregroundColor(.blue)
-                        Text("Reapply in \(formatTime(timeUntilReapply))")
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Max Safe Time")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Spacer()
+                        Text(formatMinutes(maxExposure))
+                            .font(.title3)
+                            .fontWeight(.semibold)
                     }
                 }
             }
             .padding()
             .background(Color(.systemBackground))
-            
         } dynamicIsland: { context in
-            // Dynamic Island
+            // Dynamic Island (keep as before for now)
             DynamicIsland {
-                // Expanded UI
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("UV \(context.attributes.uvIndex)")
@@ -83,10 +74,10 @@ struct UVExposureLiveActivity: Widget {
                             .foregroundColor(.secondary)
                     }
                 }
-                
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text(formatTime(context.state.elapsedTime))
+                        let currentTotalExposure = context.state.totalExposureTime + context.state.elapsedTime
+                        Text(formatTime(currentTotalExposure))
                             .font(.title2)
                             .fontWeight(.bold)
                         Text("of \(formatTime(TimeInterval(context.attributes.maxExposureTime)))")
@@ -94,57 +85,43 @@ struct UVExposureLiveActivity: Widget {
                             .foregroundColor(.secondary)
                     }
                 }
-                
                 DynamicIslandExpandedRegion(.center) {
-                    // Progress circle
-                    let progress = context.state.isTimerRunning ? 
-                        (context.state.elapsedTime / TimeInterval(context.attributes.maxExposureTime)) : 0.0
-                    
+                    let currentTotalExposure = context.state.totalExposureTime + context.state.elapsedTime
+                    let progress = min(currentTotalExposure / TimeInterval(context.attributes.maxExposureTime), 1.0)
                     ZStack {
                         Circle()
                             .stroke(Color.gray.opacity(0.3), lineWidth: 8)
                             .frame(width: 60, height: 60)
-                        
                         Circle()
-                            .trim(from: 0, to: min(progress, 1.0))
+                            .trim(from: 0, to: progress)
                             .stroke(getUVColor(context.attributes.uvIndex), style: StrokeStyle(lineWidth: 8, lineCap: .round))
                             .frame(width: 60, height: 60)
                             .rotationEffect(.degrees(-90))
-                        
                         Image(systemName: "sun.max.fill")
                             .foregroundColor(getUVColor(context.attributes.uvIndex))
                             .font(.title3)
                     }
                 }
-                
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        Button("Apply Sunscreen") {
-                            // This will be handled by the app
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.blue)
-                        
+                        Button("Apply Sunscreen") {}
+                            .buttonStyle(.bordered)
+                            .tint(.blue)
                         Spacer()
-                        
-                        Button("Reset") {
-                            // This will be handled by the app
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.red)
+                        Button("Reset") {}
+                            .buttonStyle(.bordered)
+                            .tint(.red)
                     }
                 }
             } compactLeading: {
-                // Compact leading
                 Image(systemName: "sun.max.fill")
                     .foregroundColor(getUVColor(context.attributes.uvIndex))
             } compactTrailing: {
-                // Compact trailing
-                Text(formatTime(context.state.elapsedTime))
+                let currentTotalExposure = context.state.totalExposureTime + context.state.elapsedTime
+                Text(formatTime(currentTotalExposure))
                     .font(.caption2)
                     .fontWeight(.medium)
             } minimal: {
-                // Minimal
                 Image(systemName: "sun.max.fill")
                     .foregroundColor(getUVColor(context.attributes.uvIndex))
             }
@@ -152,30 +129,43 @@ struct UVExposureLiveActivity: Widget {
     }
     
     private func formatTime(_ timeInterval: TimeInterval) -> String {
-        let hours = Int(timeInterval) / 3600
-        let minutes = Int(timeInterval) / 60 % 60
-        
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
+        let minutes = Int(timeInterval) / 60
+        let seconds = Int(timeInterval) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+    
+    private func formatMinutes(_ timeInterval: TimeInterval) -> String {
+        let minutes = Int(timeInterval) / 60
+        return "\(minutes) min"
+    }
+    
+    private func getExposureStatus(progress: Double) -> String {
+        if progress >= 1.0 {
+            return "Exceeded"
+        } else if progress >= 0.8 {
+            return "Warning"
         } else {
-            return "\(minutes)m"
+            return "Safe"
+        }
+    }
+    
+    private func getStatusColor(status: String) -> Color {
+        switch status {
+        case "Safe": return .green
+        case "Warning": return .orange
+        case "Exceeded": return .red
+        default: return .gray
         }
     }
     
     private func getUVColor(_ uvIndex: Int) -> Color {
         switch uvIndex {
-        case 0:
-            return .green
-        case 1...2:
-            return .green
-        case 3...5:
-            return .yellow
-        case 6...7:
-            return .orange
-        case 8...10:
-            return .red
-        default:
-            return .purple
+        case 0: return .green
+        case 1...2: return .green
+        case 3...5: return .yellow
+        case 6...7: return .orange
+        case 8...10: return .red
+        default: return .purple
         }
     }
 } 

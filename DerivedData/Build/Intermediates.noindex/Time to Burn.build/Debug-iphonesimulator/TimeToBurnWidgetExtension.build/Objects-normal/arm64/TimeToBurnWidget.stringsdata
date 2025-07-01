@@ -1,0 +1,48 @@
+{
+  "source": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/TimeToBurnWidget.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Current UV Index",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 11
+        }
+      },
+      {
+        "comment": "",
+        "key": "Shows the current UV Index from the main app.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 12
+        }
+      },
+      {
+        "comment": "",
+        "key": "UV Index",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 45
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 47
+        }
+      },
+      {
+        "comment": "",
+        "key": "--",
+        "location": {
+          "startingColumn": 63,
+          "startingLine": 47
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -6,7 +6,7 @@
         "comment": "",
         "key": "Updated %@",
         "location": {
-          "startingColumn": 30,
+          "startingColumn": 26,
           "startingLine": 31
         }
       },
@@ -14,32 +14,32 @@
         "comment": "",
         "key": "UV Index Forecast",
         "location": {
-          "startingColumn": 30,
-          "startingLine": 16
+          "startingColumn": 26,
+          "startingLine": 17
         }
       },
       {
         "comment": "",
         "key": "%lld",
         "location": {
-          "startingColumn": 34,
-          "startingLine": 43
+          "startingColumn": 26,
+          "startingLine": 38
         }
       },
       {
         "comment": "",
         "key": "~%@",
         "location": {
-          "startingColumn": 30,
-          "startingLine": 61
+          "startingColumn": 26,
+          "startingLine": 56
         }
       },
       {
         "comment": "",
         "key": "Time to Burn:",
         "location": {
-          "startingColumn": 34,
-          "startingLine": 56
+          "startingColumn": 30,
+          "startingLine": 52
         }
       }
     ]

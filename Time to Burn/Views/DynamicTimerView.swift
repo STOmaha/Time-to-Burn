@@ -15,10 +15,15 @@ struct DynamicTimerView: View {
                         .environmentObject(timerViewModel)
                         .environmentObject(weatherViewModel)
                     
+                    // UV Change Notification
+                    if let notification = timerViewModel.uvChangeNotification {
+                        UVChangeNotificationCard(message: notification)
+                    }
+                    
                     // Dynamic content based on timer state
                     if timerViewModel.isUVZero {
                         UVZeroWarningCard()
-                    } else if timerViewModel.isTimerRunning {
+                    } else if timerViewModel.currentState == .running || timerViewModel.currentState == .paused || timerViewModel.currentState == .sunscreenApplied {
                         ActiveTimerContent()
                     } else {
                         InactiveTimerContent()
@@ -35,14 +40,6 @@ struct DynamicTimerView: View {
                         showingUVChart.toggle()
                     }) {
                         Image(systemName: "chart.line.uptrend.xyaxis")
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        timerViewModel.testSharedData()
-                    }) {
-                        Image(systemName: "wrench.and.screwdriver")
                     }
                 }
             }
@@ -154,7 +151,7 @@ struct ExposureProgressCard: View {
                     Text("Max Safe Time")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("\(timerViewModel.timeToBurn) min")
+                    Text("\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: timerViewModel.currentUVIndex)) min")
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
@@ -419,6 +416,36 @@ struct WarningRow: View {
         .padding()
         .background(color.opacity(0.1))
         .cornerRadius(8)
+    }
+}
+
+struct UVChangeNotificationCard: View {
+    let message: String
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text(message)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.center)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.orange.opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
 

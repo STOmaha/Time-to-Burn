@@ -72,10 +72,17 @@ struct UVColorUtils {
     
     static func calculateTimeToBurn(uvIndex: Int) -> Int {
         if uvIndex == 0 { return .max } // Infinite
-        if uvIndex >= 12 { return 5 }
-        // Linear interpolation from 60 (UV 1) to 5 (UV 12)
-        let burn = 60 - Int(round(Double(uvIndex - 1) * 55.0 / 11.0))
-        return burn
+        if uvIndex >= 12 { return 5 * 60 } // 5 minutes in seconds
+        // Linear interpolation from 60 minutes (UV 1) to 5 minutes (UV 12) in seconds
+        let burnMinutes = 60 - Int(round(Double(uvIndex - 1) * 55.0 / 11.0))
+        return burnMinutes * 60 // Convert to seconds
+    }
+    
+    static func calculateTimeToBurnMinutes(uvIndex: Int) -> Int {
+        if uvIndex == 0 { return .max } // Infinite
+        if uvIndex >= 12 { return 5 } // 5 minutes
+        // Linear interpolation from 60 minutes (UV 1) to 5 minutes (UV 12)
+        return 60 - Int(round(Double(uvIndex - 1) * 55.0 / 11.0))
     }
     
     static func getPastelUVColor(_ uvIndex: Int) -> Color {

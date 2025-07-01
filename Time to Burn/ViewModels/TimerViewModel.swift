@@ -2,9 +2,12 @@ import Foundation
 import SwiftUI
 import UserNotifications
 import ActivityKit
+import WidgetKit
+import Combine
 
 @MainActor
 class TimerViewModel: ObservableObject {
+    // MARK: - Published Properties
     @Published var isTimerRunning = false
     @Published var elapsedTime: TimeInterval = 0
     @Published var totalExposureTime: TimeInterval = 0
@@ -13,184 +16,336 @@ class TimerViewModel: ObservableObject {
     @Published var sunscreenReapplyTime: TimeInterval = 0
     @Published var lastSunscreenApplication: Date?
     @Published var isUVZero = false
+    @Published var currentState: UVExposureState = .notStarted
+    @Published var sunscreenStatus: SunscreenStatus?
+    @Published var uvChangeNotification: String?
     
-    private var timer: Timer?
-    private let sunscreenReapplyInterval: TimeInterval = 2 * 60 * 60 // 2 hours in seconds
+    // MARK: - Private Properties
+    private let uvTimer = UVExposureTimer()
     private let notificationManager = NotificationManager.shared
     private let sharedDataManager = SharedDataManager.shared
+    private var cancellables = Set<AnyCancellable>()
     
     // Background timer persistence using system clock
-    private var timerStartTime: Date?
-    private var lastBackgroundTime: Date?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
     
     // Live Activity
     private var uvExposureActivity: Activity<UVExposureAttributes>?
+    private var liveActivityUpdateTimer: Timer?
     
+    // MARK: - Initialization
     init() {
-        calculateTimeToBurn()
+        setupBindings()
         loadPersistedData()
         setupBackgroundHandling()
         updateSharedData()
     }
     
+    // MARK: - Setup
+    private func setupBindings() {
+        // Bind UV timer properties to published properties
+        uvTimer.$currentState
+            .assign(to: \.currentState, on: self)
+            .store(in: &cancellables)
+        
+        uvTimer.$elapsedTime
+            .assign(to: \.elapsedTime, on: self)
+            .store(in: &cancellables)
+        
+        uvTimer.$totalExposureTime
+            .assign(to: \.totalExposureTime, on: self)
+            .store(in: &cancellables)
+        
+        uvTimer.$currentUVIndex
+            .assign(to: \.currentUVIndex, on: self)
+            .store(in: &cancellables)
+        
+        uvTimer.$timeToBurn
+            .assign(to: \.timeToBurn, on: self)
+            .store(in: &cancellables)
+        
+        uvTimer.$timeToBurn
+            .sink { [weak self] _ in
+                self?.updateLiveActivity()
+            }
+            .store(in: &cancellables)
+        
+        uvTimer.$sunscreenStatus
+            .assign(to: \.sunscreenStatus, on: self)
+            .store(in: &cancellables)
+        
+        uvTimer.$uvChangeNotification
+            .assign(to: \.uvChangeNotification, on: self)
+            .store(in: &cancellables)
+        
+        // Update computed properties when state changes
+        uvTimer.$currentState
+            .sink { [weak self] _ in
+                self?.isTimerRunning = self?.uvTimer.isTimerRunning ?? false
+                self?.isUVZero = self?.uvTimer.isUVZero ?? false
+            }
+            .store(in: &cancellables)
+        
+        uvTimer.$currentUVIndex
+            .sink { [weak self] _ in
+                self?.isUVZero = self?.uvTimer.isUVZero ?? false
+            }
+            .store(in: &cancellables)
+        
+        // Update Live Activity when timer updates (every second)
+        uvTimer.$elapsedTime
+            .sink { [weak self] _ in
+                self?.updateLiveActivity()
+            }
+            .store(in: &cancellables)
+        
+        uvTimer.$totalExposureTime
+            .sink { [weak self] _ in
+                self?.updateLiveActivity()
+            }
+            .store(in: &cancellables)
+        
+        // Also update Live Activity when UV index changes
+        uvTimer.$currentUVIndex
+            .sink { [weak self] _ in
+                self?.updateLiveActivity()
+            }
+            .store(in: &cancellables)
+        
+        // Update sunscreen reapply time
+        uvTimer.$sunscreenStatus
+            .sink { [weak self] status in
+                self?.sunscreenReapplyTime = status?.timeRemaining ?? 0
+                self?.lastSunscreenApplication = status?.applicationTime
+                self?.updateLiveActivity()
+            }
+            .store(in: &cancellables)
+        
+        // Update shared data when timer changes
+        Publishers.CombineLatest4(
+            uvTimer.$currentState,
+            uvTimer.$elapsedTime,
+            uvTimer.$totalExposureTime,
+            uvTimer.$currentUVIndex
+        )
+        .sink { [weak self] _, _, _, _ in
+            self?.updateSharedData()
+        }
+        .store(in: &cancellables)
+    }
+    
     // MARK: - Timer Control
     func startTimer() {
-        guard currentUVIndex > 0 else {
-            isUVZero = true
-            updateSharedData()
-            return
-        }
-        
-        isUVZero = false
-        isTimerRunning = true
-        timerStartTime = Date()
-        lastBackgroundTime = Date()
-        
-        // Start foreground timer
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateTimer()
-            }
-        }
-        
-        // Start Live Activity
+        uvTimer.startTimer()
         startLiveActivity()
-        
-        // Schedule notifications
         scheduleNotifications()
-        
         savePersistedData()
-        updateSharedData()
     }
     
     func pauseTimer() {
-        isTimerRunning = false
-        timer?.invalidate()
-        timer = nil
-        
-        // Update total exposure time
-        if let startTime = timerStartTime {
-            totalExposureTime += Date().timeIntervalSince(startTime)
-            timerStartTime = nil
-        }
-        
-        // Stop Live Activity
+        uvTimer.pauseTimer()
         stopLiveActivity()
-        
-        // End background task
         endBackgroundTask()
-        
         savePersistedData()
-        updateSharedData()
+    }
+    
+    func resumeTimer() {
+        uvTimer.resumeTimer()
+        startLiveActivity()
+        savePersistedData()
     }
     
     func resetTimer() {
-        pauseTimer()
-        elapsedTime = 0
-        totalExposureTime = 0
-        lastSunscreenApplication = nil
-        sunscreenReapplyTime = 0
-        timerStartTime = nil
-        lastBackgroundTime = nil
-        
+        uvTimer.resetTimer()
+        stopLiveActivity()
+        endBackgroundTask()
         savePersistedData()
-        updateSharedData()
     }
     
     func applySunscreen() {
-        lastSunscreenApplication = Date()
-        sunscreenReapplyTime = Date().timeIntervalSinceReferenceDate + sunscreenReapplyInterval
-        
-        // Reset elapsed time for new sunscreen application
-        elapsedTime = 0
-        if timerStartTime != nil {
-            timerStartTime = Date()
-        }
+        uvTimer.applySunscreen()
         
         // Update Live Activity
         updateLiveActivity()
         
         // Schedule sunscreen reminder
-        notificationManager.scheduleSunscreenReminder(at: Date().addingTimeInterval(sunscreenReapplyInterval))
+        if let status = sunscreenStatus {
+            notificationManager.scheduleSunscreenReminder(at: status.reapplyTime)
+        }
         
         savePersistedData()
-        updateSharedData()
     }
     
     // MARK: - UV Index Updates
     func updateUVIndex(_ uvIndex: Int) {
-        let previousUV = currentUVIndex
-        currentUVIndex = uvIndex
+        uvTimer.updateUVIndex(uvIndex)
         
-        // Handle UV 0 (infinity)
-        if uvIndex == 0 {
-            isUVZero = true
-            if isTimerRunning {
-                pauseTimer()
-            }
-            updateSharedData()
-            return
-        } else {
-            isUVZero = false
-        }
-        
-        // Recalculate time to burn
-        calculateTimeToBurn()
-        
-        // If UV changed significantly, update Live Activity
-        if abs(previousUV - uvIndex) >= 1 {
-            updateLiveActivity()
-        }
-        
-        // Check if we should start timer (UV >= 1)
-        if uvIndex >= 1 && !isTimerRunning && !isUVZero {
-            startTimer()
-        }
-        
-        updateSharedData()
+        // Update Live Activity if UV changed significantly
+        updateLiveActivity()
     }
     
-    private func calculateTimeToBurn() {
-        if currentUVIndex == 0 {
-            timeToBurn = Int.max // Infinity
-        } else {
-            timeToBurn = UVColorUtils.calculateTimeToBurn(uvIndex: currentUVIndex)
+    // MARK: - Background Handling
+    private func setupBackgroundHandling() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidEnterBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func appDidEnterBackground() {
+        guard isTimerRunning else { return }
+        
+        // Start background task
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask { [weak self] in
+            self?.endBackgroundTask()
         }
     }
     
-    // MARK: - Timer Updates
-    private func updateTimer() {
-        guard let startTime = timerStartTime else { return }
-        
-        elapsedTime = Date().timeIntervalSince(startTime)
-        
-        // Check for sunscreen reapply
-        if let lastApplication = lastSunscreenApplication {
-            let timeSinceApplication = Date().timeIntervalSince(lastApplication)
-            if timeSinceApplication >= sunscreenReapplyInterval {
-                // Trigger sunscreen reminder
-                notificationManager.scheduleSunscreenReminder(at: Date())
-            }
-        }
-        
-        // Check exposure warnings
-        let totalExposure = totalExposureTime + elapsedTime
-        let maxExposure = TimeInterval(timeToBurn)
-        
-        if totalExposure >= maxExposure * 0.8 && totalExposure < maxExposure {
-            // Approaching limit
-            notificationManager.scheduleExposureWarning(warningType: .approaching, timeToBurn: timeToBurn)
-        } else if totalExposure >= maxExposure {
-            // Exceeded limit
-            notificationManager.scheduleExposureWarning(warningType: .exceeded, timeToBurn: timeToBurn)
-        }
+    @objc private func appWillEnterForeground() {
+        guard isTimerRunning else { return }
         
         // Update Live Activity
         updateLiveActivity()
         
-        // Update shared data for widget
-        updateSharedData()
+        endBackgroundTask()
+    }
+    
+    private func endBackgroundTask() {
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
+    }
+    
+    // MARK: - Live Activity
+    private func startLiveActivity() {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        
+        let attributes = UVExposureAttributes(
+            uvIndex: currentUVIndex,
+            maxExposureTime: timeToBurn,
+            sunscreenReapplyTime: sunscreenStatus?.reapplyTime ?? Date()
+        )
+        
+        let contentState = UVExposureAttributes.ContentState(
+            elapsedTime: elapsedTime,
+            totalExposureTime: totalExposureTime,
+            isTimerRunning: isTimerRunning,
+            lastSunscreenApplication: lastSunscreenApplication,
+            uvChangeNotification: uvChangeNotification
+        )
+        
+        do {
+            uvExposureActivity = try Activity.request(
+                attributes: attributes,
+                content: ActivityContent(state: contentState, staleDate: nil),
+                pushType: nil
+            )
+            
+            // Start frequent Live Activity updates
+            startLiveActivityUpdateTimer()
+        } catch {
+            print("Failed to start Live Activity: \(error)")
+        }
+    }
+    
+    private func updateLiveActivity() {
+        Task {
+            let contentState = UVExposureAttributes.ContentState(
+                elapsedTime: elapsedTime,
+                totalExposureTime: totalExposureTime,
+                isTimerRunning: isTimerRunning,
+                lastSunscreenApplication: lastSunscreenApplication,
+                uvChangeNotification: uvChangeNotification
+            )
+            
+            await uvExposureActivity?.update(ActivityContent(state: contentState, staleDate: nil))
+        }
+    }
+    
+    private func stopLiveActivity() {
+        Task {
+            let contentState = UVExposureAttributes.ContentState(
+                elapsedTime: elapsedTime,
+                totalExposureTime: totalExposureTime,
+                isTimerRunning: false,
+                lastSunscreenApplication: lastSunscreenApplication,
+                uvChangeNotification: uvChangeNotification
+            )
+            
+            await uvExposureActivity?.end(ActivityContent(state: contentState, staleDate: nil), dismissalPolicy: .immediate)
+            uvExposureActivity = nil
+            
+            // Stop Live Activity update timer
+            stopLiveActivityUpdateTimer()
+        }
+    }
+    
+    private func startLiveActivityUpdateTimer() {
+        // Stop existing timer if running
+        stopLiveActivityUpdateTimer()
+        
+        // Update Live Activity every 2 seconds for smooth updates
+        liveActivityUpdateTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task {
+                await self?.updateLiveActivity()
+            }
+        }
+    }
+    
+    private func stopLiveActivityUpdateTimer() {
+        liveActivityUpdateTimer?.invalidate()
+        liveActivityUpdateTimer = nil
+    }
+    
+    // MARK: - Notifications
+    private func scheduleNotifications() {
+        // Schedule sunscreen reminder if not already scheduled
+        if sunscreenStatus == nil {
+            notificationManager.scheduleSunscreenReminder(at: Date().addingTimeInterval(2 * 60 * 60))
+        }
+    }
+    
+    // MARK: - Persistence
+    private func loadPersistedData() {
+        let defaults = UserDefaults.standard
+        elapsedTime = defaults.double(forKey: "timerElapsedTime")
+        totalExposureTime = defaults.double(forKey: "timerTotalExposureTime")
+        currentUVIndex = defaults.integer(forKey: "timerCurrentUVIndex")
+        isTimerRunning = defaults.bool(forKey: "timerIsRunning")
+        
+        if let lastApplicationTime = defaults.object(forKey: "timerLastSunscreenApplication") as? Date {
+            lastSunscreenApplication = lastApplicationTime
+        }
+        
+        sunscreenReapplyTime = defaults.double(forKey: "timerSunscreenReapplyTime")
+        
+        // Restore UV timer state
+        uvTimer.updateUVIndex(currentUVIndex)
+        
+        // Note: Timer will only start when user explicitly starts it
+        // No automatic timer restoration on app launch
+        // Reset timer running state to ensure user must manually start
+        isTimerRunning = false
+    }
+    
+    private func savePersistedData() {
+        let defaults = UserDefaults.standard
+        defaults.set(elapsedTime, forKey: "timerElapsedTime")
+        defaults.set(totalExposureTime, forKey: "timerTotalExposureTime")
+        defaults.set(currentUVIndex, forKey: "timerCurrentUVIndex")
+        defaults.set(isTimerRunning, forKey: "timerIsRunning")
+        defaults.set(lastSunscreenApplication, forKey: "timerLastSunscreenApplication")
+        defaults.set(sunscreenReapplyTime, forKey: "timerSunscreenReapplyTime")
     }
     
     // MARK: - Shared Data Updates
@@ -225,219 +380,51 @@ class TimerViewModel: ObservableObject {
         
         sharedDataManager.saveSharedData(sharedData)
         
-        // Debug logging
-        print("TimerViewModel: Updated shared data - UV: \(currentUVIndex), Timer Running: \(isTimerRunning), Progress: \(getExposureProgress())")
-    }
-    
-    // MARK: - Background Handling
-    private func setupBackgroundHandling() {
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appDidEnterBackground),
-            name: UIApplication.didEnterBackgroundNotification,
-            object: nil
-        )
-        
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(appWillEnterForeground),
-            name: UIApplication.willEnterForegroundNotification,
-            object: nil
-        )
-    }
-    
-    @objc private func appDidEnterBackground() {
-        guard isTimerRunning else { return }
-        
-        lastBackgroundTime = Date()
-        
-        // Start background task
-        backgroundTaskID = UIApplication.shared.beginBackgroundTask { [weak self] in
-            self?.endBackgroundTask()
-        }
-    }
-    
-    @objc private func appWillEnterForeground() {
-        guard isTimerRunning, let _ = lastBackgroundTime else { return }
-        
-        // Update elapsed time
-        if let startTime = timerStartTime {
-            elapsedTime = Date().timeIntervalSince(startTime)
-        }
-        
-        // Update Live Activity
-        updateLiveActivity()
-        
-        endBackgroundTask()
-    }
-    
-    private func endBackgroundTask() {
-        if backgroundTaskID != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTaskID)
-            backgroundTaskID = .invalid
-        }
-    }
-    
-    // MARK: - Live Activity
-    private func startLiveActivity() {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        
-        let attributes = UVExposureAttributes(
-            uvIndex: currentUVIndex,
-            maxExposureTime: timeToBurn,
-            sunscreenReapplyTime: lastSunscreenApplication?.addingTimeInterval(sunscreenReapplyInterval) ?? Date()
-        )
-        
-        let contentState = UVExposureAttributes.ContentState(
-            elapsedTime: elapsedTime,
-            totalExposureTime: totalExposureTime,
-            isTimerRunning: isTimerRunning,
-            lastSunscreenApplication: lastSunscreenApplication
-        )
-        
-        do {
-            uvExposureActivity = try Activity.request(
-                attributes: attributes,
-                content: ActivityContent(state: contentState, staleDate: nil),
-                pushType: nil
-            )
-        } catch {
-            print("Failed to start Live Activity: \(error)")
-        }
-    }
-    
-    private func updateLiveActivity() {
-        Task {
-            let contentState = UVExposureAttributes.ContentState(
-                elapsedTime: elapsedTime,
-                totalExposureTime: totalExposureTime,
-                isTimerRunning: isTimerRunning,
-                lastSunscreenApplication: lastSunscreenApplication
-            )
-            
-            await uvExposureActivity?.update(ActivityContent(state: contentState, staleDate: nil))
-        }
-    }
-    
-    private func stopLiveActivity() {
-        Task {
-            let contentState = UVExposureAttributes.ContentState(
-                elapsedTime: elapsedTime,
-                totalExposureTime: totalExposureTime,
-                isTimerRunning: false,
-                lastSunscreenApplication: lastSunscreenApplication
-            )
-            
-            await uvExposureActivity?.end(ActivityContent(state: contentState, staleDate: nil), dismissalPolicy: .immediate)
-            uvExposureActivity = nil
-        }
-    }
-    
-    // MARK: - Notifications
-    private func scheduleNotifications() {
-        // Schedule sunscreen reminder if not already scheduled
-        if lastSunscreenApplication == nil {
-            notificationManager.scheduleSunscreenReminder(at: Date().addingTimeInterval(sunscreenReapplyInterval))
-        }
-    }
-    
-    // MARK: - Persistence
-    private func loadPersistedData() {
-        let defaults = UserDefaults.standard
-        elapsedTime = defaults.double(forKey: "timerElapsedTime")
-        totalExposureTime = defaults.double(forKey: "timerTotalExposureTime")
-        currentUVIndex = defaults.integer(forKey: "timerCurrentUVIndex")
-        isTimerRunning = defaults.bool(forKey: "timerIsRunning")
-        
-        if let lastApplicationTime = defaults.object(forKey: "timerLastSunscreenApplication") as? Date {
-            lastSunscreenApplication = lastApplicationTime
-        }
-        
-        sunscreenReapplyTime = defaults.double(forKey: "timerSunscreenReapplyTime")
-        
-        // Restore timer if it was running
-        if isTimerRunning {
-            startTimer()
-        }
-    }
-    
-    private func savePersistedData() {
-        let defaults = UserDefaults.standard
-        defaults.set(elapsedTime, forKey: "timerElapsedTime")
-        defaults.set(totalExposureTime, forKey: "timerTotalExposureTime")
-        defaults.set(currentUVIndex, forKey: "timerCurrentUVIndex")
-        defaults.set(isTimerRunning, forKey: "timerIsRunning")
-        defaults.set(lastSunscreenApplication, forKey: "timerLastSunscreenApplication")
-        defaults.set(sunscreenReapplyTime, forKey: "timerSunscreenReapplyTime")
+        // Debug print to verify data is being saved
+        print("TimerViewModel: Saved shared data - UV: \(currentUVIndex), Time to Burn: \(timeToBurn), Timer Running: \(isTimerRunning)")
     }
     
     // MARK: - Helper Methods
     func formatTime(_ timeInterval: TimeInterval) -> String {
-        let hours = Int(timeInterval) / 3600
-        let minutes = Int(timeInterval) / 60 % 60
-        let seconds = Int(timeInterval) % 60
-        
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            return String(format: "%d:%02d", minutes, seconds)
-        }
+        uvTimer.formatTime(timeInterval)
     }
     
     func getExposureStatus() -> (message: String, color: Color) {
-        let totalExposure = totalExposureTime + elapsedTime
-        let maxExposure = TimeInterval(timeToBurn)
-        
-        if currentUVIndex == 0 {
-            return ("Safe", .green)
-        } else if totalExposure >= maxExposure {
-            return ("Exceeded", .red)
-        } else if totalExposure >= maxExposure * 0.8 {
-            return ("Warning", .orange)
-        } else {
-            return ("Safe", .green)
+        let status = uvTimer.getExposureStatus()
+        let color: Color
+        switch status.color {
+        case "green": color = .green
+        case "orange": color = .orange
+        case "red": color = .red
+        default: color = .green
         }
+        return (status.message, color)
     }
     
     func getExposureProgress() -> Double {
-        if currentUVIndex == 0 {
-            return 0.0
-        }
-        
-        let totalExposure = totalExposureTime + elapsedTime
-        let maxExposure = TimeInterval(timeToBurn)
-        
-        return min(totalExposure / maxExposure, 1.0)
+        uvTimer.exposureProgress
     }
     
     func getSunscreenReapplyTimeRemaining() -> TimeInterval {
-        guard let lastApplication = lastSunscreenApplication else {
-            return sunscreenReapplyInterval
-        }
-        
-        let timeSinceApplication = Date().timeIntervalSince(lastApplication)
-        return max(0, sunscreenReapplyInterval - timeSinceApplication)
+        sunscreenStatus?.timeRemaining ?? 0
     }
     
-    // MARK: - Debug/Testing Methods
-    func forceUpdateSharedData() {
-        print("TimerViewModel: Force updating shared data")
+    func getRemainingTime() -> String {
+        uvTimer.formatRemainingTime()
+    }
+    
+    // MARK: - UV Data Sync
+    func syncWithCurrentUVData(uvIndex: Int) {
+        print("TimerViewModel: Syncing with UV data - \(uvIndex)")
+        updateUVIndex(uvIndex)
+    }
+    
+    // MARK: - Widget Refresh
+    func refreshWidget() {
+        print("TimerViewModel: Refreshing widget")
         updateSharedData()
-    }
-    
-    func testSharedData() {
-        let testData = SharedUVData(
-            currentUVIndex: 7,
-            timeToBurn: 25,
-            elapsedTime: 900,
-            totalExposureTime: 1800,
-            isTimerRunning: true,
-            lastSunscreenApplication: Date().addingTimeInterval(-1800),
-            sunscreenReapplyTimeRemaining: 1800,
-            exposureStatus: .warning,
-            exposureProgress: 0.6
-        )
-        sharedDataManager.saveSharedData(testData)
-        print("TimerViewModel: Test data saved - UV: 7, Timer Running: true")
+        
+        // Trigger widget refresh
+        WidgetCenter.shared.reloadAllTimelines()
     }
 } 

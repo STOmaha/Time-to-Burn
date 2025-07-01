@@ -1,0 +1,4 @@
+Target dependency graph (2 targets)
+Target 'Time to Burn' in project 'Time to Burn'
+➜ Explicit dependency on target 'TimeToBurnWidgetExtension' in project 'Time to Burn'
+Target 'TimeToBurnWidgetExtension' in project 'Time to Burn' (no dependencies)
