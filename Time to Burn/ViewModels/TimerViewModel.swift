@@ -179,8 +179,7 @@ class TimerViewModel: ObservableObject {
     // MARK: - UV Index Updates
     func updateUVIndex(_ uvIndex: Int) {
         uvTimer.updateUVIndex(uvIndex)
-        
-        // Update Live Activity if UV changed significantly
+        // Ensure Live Activity is always updated after UV change and recalculation
         updateLiveActivity()
     }
     
@@ -417,6 +416,8 @@ class TimerViewModel: ObservableObject {
     func syncWithCurrentUVData(uvIndex: Int) {
         print("TimerViewModel: Syncing with UV data - \(uvIndex)")
         updateUVIndex(uvIndex)
+        // Redundant but safe: ensure Live Activity is updated
+        updateLiveActivity()
     }
     
     // MARK: - Widget Refresh
