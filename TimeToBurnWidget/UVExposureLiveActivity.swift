@@ -14,6 +14,7 @@ struct UVExposureLiveActivity: Widget {
             let progressPercent = Int(progress * 100)
 
             VStack(alignment: .leading, spacing: 12) {
+                // Main exposure progress
                 HStack {
                     Text("Exposure Progress")
                         .font(.title3).fontWeight(.bold)
@@ -28,6 +29,17 @@ struct UVExposureLiveActivity: Widget {
                     .frame(height: 8)
                     .cornerRadius(4)
                 
+                // Sunscreen timer section (when active)
+                if context.state.isSunscreenActive {
+                    SunscreenTimerSection(context: context)
+                }
+                
+                // Sunscreen prompt section (when needed)
+                if context.state.shouldShowSunscreenPrompt {
+                    SunscreenPromptSection(context: context)
+                }
+                
+                // Main timer info
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Current Session")
@@ -61,7 +73,7 @@ struct UVExposureLiveActivity: Widget {
             .padding()
             .background(Color(.systemBackground))
         } dynamicIsland: { context in
-            // Dynamic Island (keep as before for now)
+            // Dynamic Island
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -104,26 +116,65 @@ struct UVExposureLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        Button("Apply Sunscreen") {}
+                        if context.state.isSunscreenActive {
+                            // Show sunscreen timer
+                            VStack(spacing: 4) {
+                                Text("Sunscreen Active")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                Text(formatTime(context.state.sunscreenTimerRemaining))
+                                    .font(.headline)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.blue)
+                            }
+                        } else if context.state.shouldShowSunscreenPrompt {
+                            // Show sunscreen prompt
+                            Button("Apply Sunscreen") {
+                                // This will be handled by the app
+                            }
                             .buttonStyle(.bordered)
                             .tint(.blue)
-                        Spacer()
-                        Button("Reset") {}
+                            .widgetURL(URL(string: "timetoburn://apply-sunscreen"))
+                        } else {
+                            // Show regular controls
+                            Button("Apply Sunscreen") {
+                                // This will be handled by the app
+                            }
                             .buttonStyle(.bordered)
-                            .tint(.red)
+                            .tint(.blue)
+                            .widgetURL(URL(string: "timetoburn://apply-sunscreen"))
+                        }
+                        Spacer()
+                        Button("Open Timer") {
+                            // This will be handled by the app
+                        }
+                            .buttonStyle(.bordered)
+                        .tint(.orange)
+                        .widgetURL(URL(string: "timetoburn://open-timer"))
                     }
                 }
             } compactLeading: {
                 Image(systemName: "sun.max.fill")
                     .foregroundColor(getUVColor(context.attributes.uvIndex))
             } compactTrailing: {
+                if context.state.isSunscreenActive {
+                    // Show sunscreen icon when active
+                    Image(systemName: "drop.fill")
+                        .foregroundColor(.blue)
+                } else {
                 let currentTotalExposure = context.state.totalExposureTime + context.state.elapsedTime
                 Text(formatTime(currentTotalExposure))
                     .font(.caption2)
                     .fontWeight(.medium)
+                }
             } minimal: {
+                if context.state.isSunscreenActive {
+                    Image(systemName: "drop.fill")
+                        .foregroundColor(.blue)
+                } else {
                 Image(systemName: "sun.max.fill")
                     .foregroundColor(getUVColor(context.attributes.uvIndex))
+                }
             }
         }
     }
@@ -167,5 +218,115 @@ struct UVExposureLiveActivity: Widget {
         case 8...10: return .red
         default: return .purple
         }
+    }
+}
+
+// MARK: - Sunscreen Timer Section
+struct SunscreenTimerSection: View {
+    let context: ActivityViewContext<UVExposureAttributes>
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "drop.fill")
+                    .foregroundColor(.blue)
+                    .font(.title2)
+                Text("Sunscreen Timer")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.blue)
+                Spacer()
+            }
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Time Remaining")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(formatTime(context.state.sunscreenTimerRemaining))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("Reapply In")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(formatTime(context.state.sunscreenTimerRemaining))
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(context.state.sunscreenTimerRemaining < 300 ? .red : .blue)
+                }
+            }
+            
+            if context.state.sunscreenTimerRemaining < 300 {
+                Text("⚠️ Time to reapply sunscreen!")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.red)
+            }
+        }
+        .padding()
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(12)
+    }
+    
+    private func formatTime(_ timeInterval: TimeInterval) -> String {
+        let hours = Int(timeInterval) / 3600
+        let minutes = Int(timeInterval) / 60 % 60
+        let seconds = Int(timeInterval) % 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            return String(format: "%d:%02d", minutes, seconds)
+        }
+    }
+}
+
+// MARK: - Sunscreen Prompt Section
+struct SunscreenPromptSection: View {
+    let context: ActivityViewContext<UVExposureAttributes>
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                    .font(.title2)
+                Text("Sunscreen Recommended")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.orange)
+                Spacer()
+            }
+            
+            Text("You've reached 50% of your safe exposure time. Consider applying sunscreen for continued protection.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.leading)
+            
+            HStack {
+                Button("Apply Sunscreen") {
+                    // This will be handled by the app
+                }
+                .buttonStyle(.bordered)
+                .tint(.blue)
+                .widgetURL(URL(string: "timetoburn://apply-sunscreen"))
+                
+                Spacer()
+                
+                Button("Open Timer") {
+                    // This will be handled by the app
+                }
+                .buttonStyle(.bordered)
+                .tint(.orange)
+                .widgetURL(URL(string: "timetoburn://open-timer"))
+            }
+        }
+        .padding()
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(12)
     }
 } 

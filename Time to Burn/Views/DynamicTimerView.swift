@@ -5,6 +5,7 @@ struct DynamicTimerView: View {
     @EnvironmentObject private var timerViewModel: TimerViewModel
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @State private var showingUVChart = false
+    @State private var showingSunscreenTimer = false
     
     var body: some View {
         NavigationView {
@@ -24,7 +25,7 @@ struct DynamicTimerView: View {
                     if timerViewModel.isUVZero {
                         UVZeroWarningCard()
                     } else if timerViewModel.currentState == .running || timerViewModel.currentState == .paused || timerViewModel.currentState == .sunscreenApplied {
-                        ActiveTimerContent()
+                        ActiveTimerContent(showingSunscreenTimer: $showingSunscreenTimer)
                     } else {
                         InactiveTimerContent()
                     }
@@ -42,18 +43,39 @@ struct DynamicTimerView: View {
                         Image(systemName: "chart.line.uptrend.xyaxis")
                     }
                 }
+                
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        timerViewModel.testWidgetData()
+                    }) {
+                        Image(systemName: "wrench.and.screwdriver")
+                            .foregroundColor(.orange)
+                    }
+                }
             }
             .sheet(isPresented: $showingUVChart) {
                 UVExposureChartView()
                     .environmentObject(weatherViewModel)
                     .environmentObject(timerViewModel)
             }
+            .blur(radius: showingSunscreenTimer ? 10 : 0)
+            .overlay(
+                Group {
+                    if showingSunscreenTimer {
+                        SunscreenTimerPopup(
+                            isPresented: $showingSunscreenTimer,
+                            timerViewModel: timerViewModel
+                        )
+                    }
+                }
+            )
         }
     }
 }
 
 struct ActiveTimerContent: View {
     @EnvironmentObject private var timerViewModel: TimerViewModel
+    @Binding var showingSunscreenTimer: Bool
     
     var body: some View {
         VStack(spacing: 20) {
@@ -66,11 +88,11 @@ struct ActiveTimerContent: View {
                 .environmentObject(timerViewModel)
             
             // Sunscreen Reapply Timer
-            SunscreenReapplyCard()
+            SunscreenReapplyCard(showingSunscreenTimer: $showingSunscreenTimer)
                 .environmentObject(timerViewModel)
             
             // Timer Controls
-            TimerControlsCard()
+            TimerControlsCard(showingSunscreenTimer: $showingSunscreenTimer)
                 .environmentObject(timerViewModel)
             
             // Exposure Warnings

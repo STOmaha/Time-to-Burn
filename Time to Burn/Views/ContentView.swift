@@ -3,10 +3,11 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
-    @StateObject private var timerViewModel = TimerViewModel()
+    @EnvironmentObject private var timerViewModel: TimerViewModel
+    @State private var selectedTab = 0
     
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             // UV Tab - Home page with UV chart and data
             UVHomeView()
                 .environmentObject(locationManager)
@@ -15,6 +16,7 @@ struct ContentView: View {
                     Image(systemName: "sun.max.fill")
                     Text("UV")
                 }
+                .tag(0)
             
             // Forecast Tab - Today's UV chart and tomorrow's estimate
             ForecastView()
@@ -24,6 +26,7 @@ struct ContentView: View {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                     Text("Forecast")
                 }
+                .tag(1)
             
             // Timer Tab - Dynamic sun exposure timer
             DynamicTimerView()
@@ -34,6 +37,7 @@ struct ContentView: View {
                     Image(systemName: "timer")
                     Text("Timer")
                 }
+                .tag(2)
             
             // Map Tab - Location search
             MapView()
@@ -43,6 +47,7 @@ struct ContentView: View {
                     Image(systemName: "map.fill")
                     Text("Map")
                 }
+                .tag(3)
             
             // Me Tab - User settings
             MeView()
@@ -52,6 +57,7 @@ struct ContentView: View {
                     Image(systemName: "person.circle.fill")
                     Text("Me")
                 }
+                .tag(4)
         }
         .accentColor(.orange) // UV-themed accent color
         .onAppear {
@@ -84,6 +90,28 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             weatherViewModel.appDidEnterBackground()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openTimerTab)) { _ in
+            selectedTab = 2 // Switch to Timer tab
+        }
+        .onOpenURL { url in
+            handleDeepLink(url: url)
+        }
+    }
+    
+    private func handleDeepLink(url: URL) {
+        switch url.scheme {
+        case "timetoburn":
+            switch url.host {
+            case "apply-sunscreen":
+                timerViewModel.applySunscreenFromLiveActivity()
+            case "open-timer":
+                timerViewModel.openTimerTab()
+            default:
+                break
+            }
+        default:
+            break
         }
     }
 } 

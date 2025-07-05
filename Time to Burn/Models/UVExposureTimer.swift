@@ -38,6 +38,7 @@ class UVExposureTimer: ObservableObject {
     
     // MARK: - Private Properties
     private var timer: Timer?
+    private var sunscreenTimer: Timer?
     private var sessionStartTime: Date?
     private var lastUVChangeTime: Date?
     private var exposureAtLastUVChange: TimeInterval = 0
@@ -107,6 +108,7 @@ class UVExposureTimer: ObservableObject {
     
     func resetTimer() {
         stopInternalTimer()
+        stopSunscreenTimer()
         currentState = .notStarted
         elapsedTime = 0
         totalExposureTime = 0
@@ -169,6 +171,9 @@ class UVExposureTimer: ObservableObject {
         sessionStartTime = nil
         lastUVChangeTime = nil
         exposureAtLastUVChange = 0
+        
+        // Start sunscreen timer
+        startSunscreenTimer()
     }
     
     func checkSunscreenExpiration() {
@@ -176,6 +181,19 @@ class UVExposureTimer: ObservableObject {
         
         // Sunscreen has expired, resume UV exposure tracking
         sunscreenStatus = nil
+        if currentState == .sunscreenApplied {
+            currentState = .paused
+        }
+        
+        // Stop sunscreen timer
+        stopSunscreenTimer()
+    }
+    
+    func cancelSunscreenTimer() {
+        sunscreenStatus = nil
+        stopSunscreenTimer()
+        
+        // Resume UV exposure tracking if timer was paused for sunscreen
         if currentState == .sunscreenApplied {
             currentState = .paused
         }
@@ -191,6 +209,25 @@ class UVExposureTimer: ObservableObject {
     private func stopInternalTimer() {
         timer?.invalidate()
         timer = nil
+    }
+    
+    private func startSunscreenTimer() {
+        stopSunscreenTimer()
+        
+        // Update sunscreen timer every second
+        sunscreenTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateSunscreenTimer()
+        }
+    }
+    
+    private func stopSunscreenTimer() {
+        sunscreenTimer?.invalidate()
+        sunscreenTimer = nil
+    }
+    
+    private func updateSunscreenTimer() {
+        // This will trigger the published property update
+        // The TimerViewModel will handle the Live Activity update
     }
     
     private func updateTimer() {

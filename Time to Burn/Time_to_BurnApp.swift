@@ -15,6 +15,7 @@ struct Time_to_BurnApp: App {
     @StateObject private var weatherViewModel: WeatherViewModel
     @StateObject private var notificationManager = NotificationManager.shared
     @StateObject private var onboardingManager = OnboardingManager.shared
+    @StateObject private var timerViewModel = TimerViewModel()
     
     init() {
         let locationManager = LocationManager()
@@ -34,6 +35,7 @@ struct Time_to_BurnApp: App {
                     .environmentObject(locationManager)
                     .environmentObject(weatherViewModel)
                     .environmentObject(notificationManager)
+                    .environmentObject(timerViewModel)
                     .onAppear {
                         // Fetch initial UV data when app appears
                         Task {
@@ -45,6 +47,9 @@ struct Time_to_BurnApp: App {
                         Task {
                             await weatherViewModel.refreshData()
                         }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: Notification.Name("applySunscreenFromLiveActivity"))) { _ in
+                        timerViewModel.applySunscreenFromLiveActivity()
                     }
             } else {
                 OnboardingView()

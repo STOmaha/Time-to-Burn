@@ -19,6 +19,9 @@ class TimerViewModel: ObservableObject {
     @Published var currentState: UVExposureState = .notStarted
     @Published var sunscreenStatus: SunscreenStatus?
     @Published var uvChangeNotification: String?
+    @Published var sunscreenTimerRemaining: TimeInterval = 0
+    @Published var isSunscreenActive: Bool = false
+    @Published var shouldShowSunscreenPrompt: Bool = false
     
     // MARK: - Private Properties
     private let uvTimer = UVExposureTimer()
@@ -112,14 +115,40 @@ class TimerViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         
-        // Update sunscreen reapply time
+        // Update sunscreen reapply time and timer
         uvTimer.$sunscreenStatus
             .sink { [weak self] status in
                 self?.sunscreenReapplyTime = status?.timeRemaining ?? 0
                 self?.lastSunscreenApplication = status?.applicationTime
+                self?.isSunscreenActive = status?.isActive ?? false
+                self?.sunscreenTimerRemaining = status?.timeRemaining ?? 0
                 self?.updateLiveActivity()
             }
             .store(in: &cancellables)
+        
+        // Update sunscreen timer every second when active
+        Timer.publish(every: 1.0, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                if self?.isSunscreenActive == true {
+                    self?.sunscreenTimerRemaining = self?.sunscreenStatus?.timeRemaining ?? 0
+                    self?.updateLiveActivity()
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Check for sunscreen prompt when exposure reaches halfway
+        Publishers.CombineLatest3(
+            uvTimer.$elapsedTime,
+            uvTimer.$totalExposureTime,
+            uvTimer.$timeToBurn
+        )
+        .sink { [weak self] elapsedTime, totalExposureTime, timeToBurn in
+            let progress = timeToBurn > 0 ? min((totalExposureTime + elapsedTime) / TimeInterval(timeToBurn), 1.0) : 0.0
+            self?.shouldShowSunscreenPrompt = progress >= 0.5 && !(self?.isSunscreenActive ?? false)
+            self?.updateLiveActivity()
+        }
+        .store(in: &cancellables)
         
         // Update shared data when timer changes
         Publishers.CombineLatest4(
@@ -172,6 +201,18 @@ class TimerViewModel: ObservableObject {
         if let status = sunscreenStatus {
             notificationManager.scheduleSunscreenReminder(at: status.reapplyTime)
         }
+        
+        savePersistedData()
+    }
+    
+    func cancelSunscreenTimer() {
+        uvTimer.cancelSunscreenTimer()
+        
+        // Update Live Activity
+        updateLiveActivity()
+        
+        // Cancel any scheduled sunscreen reminders
+        notificationManager.cancelSunscreenReminders()
         
         savePersistedData()
     }
@@ -240,7 +281,11 @@ class TimerViewModel: ObservableObject {
             totalExposureTime: totalExposureTime,
             isTimerRunning: isTimerRunning,
             lastSunscreenApplication: lastSunscreenApplication,
-            uvChangeNotification: uvChangeNotification
+            uvChangeNotification: uvChangeNotification,
+            sunscreenTimerRemaining: sunscreenTimerRemaining,
+            isSunscreenActive: isSunscreenActive,
+            exposureProgress: uvTimer.exposureProgress,
+            shouldShowSunscreenPrompt: shouldShowSunscreenPrompt
         )
         
         do {
@@ -264,7 +309,11 @@ class TimerViewModel: ObservableObject {
                 totalExposureTime: totalExposureTime,
                 isTimerRunning: isTimerRunning,
                 lastSunscreenApplication: lastSunscreenApplication,
-                uvChangeNotification: uvChangeNotification
+                uvChangeNotification: uvChangeNotification,
+                sunscreenTimerRemaining: sunscreenTimerRemaining,
+                isSunscreenActive: isSunscreenActive,
+                exposureProgress: uvTimer.exposureProgress,
+                shouldShowSunscreenPrompt: shouldShowSunscreenPrompt
             )
             
             await uvExposureActivity?.update(ActivityContent(state: contentState, staleDate: nil))
@@ -278,7 +327,11 @@ class TimerViewModel: ObservableObject {
                 totalExposureTime: totalExposureTime,
                 isTimerRunning: false,
                 lastSunscreenApplication: lastSunscreenApplication,
-                uvChangeNotification: uvChangeNotification
+                uvChangeNotification: uvChangeNotification,
+                sunscreenTimerRemaining: sunscreenTimerRemaining,
+                isSunscreenActive: isSunscreenActive,
+                exposureProgress: uvTimer.exposureProgress,
+                shouldShowSunscreenPrompt: shouldShowSunscreenPrompt
             )
             
             await uvExposureActivity?.end(ActivityContent(state: contentState, staleDate: nil), dismissalPolicy: .immediate)
@@ -381,6 +434,9 @@ class TimerViewModel: ObservableObject {
         
         // Debug print to verify data is being saved
         print("TimerViewModel: Saved shared data - UV: \(currentUVIndex), Time to Burn: \(timeToBurn), Timer Running: \(isTimerRunning)")
+        
+        // Refresh widget immediately when data changes
+        WidgetCenter.shared.reloadAllTimelines()
     }
     
     // MARK: - Helper Methods
@@ -428,4 +484,40 @@ class TimerViewModel: ObservableObject {
         // Trigger widget refresh
         WidgetCenter.shared.reloadAllTimelines()
     }
+    
+    // MARK: - Debug Methods
+    func testWidgetData() {
+        print("TimerViewModel: Testing widget data")
+        
+        // Set some test data
+        currentUVIndex = 7
+        timeToBurn = 120
+        elapsedTime = 30
+        totalExposureTime = 15
+        isTimerRunning = true
+        
+        // Save to shared data
+        updateSharedData()
+        
+        // Force widget refresh
+        WidgetCenter.shared.reloadAllTimelines()
+        
+        print("TimerViewModel: Test data saved - UV: \(currentUVIndex), Time to Burn: \(timeToBurn)")
+    }
+    
+    // MARK: - Live Activity Actions
+    func openTimerTab() {
+        // This will be handled by the app's deep linking system
+        NotificationCenter.default.post(name: .openTimerTab, object: nil)
+    }
+    
+    func applySunscreenFromLiveActivity() {
+        applySunscreen()
+        openTimerTab()
+    }
+}
+
+// MARK: - Notification Names
+extension Notification.Name {
+    static let openTimerTab = Notification.Name("openTimerTab")
 } 
