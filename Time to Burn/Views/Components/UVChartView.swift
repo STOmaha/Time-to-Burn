@@ -57,6 +57,8 @@ struct UVChartView: View {
                             .foregroundColor(displayColor)
                     }
                 }
+                
+
                 if let uv = displayUV {
                     Text("Time to Burn: \(getTimeToBurnString(for: uv))")
                         .font(.subheadline)
@@ -290,15 +292,28 @@ struct UVChartView: View {
         if let data = data {
             usedData = data
         } else {
+            // Use hourly forecast data for today
             let today = Date()
-            usedData = weatherViewModel.hourlyUVData.filter { calendar.isDate($0.date, inSameDayAs: today) }
+            let todayHourlyData = weatherViewModel.hourlyUVData.filter { calendar.isDate($0.date, inSameDayAs: today) }
+            usedData = todayHourlyData
+            print("UVChartView: Using hourly forecast data, filtered count: \(todayHourlyData.count)")
         }
-        guard let first = usedData.first, let last = usedData.last else { return [] }
+        
+        print("UVChartView: Final used data count: \(usedData.count)")
+        
+        guard let first = usedData.first, let last = usedData.last else { 
+            print("UVChartView: No data available for chart")
+            return [] 
+        }
+        
         let totalSeconds = last.date.timeIntervalSince(first.date)
-        return usedData.map { d in
+        let result = usedData.map { d in
             let fraction = CGFloat(d.date.timeIntervalSince(first.date) / totalSeconds)
             return (fraction, d.uvIndex, d.date)
         }
+        
+        print("UVChartView: Chart data points: \(result.count)")
+        return result
     }
     private func getNowFraction() -> CGFloat {
         let uvData = getChartUVData()
@@ -309,7 +324,11 @@ struct UVChartView: View {
     }
     private func getDisplayTimeUV() -> (String, Int?, Color) {
         let uvData = getChartUVData()
-        guard uvData.count > 1 else { return ("--", nil, .gray) }
+        print("UVChartView: getDisplayTimeUV - uvData count: \(uvData.count)")
+        guard uvData.count > 1 else { 
+            print("UVChartView: getDisplayTimeUV - insufficient data, returning default")
+            return ("--", nil, .gray) 
+        }
         
         if isDragging {
             // When dragging, interpolate the selected time and UV value
@@ -442,4 +461,4 @@ struct UVChartView: View {
             (formatter.string(from: start), formatter.string(from: end))
         }
     }
-} 
+}

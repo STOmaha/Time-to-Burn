@@ -238,6 +238,12 @@ struct SunscreenTimerSection: View {
                 Spacer()
             }
             
+            // Progress bar showing time remaining
+            ProgressView(value: context.state.sunscreenProgress)
+                .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                .frame(height: 6)
+                .cornerRadius(3)
+            
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Time Remaining")
@@ -250,13 +256,27 @@ struct SunscreenTimerSection: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Reapply In")
+                    Text("Progress")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text(formatTime(context.state.sunscreenTimerRemaining))
+                    Text("\(Int(context.state.sunscreenProgress * 100))%")
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(context.state.sunscreenTimerRemaining < 300 ? .red : .blue)
+                        .foregroundColor(.blue)
+                }
+            }
+            
+            // Expiration time
+            if let expirationTime = context.state.sunscreenExpirationTime {
+                HStack {
+                    Text("Timer ends at:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(formatExpirationTime(expirationTime))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                    Spacer()
                 }
             }
             
@@ -282,6 +302,12 @@ struct SunscreenTimerSection: View {
         } else {
             return String(format: "%d:%02d", minutes, seconds)
         }
+    }
+    
+    private func formatExpirationTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 

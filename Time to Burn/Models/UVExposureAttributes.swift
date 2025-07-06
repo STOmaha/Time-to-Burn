@@ -12,6 +12,8 @@ struct UVExposureAttributes: ActivityAttributes {
         var isSunscreenActive: Bool
         var exposureProgress: Double
         var shouldShowSunscreenPrompt: Bool
+        var sunscreenExpirationTime: Date?
+        var sunscreenProgress: Double
     }
     
     var uvIndex: Int

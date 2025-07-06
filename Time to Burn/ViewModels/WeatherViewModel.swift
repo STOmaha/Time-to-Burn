@@ -9,6 +9,7 @@ class WeatherViewModel: ObservableObject {
     private let weatherService = WeatherService.shared
     private let locationManager: LocationManager
     private let notificationManager = NotificationManager.shared
+    private let userDefaults = UserDefaults.standard
     
     // Published properties for UI updates
     @Published var isLoading = false

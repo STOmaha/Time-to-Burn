@@ -22,7 +22,10 @@ struct UVExposureChartView: View {
                     .fontWeight(.medium)
                 
                 Chart {
-                    ForEach(weatherViewModel.hourlyUVData.prefix(24), id: \.id) { uvData in
+                    // Use hourly forecast data
+                    let uvDataToShow = Array(weatherViewModel.hourlyUVData.prefix(24))
+                    
+                    ForEach(Array(uvDataToShow.enumerated()), id: \.element.id) { index, uvData in
                         LineMark(
                             x: .value("Time", uvData.date),
                             y: .value("UV Index", uvData.uvIndex)

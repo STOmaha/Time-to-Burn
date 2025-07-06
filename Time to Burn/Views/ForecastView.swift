@@ -141,54 +141,12 @@ struct DayForecastCard: View {
         return formatter.string(from: maxUVData.date)
     }
     
-    private func getAverageTimeToBurnForRanges(_ ranges: [(String, String)]) -> String {
-        guard !ranges.isEmpty else { return "N/A" }
-        
-        // Calculate average UV during danger periods
-        var totalUV = 0
-        var count = 0
-        
-        for range in ranges {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "h:mm a"
-            
-            // Find UV data points within this range
-            for uvPoint in uvData {
-                let timeString = formatter.string(from: uvPoint.date)
-                if timeString >= range.0 && timeString <= range.1 {
-                    totalUV += uvPoint.uvIndex
-                    count += 1
-                }
-            }
-        }
-        
-        guard count > 0 else { return "N/A" }
-        let averageUV = totalUV / count
-        return "~\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: averageUV)) min"
-    }
-    
     var body: some View {
-        HStack(spacing: 16) {
-            // Peak UV Display (Left side - prominent)
-            VStack(spacing: 4) {
-                Text("\(getMaxUV())")
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .foregroundColor(UVColorUtils.getUVColor(getMaxUV()))
-                Text("Peak UV")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-                Text("~\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: getMaxUV())) min")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-            }
-            .frame(width: 80, alignment: .center)
-            
-            // Day and UV Details (Right side)
-            VStack(alignment: .leading, spacing: 8) {
-                // Day header
-                VStack(alignment: .leading, spacing: 2) {
+        VStack(spacing: 0) {
+            // Header with day info and peak UV
+            HStack(spacing: 16) {
+                // Day info (left side)
+                VStack(alignment: .leading, spacing: 4) {
                     Text(dayInfo.dayName)
                         .font(.title2)
                         .fontWeight(.bold)
@@ -198,93 +156,166 @@ struct DayForecastCard: View {
                         .foregroundColor(.secondary)
                 }
                 
+                Spacer()
+                
+                // Peak UV display (right side)
+                VStack(spacing: 4) {
+                    Text("\(getMaxUV())")
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundColor(UVColorUtils.getUVColor(getMaxUV()))
+                    Text("Peak UV")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 16)
+            
+            // Divider
+            Divider()
+                .padding(.horizontal, 20)
+            
+            // Content area
+            VStack(spacing: 16) {
                 if !uvData.isEmpty {
-                    // Peak time
-                    HStack(spacing: 6) {
-                        Image(systemName: "clock")
-                            .foregroundColor(.blue)
-                            .font(.system(size: 12, weight: .medium))
+                    // Peak time info
+                    HStack(spacing: 8) {
+                        Image(systemName: "sun.max.fill")
+                            .foregroundColor(.orange)
+                            .font(.system(size: 14, weight: .medium))
                         Text("Peak at \(getPeakUVTime())")
                             .font(.subheadline)
                             .foregroundColor(.primary)
+                        Spacer()
                     }
+                    .padding(.horizontal, 20)
                     
                     // Danger zones or safe status
                     let warningRanges = getUVAboveThresholdRanges()
                     if !warningRanges.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.orange)
-                                    .font(.system(size: 12, weight: .medium))
-                                Text("Avoid UV (Above \(userThreshold))")
-                                    .font(.subheadline)
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Warning header
+                            HStack(spacing: 8) {
+                                Image(systemName: "shield.exclamationmark.fill")
+                                    .foregroundColor(.red)
+                                    .font(.system(size: 16, weight: .medium))
+                                Text("Avoid UV Exposure")
+                                    .font(.headline)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.primary)
+                                Spacer()
+                                Text("Above \(userThreshold)")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
                             }
                             
-                            ForEach(Array(warningRanges.enumerated()), id: \.offset) { index, range in
-                                HStack(spacing: 8) {
-                                    Circle()
-                                        .fill(Color.red)
-                                        .frame(width: 6, height: 6)
-                                    Text("\(range.0) – \(range.1)")
-                                        .font(.subheadline)
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                    Text("~\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: getMaxUV())) min")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                            // Time ranges
+                            VStack(spacing: 8) {
+                                ForEach(Array(warningRanges.enumerated()), id: \.offset) { index, range in
+                                    HStack(spacing: 12) {
+                                        // Time range icon
+                                        Image(systemName: "clock.badge.exclamationmark")
+                                            .foregroundColor(.red)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .frame(width: 20)
+                                        
+                                        // Time range text
+                                        Text("\(range.0) – \(range.1)")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        Spacer()
+                                        
+                                        // UV level indicator
+                                        Text("UV \(getMaxUV())")
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(
+                                                Capsule()
+                                                    .fill(UVColorUtils.getUVColor(getMaxUV()))
+                                            )
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .fill(Color.red.opacity(0.08))
+                                    )
                                 }
                             }
                         }
-                        .padding(12)
+                        .padding(16)
                         .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(UVColorUtils.getPastelUVColor(getMaxUV()).opacity(0.18))
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.red.opacity(0.05))
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(UVColorUtils.getUVColor(getMaxUV()).opacity(0.15), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.red.opacity(0.2), lineWidth: 1)
                         )
+                        .padding(.horizontal, 20)
                     } else {
                         // Safe day
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.circle.fill")
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.shield.fill")
                                 .foregroundColor(.green)
-                                .font(.system(size: 12, weight: .medium))
-                            Text("UV below threshold - Safe")
-                                .font(.subheadline)
-                                .foregroundColor(.primary)
+                                .font(.system(size: 16, weight: .medium))
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("UV Below Threshold")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
+                                Text("Safe for outdoor activities")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
                         }
-                        .padding(12)
+                        .padding(16)
                         .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(UVColorUtils.getPastelUVColor(getMaxUV()).opacity(0.10))
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.green.opacity(0.08))
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(UVColorUtils.getUVColor(getMaxUV()).opacity(0.10), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.green.opacity(0.2), lineWidth: 1)
                         )
+                        .padding(.horizontal, 20)
                     }
                 } else {
                     // No data available
-                    Text("No UV data available")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(.systemGray6))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    HStack(spacing: 12) {
+                        Image(systemName: "questionmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 16, weight: .medium))
+                        
+                        Text("No UV data available")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                    }
+                    .padding(16)
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 20)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 20)
         }
-        .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(UVColorUtils.getPastelUVColor(getMaxUV()))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
         )
     }
 } 

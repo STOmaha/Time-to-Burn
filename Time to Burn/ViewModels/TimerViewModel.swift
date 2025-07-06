@@ -285,7 +285,9 @@ class TimerViewModel: ObservableObject {
             sunscreenTimerRemaining: sunscreenTimerRemaining,
             isSunscreenActive: isSunscreenActive,
             exposureProgress: uvTimer.exposureProgress,
-            shouldShowSunscreenPrompt: shouldShowSunscreenPrompt
+            shouldShowSunscreenPrompt: shouldShowSunscreenPrompt,
+            sunscreenExpirationTime: sunscreenStatus?.reapplyTime,
+            sunscreenProgress: sunscreenStatus != nil ? max(0, 1.0 - (sunscreenTimerRemaining / (2 * 60 * 60))) : 0.0
         )
         
         do {
@@ -313,7 +315,9 @@ class TimerViewModel: ObservableObject {
                 sunscreenTimerRemaining: sunscreenTimerRemaining,
                 isSunscreenActive: isSunscreenActive,
                 exposureProgress: uvTimer.exposureProgress,
-                shouldShowSunscreenPrompt: shouldShowSunscreenPrompt
+                shouldShowSunscreenPrompt: shouldShowSunscreenPrompt,
+                sunscreenExpirationTime: sunscreenStatus?.reapplyTime,
+                sunscreenProgress: sunscreenStatus != nil ? max(0, 1.0 - (sunscreenTimerRemaining / (2 * 60 * 60))) : 0.0
             )
             
             await uvExposureActivity?.update(ActivityContent(state: contentState, staleDate: nil))
@@ -331,7 +335,9 @@ class TimerViewModel: ObservableObject {
                 sunscreenTimerRemaining: sunscreenTimerRemaining,
                 isSunscreenActive: isSunscreenActive,
                 exposureProgress: uvTimer.exposureProgress,
-                shouldShowSunscreenPrompt: shouldShowSunscreenPrompt
+                shouldShowSunscreenPrompt: shouldShowSunscreenPrompt,
+                sunscreenExpirationTime: sunscreenStatus?.reapplyTime,
+                sunscreenProgress: sunscreenStatus != nil ? max(0, 1.0 - (sunscreenTimerRemaining / (2 * 60 * 60))) : 0.0
             )
             
             await uvExposureActivity?.end(ActivityContent(state: contentState, staleDate: nil), dismissalPolicy: .immediate)

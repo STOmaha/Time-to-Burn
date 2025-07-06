@@ -83,21 +83,31 @@ struct ActiveTimerContent: View {
             TimerDisplayCard()
                 .environmentObject(timerViewModel)
             
-            // Exposure Progress with UV Graph
-            ExposureProgressCard()
-                .environmentObject(timerViewModel)
-            
-            // Sunscreen Reapply Timer
+            // Sunscreen Reapply Timer (always show when active)
             SunscreenReapplyCard(showingSunscreenTimer: $showingSunscreenTimer)
                 .environmentObject(timerViewModel)
+            
+            // Exposure Progress with UV Graph (compressed when sunscreen is active)
+            if timerViewModel.isSunscreenActive {
+                CompressedExposureProgressCard()
+                    .environmentObject(timerViewModel)
+            } else {
+                ExposureProgressCard()
+                    .environmentObject(timerViewModel)
+            }
             
             // Timer Controls
             TimerControlsCard(showingSunscreenTimer: $showingSunscreenTimer)
                 .environmentObject(timerViewModel)
             
-            // Exposure Warnings
-            ExposureWarningsCard()
-                .environmentObject(timerViewModel)
+            // Exposure Warnings (compressed when sunscreen is active)
+            if timerViewModel.isSunscreenActive {
+                CompressedExposureWarningsCard()
+                    .environmentObject(timerViewModel)
+            } else {
+                ExposureWarningsCard()
+                    .environmentObject(timerViewModel)
+            }
         }
     }
 }
@@ -184,6 +194,64 @@ struct ExposureProgressCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+        )
+    }
+}
+
+struct CompressedExposureProgressCard: View {
+    @EnvironmentObject private var timerViewModel: TimerViewModel
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Exposure Progress")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                
+                // Compact progress bar
+                ProgressView(value: timerViewModel.getExposureProgress())
+                    .progressViewStyle(LinearProgressViewStyle(tint: timerViewModel.getExposureStatus().color))
+                    .scaleEffect(x: 1, y: 2, anchor: .center)
+                
+                HStack {
+                    Text("\(Int(timerViewModel.getExposureProgress() * 100))%")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(timerViewModel.getExposureStatus().color)
+                    
+                    Spacer()
+                    
+                    Text(timerViewModel.getExposureStatus().message)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(timerViewModel.getExposureStatus().color)
+                }
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("Session")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(timerViewModel.formatTime(timerViewModel.elapsedTime))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                Text("Max Time")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text("\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: timerViewModel.currentUVIndex)) min")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
         )
     }
 }
@@ -407,6 +475,46 @@ struct ExposureWarningsCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color(.systemBackground))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+        )
+    }
+}
+
+struct CompressedExposureWarningsCard: View {
+    @EnvironmentObject private var timerViewModel: TimerViewModel
+    
+    var body: some View {
+        let totalExposure = timerViewModel.totalExposureTime + timerViewModel.elapsedTime
+        let maxExposure = TimeInterval(timerViewModel.timeToBurn)
+        let progress = totalExposure / maxExposure
+        
+        HStack(spacing: 12) {
+            Image(systemName: progress >= 1.0 ? "xmark.circle.fill" : progress >= 0.8 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                .foregroundColor(progress >= 1.0 ? .red : progress >= 0.8 ? .orange : .green)
+                .font(.title3)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(progress >= 1.0 ? "Exceeded" : progress >= 0.8 ? "Warning" : "Safe")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(progress >= 1.0 ? .red : progress >= 0.8 ? .orange : .green)
+                
+                Text(progress >= 1.0 ? "Seek shade now" : progress >= 0.8 ? "Consider shade soon" : "Within limits")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Text("\(Int(progress * 100))%")
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(progress >= 1.0 ? .red : progress >= 0.8 ? .orange : .green)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
         )
     }
 }
