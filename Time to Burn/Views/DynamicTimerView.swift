@@ -5,7 +5,6 @@ struct DynamicTimerView: View {
     @EnvironmentObject private var timerViewModel: TimerViewModel
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @State private var showingUVChart = false
-    @State private var showingSunscreenTimer = false
     
     var body: some View {
         NavigationView {
@@ -25,7 +24,7 @@ struct DynamicTimerView: View {
                     if timerViewModel.isUVZero {
                         UVZeroWarningCard()
                     } else if timerViewModel.currentState == .running || timerViewModel.currentState == .paused || timerViewModel.currentState == .sunscreenApplied {
-                        ActiveTimerContent(showingSunscreenTimer: $showingSunscreenTimer)
+                        ActiveTimerContent()
                     } else {
                         InactiveTimerContent()
                     }
@@ -58,24 +57,13 @@ struct DynamicTimerView: View {
                     .environmentObject(weatherViewModel)
                     .environmentObject(timerViewModel)
             }
-            .blur(radius: showingSunscreenTimer ? 10 : 0)
-            .overlay(
-                Group {
-                    if showingSunscreenTimer {
-                        SunscreenTimerPopup(
-                            isPresented: $showingSunscreenTimer,
-                            timerViewModel: timerViewModel
-                        )
-                    }
-                }
-            )
+
         }
     }
 }
 
 struct ActiveTimerContent: View {
     @EnvironmentObject private var timerViewModel: TimerViewModel
-    @Binding var showingSunscreenTimer: Bool
     
     var body: some View {
         VStack(spacing: 20) {
@@ -84,7 +72,7 @@ struct ActiveTimerContent: View {
                 .environmentObject(timerViewModel)
             
             // Sunscreen Reapply Timer (always show when active)
-            SunscreenReapplyCard(showingSunscreenTimer: $showingSunscreenTimer)
+            SunscreenReapplyCard()
                 .environmentObject(timerViewModel)
             
             // Exposure Progress with UV Graph (compressed when sunscreen is active)
@@ -97,7 +85,7 @@ struct ActiveTimerContent: View {
             }
             
             // Timer Controls
-            TimerControlsCard(showingSunscreenTimer: $showingSunscreenTimer)
+            TimerControlsCard()
                 .environmentObject(timerViewModel)
             
             // Exposure Warnings (compressed when sunscreen is active)
@@ -546,6 +534,184 @@ struct WarningRow: View {
         .padding()
         .background(color.opacity(0.1))
         .cornerRadius(8)
+    }
+}
+
+struct SunscreenReapplyCard: View {
+    @EnvironmentObject private var timerViewModel: TimerViewModel
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Image(systemName: "drop.fill")
+                    .foregroundColor(.blue)
+                    .font(.title2)
+                Text("Sunscreen Status")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            
+            if let lastApplication = timerViewModel.lastSunscreenApplication {
+                VStack(spacing: 8) {
+                    Text("Last applied: \(lastApplication, style: .relative) ago")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    let timeRemaining = timerViewModel.getSunscreenReapplyTimeRemaining()
+                    if timeRemaining > 0 {
+                        Text("Reapply in: \(timerViewModel.formatTime(timeRemaining))")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(timeRemaining < 300 ? .red : .blue)
+                    } else {
+                        Text("Time to reapply!")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(.red)
+                    }
+                }
+            } else {
+                Text("No sunscreen applied today")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Button(action: {
+                timerViewModel.applySunscreen()
+            }) {
+                HStack {
+                    Image(systemName: "drop.fill")
+                    Text("Apply Sunscreen")
+                }
+                .font(.headline)
+                .foregroundColor(.white)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(Color.blue)
+                .cornerRadius(12)
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+        )
+    }
+}
+
+struct TimerControlsCard: View {
+    @EnvironmentObject private var timerViewModel: TimerViewModel
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            // Main timer control
+            HStack(spacing: 16) {
+                Button(action: {
+                    switch timerViewModel.currentState {
+                    case .notStarted, .paused:
+                        timerViewModel.startTimer()
+                    case .running:
+                        timerViewModel.pauseTimer()
+                    case .sunscreenApplied:
+                        timerViewModel.resumeTimer()
+                    case .exceeded:
+                        timerViewModel.resetTimer()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: getTimerButtonIcon())
+                        Text(getTimerButtonText())
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(getTimerButtonColor())
+                    .cornerRadius(12)
+                }
+                
+                Button(action: {
+                    timerViewModel.resetTimer()
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Reset")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.red)
+                    .cornerRadius(12)
+                }
+            }
+            
+            // Sunscreen button (show when timer is running or paused)
+            if timerViewModel.currentState == .running || timerViewModel.currentState == .paused {
+                Button(action: {
+                    timerViewModel.applySunscreen()
+                }) {
+                    HStack {
+                        Image(systemName: "drop.fill")
+                        Text("Apply Sunscreen")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.blue)
+                    .cornerRadius(12)
+                }
+            }
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+        )
+    }
+    
+    private func getTimerButtonIcon() -> String {
+        switch timerViewModel.currentState {
+        case .notStarted, .paused:
+            return "play.fill"
+        case .running:
+            return "pause.fill"
+        case .sunscreenApplied:
+            return "play.fill"
+        case .exceeded:
+            return "arrow.clockwise"
+        }
+    }
+    
+    private func getTimerButtonText() -> String {
+        switch timerViewModel.currentState {
+        case .notStarted:
+            return "Start"
+        case .running:
+            return "Pause"
+        case .paused:
+            return "Resume"
+        case .sunscreenApplied:
+            return "Resume"
+        case .exceeded:
+            return "Reset"
+        }
+    }
+    
+    private func getTimerButtonColor() -> Color {
+        switch timerViewModel.currentState {
+        case .notStarted, .paused, .sunscreenApplied:
+            return .green
+        case .running:
+            return .orange
+        case .exceeded:
+            return .red
+        }
     }
 }
 
