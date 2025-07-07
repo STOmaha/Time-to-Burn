@@ -43,22 +43,27 @@ class WidgetViewModel: ObservableObject {
     }
     
     func getUVColor(_ uvIndex: Int) -> Color {
-        switch uvIndex {
-        case 0:
-            return .gray
-        case 1...2:
-            return .green
-        case 3...5:
-            return .yellow
-        case 6...7:
-            return .orange
-        case 8...10:
-            return .red
-        case 11...:
-            return .purple
-        default:
-            return .gray
-        }
+        // Color stops for UV 0 to 12+ - matching the main app exactly
+        let stops: [(uv: Int, color: Color)] = [
+            (0, Color(red: 0.0, green: 0.2, blue: 0.7)),        // #002366
+            (1, Color(red: 0.0, green: 0.34, blue: 0.72)),      // #0057B7
+            (2, Color(red: 0.0, green: 0.72, blue: 0.72)),      // #00B7B7
+            (3, Color(red: 0.0, green: 0.72, blue: 0.0)),       // #00B700
+            (4, Color(red: 0.65, green: 0.84, blue: 0.0)),      // #A7D700
+            (5, Color(red: 1.0, green: 0.84, blue: 0.0)),       // #FFD700
+            (6, Color(red: 1.0, green: 0.72, blue: 0.0)),       // #FFB700
+            (7, Color(red: 1.0, green: 0.5, blue: 0.0)),        // #FF7F00
+            (8, Color(red: 1.0, green: 0.27, blue: 0.0)),       // #FF4500
+            (9, Color(red: 1.0, green: 0.0, blue: 0.0)),        // #FF0000
+            (10, Color(red: 0.78, green: 0.0, blue: 0.63)),     // #C800A1
+            (11, Color(red: 0.5, green: 0.0, blue: 0.5)),       // #800080
+            (12, Color.black)                                   // #000000
+        ]
+        if uvIndex <= 0 { return stops[0].color }
+        if uvIndex >= 12 { return stops.last!.color }
+        // For integer UV, just return lower
+        let lower = stops[uvIndex]
+        return lower.color
     }
     
     func formatHour(_ date: Date) -> String {

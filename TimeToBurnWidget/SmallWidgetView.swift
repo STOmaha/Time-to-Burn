@@ -6,36 +6,36 @@ struct SmallWidgetView: View {
     @StateObject private var viewModel = WidgetViewModel()
     
     var body: some View {
-        VStack(spacing: 8) {
-            // UV Index
-            VStack(spacing: 2) {
-                Text("UV Index")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+        ZStack {
+            VStack(spacing: 8) {
+                // UV Index
+                VStack(spacing: 2) {
+                    Text("UV Index")
+                        .font(.caption)
+                        .foregroundColor(.primary)
+                        .fontWeight(.medium)
+                    
+                    Text(entry.uvIndex != nil ? "\(entry.uvIndex!)" : "--")
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .foregroundColor(viewModel.getUVColor(entry.uvIndex ?? 0))
+                }
                 
-                Text(entry.uvIndex != nil ? "\(entry.uvIndex!)" : "--")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(viewModel.getUVColor(entry.uvIndex ?? 0))
+                // Time to Burn
+                VStack(spacing: 2) {
+                    Text("Time to Burn")
+                        .font(.caption)
+                        .foregroundColor(.primary)
+                        .fontWeight(.medium)
+                    
+                    Text(viewModel.getTimeToBurnText(entry.timeToBurn))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(viewModel.getUVColor(entry.uvIndex ?? 0))
+                }
             }
-            
-            // Time to Burn
-            VStack(spacing: 2) {
-                Text("Time to Burn")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                
-                Text(viewModel.getTimeToBurnText(entry.timeToBurn))
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(viewModel.getUVColor(entry.uvIndex ?? 0))
-            }
+            .padding(12)
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(viewModel.getUVColor(entry.uvIndex ?? 0).opacity(0.1))
-        )
         .containerBackground(for: .widget) {
-            Color(.systemBackground)
+            viewModel.getUVColor(entry.uvIndex ?? 0).opacity(0.15)
         }
     }
 } 

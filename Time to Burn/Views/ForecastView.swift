@@ -314,8 +314,13 @@ struct DayForecastCard: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
+                .fill(getUVBackgroundColor())
                 .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
         )
+    }
+    
+    private func getUVBackgroundColor() -> Color {
+        let maxUV = getMaxUV()
+        return UVColorUtils.getPastelUVColor(maxUV)
     }
 } 
