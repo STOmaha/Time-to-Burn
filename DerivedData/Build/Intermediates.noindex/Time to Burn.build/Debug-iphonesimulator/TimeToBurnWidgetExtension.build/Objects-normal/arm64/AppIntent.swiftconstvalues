@@ -4,7 +4,7 @@
     "mangledTypeName": "25TimeToBurnWidgetExtension22ConfigurationAppIntentV",
     "kind": "struct",
     "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
-    "line": 11,
+    "line": 12,
     "conformances": [
       "AppIntents.WidgetConfigurationIntent",
       "AppIntents.AppIntent",
@@ -63,7 +63,7 @@
         "isStatic": "false",
         "isComputed": "false",
         "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
-        "line": 17,
+        "line": 18,
         "valueKind": "InitCall",
         "value": {
           "type": "AppIntents.IntentParameter<Swift.String>",
@@ -113,7 +113,7 @@
         "isStatic": "true",
         "isComputed": "true",
         "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
-        "line": 12,
+        "line": 13,
         "valueKind": "RawLiteral",
         "value": "Configuration"
       },
@@ -124,7 +124,7 @@
         "isStatic": "true",
         "isComputed": "true",
         "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
-        "line": 13,
+        "line": 14,
         "valueKind": "RawLiteral",
         "value": "This is an example widget."
       },
@@ -135,7 +135,7 @@
         "isStatic": "false",
         "isComputed": "true",
         "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
-        "line": 17,
+        "line": 18,
         "valueKind": "InitCall",
         "value": {
           "type": "AppIntents.IntentParameter<Swift.String>",
@@ -181,7 +181,7 @@
           {
             "type": "AppIntents.IntentParameter",
             "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
-            "line": 16,
+            "line": 17,
             "arguments": [
               {
                 "label": "title",
@@ -206,8 +206,168 @@
         "isStatic": "false",
         "isComputed": "true",
         "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
-        "line": 17,
+        "line": 18,
         "valueKind": "Runtime"
+      }
+    ]
+  },
+  {
+    "typeName": "TimeToBurnWidgetExtension.ApplySunscreenIntent",
+    "mangledTypeName": "25TimeToBurnWidgetExtension20ApplySunscreenIntentV",
+    "kind": "struct",
+    "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
+    "line": 22,
+    "conformances": [
+      "AppIntents.AppIntent",
+      "AppIntents.PersistentlyIdentifiable",
+      "AppIntents._SupportsAppDependencies",
+      "Swift.Sendable",
+      "Swift.BitwiseCopyable"
+    ],
+    "allConformances": [
+      {
+        "protocolName": "AppIntents.AppIntent",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      },
+      {
+        "protocolName": "AppIntents.PersistentlyIdentifiable",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      },
+      {
+        "protocolName": "AppIntents._SupportsAppDependencies",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      },
+      {
+        "protocolName": "Swift.Sendable",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      },
+      {
+        "protocolName": "Swift.BitwiseCopyable",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      }
+    ],
+    "associatedTypeAliases": [
+      {
+        "typeAliasName": "PerformResult",
+        "substitutedTypeName": "some AppIntents.IntentResult",
+        "substitutedMangledTypeName": "25TimeToBurnWidgetExtension20ApplySunscreenIntentV7performQryYaKFQOy_Qo_",
+        "opaqueTypeProtocolRequirements": [
+          "AppIntents.IntentResult"
+        ],
+        "opaqueTypeSameTypeRequirements": []
+      },
+      {
+        "typeAliasName": "SummaryContent",
+        "substitutedTypeName": "some AppIntents.ParameterSummary",
+        "substitutedMangledTypeName": "10AppIntents0A6IntentPAAE16parameterSummaryQrvpZQOy25TimeToBurnWidgetExtension014ApplySunscreenC0V_Qo_",
+        "opaqueTypeProtocolRequirements": [
+          "AppIntents.ParameterSummary"
+        ],
+        "opaqueTypeSameTypeRequirements": []
+      }
+    ],
+    "properties": [
+      {
+        "label": "title",
+        "type": "Foundation.LocalizedStringResource",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "false",
+        "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
+        "line": 23,
+        "valueKind": "RawLiteral",
+        "value": "Apply Sunscreen"
+      },
+      {
+        "label": "description",
+        "type": "AppIntents.IntentDescription",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "false",
+        "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
+        "line": 24,
+        "valueKind": "RawLiteral",
+        "value": "Apply sunscreen and start 2-hour timer"
+      }
+    ]
+  },
+  {
+    "typeName": "TimeToBurnWidgetExtension.OpenTimerTabIntent",
+    "mangledTypeName": "25TimeToBurnWidgetExtension18OpenTimerTabIntentV",
+    "kind": "struct",
+    "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
+    "line": 32,
+    "conformances": [
+      "AppIntents.AppIntent",
+      "AppIntents.PersistentlyIdentifiable",
+      "AppIntents._SupportsAppDependencies",
+      "Swift.Sendable",
+      "Swift.BitwiseCopyable"
+    ],
+    "allConformances": [
+      {
+        "protocolName": "AppIntents.AppIntent",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      },
+      {
+        "protocolName": "AppIntents.PersistentlyIdentifiable",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      },
+      {
+        "protocolName": "AppIntents._SupportsAppDependencies",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      },
+      {
+        "protocolName": "Swift.Sendable",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      },
+      {
+        "protocolName": "Swift.BitwiseCopyable",
+        "conformanceDefiningModule": "TimeToBurnWidgetExtension"
+      }
+    ],
+    "associatedTypeAliases": [
+      {
+        "typeAliasName": "PerformResult",
+        "substitutedTypeName": "some AppIntents.IntentResult",
+        "substitutedMangledTypeName": "25TimeToBurnWidgetExtension18OpenTimerTabIntentV7performQryYaKFQOy_Qo_",
+        "opaqueTypeProtocolRequirements": [
+          "AppIntents.IntentResult"
+        ],
+        "opaqueTypeSameTypeRequirements": []
+      },
+      {
+        "typeAliasName": "SummaryContent",
+        "substitutedTypeName": "some AppIntents.ParameterSummary",
+        "substitutedMangledTypeName": "10AppIntents0A6IntentPAAE16parameterSummaryQrvpZQOy25TimeToBurnWidgetExtension012OpenTimerTabC0V_Qo_",
+        "opaqueTypeProtocolRequirements": [
+          "AppIntents.ParameterSummary"
+        ],
+        "opaqueTypeSameTypeRequirements": []
+      }
+    ],
+    "properties": [
+      {
+        "label": "title",
+        "type": "Foundation.LocalizedStringResource",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "false",
+        "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
+        "line": 33,
+        "valueKind": "RawLiteral",
+        "value": "Open Timer Tab"
+      },
+      {
+        "label": "description",
+        "type": "AppIntents.IntentDescription",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "false",
+        "file": "/Users/steven/Library/Mobile Documents/com~apple~CloudDocs/Projects/Coding/Time to Burn/TimeToBurnWidget/AppIntent.swift",
+        "line": 34,
+        "valueKind": "RawLiteral",
+        "value": "Open the Timer tab in the app"
       }
     ]
   }

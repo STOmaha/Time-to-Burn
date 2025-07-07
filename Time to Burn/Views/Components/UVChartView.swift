@@ -296,13 +296,13 @@ struct UVChartView: View {
             let today = Date()
             let todayHourlyData = weatherViewModel.hourlyUVData.filter { calendar.isDate($0.date, inSameDayAs: today) }
             usedData = todayHourlyData
-            print("UVChartView: Using hourly forecast data, filtered count: \(todayHourlyData.count)")
+    
         }
         
-        print("UVChartView: Final used data count: \(usedData.count)")
+
         
         guard let first = usedData.first, let last = usedData.last else { 
-            print("UVChartView: No data available for chart")
+    
             return [] 
         }
         
@@ -312,7 +312,7 @@ struct UVChartView: View {
             return (fraction, d.uvIndex, d.date)
         }
         
-        print("UVChartView: Chart data points: \(result.count)")
+
         return result
     }
     private func getNowFraction() -> CGFloat {
@@ -324,9 +324,9 @@ struct UVChartView: View {
     }
     private func getDisplayTimeUV() -> (String, Int?, Color) {
         let uvData = getChartUVData()
-        print("UVChartView: getDisplayTimeUV - uvData count: \(uvData.count)")
+
         guard uvData.count > 1 else { 
-            print("UVChartView: getDisplayTimeUV - insufficient data, returning default")
+
             return ("--", nil, .gray) 
         }
         

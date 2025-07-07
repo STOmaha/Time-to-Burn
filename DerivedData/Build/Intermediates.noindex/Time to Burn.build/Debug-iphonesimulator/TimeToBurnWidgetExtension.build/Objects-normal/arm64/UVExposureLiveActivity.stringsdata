@@ -4,18 +4,50 @@
     "Localizable": [
       {
         "comment": "",
-        "key": "UV Exposure",
+        "key": "Exposure Progress",
         "location": {
           "startingColumn": 26,
-          "startingLine": 13
+          "startingLine": 19
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current Session",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 45
+        }
+      },
+      {
+        "comment": "",
+        "key": "Progress",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 54
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 57
+        }
+      },
+      {
+        "comment": "",
+        "key": "Max Safe Time",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 64
         }
       },
       {
         "comment": "",
         "key": "UV %lld",
         "location": {
-          "startingColumn": 26,
-          "startingLine": 17
+          "startingColumn": 30,
+          "startingLine": 80
         }
       },
       {
@@ -23,39 +55,7 @@
         "key": "Exposure",
         "location": {
           "startingColumn": 30,
-          "startingLine": 33
-        }
-      },
-      {
-        "comment": "",
-        "key": "Max",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 44
-        }
-      },
-      {
-        "comment": "",
-        "key": "Reapply in %@",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 61
-        }
-      },
-      {
-        "comment": "",
-        "key": "UV %lld",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 77
-        }
-      },
-      {
-        "comment": "",
-        "key": "Exposure",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 81
+          "startingLine": 84
         }
       },
       {
@@ -63,23 +63,119 @@
         "key": "of %@",
         "location": {
           "startingColumn": 30,
-          "startingLine": 92
+          "startingLine": 95
         }
       },
       {
         "comment": "",
         "key": "Apply Sunscreen",
         "location": {
+          "startingColumn": 36,
+          "startingLine": 132
+        }
+      },
+      {
+        "comment": "",
+        "key": "Apply Sunscreen",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 140
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Timer",
+        "location": {
           "startingColumn": 32,
+          "startingLine": 148
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sunscreen Active",
+        "location": {
+          "startingColumn": 38,
           "startingLine": 122
         }
       },
       {
         "comment": "",
-        "key": "Reset",
+        "key": "⚠️ Time to reapply sunscreen!",
         "location": {
-          "startingColumn": 32,
-          "startingLine": 130
+          "startingColumn": 22,
+          "startingLine": 284
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sunscreen Timer",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 234
+        }
+      },
+      {
+        "comment": "",
+        "key": "Time Remaining",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 249
+        }
+      },
+      {
+        "comment": "",
+        "key": "Progress",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 259
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 262
+        }
+      },
+      {
+        "comment": "",
+        "key": "Timer ends at:",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 272
+        }
+      },
+      {
+        "comment": "",
+        "key": "You've reached 50% of your safe exposure time. Consider applying sunscreen for continued protection.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 331
+        }
+      },
+      {
+        "comment": "",
+        "key": "Sunscreen Recommended",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 324
+        }
+      },
+      {
+        "comment": "",
+        "key": "Apply Sunscreen",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 337
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Timer",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 346
         }
       }
     ]

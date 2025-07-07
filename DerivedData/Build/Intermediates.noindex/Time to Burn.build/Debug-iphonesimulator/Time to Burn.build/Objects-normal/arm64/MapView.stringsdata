@@ -7,47 +7,55 @@
         "key": "Map",
         "location": {
           "startingColumn": 30,
-          "startingLine": 92
-        }
-      },
-      {
-        "comment": "",
-        "key": "Search location...",
-        "location": {
-          "startingColumn": 31,
-          "startingLine": 21
-        }
-      },
-      {
-        "comment": "",
-        "key": "Search",
-        "location": {
-          "startingColumn": 28,
-          "startingLine": 24
+          "startingLine": 96
         }
       },
       {
         "comment": "",
         "key": "Interactive map will appear here",
         "location": {
-          "startingColumn": 38,
-          "startingLine": 40
+          "startingColumn": 42,
+          "startingLine": 30
         }
       },
       {
         "comment": "",
         "key": "Current Location",
         "location": {
-          "startingColumn": 30,
-          "startingLine": 71
+          "startingColumn": 34,
+          "startingLine": 61
         }
       },
       {
         "comment": "",
         "key": "Lat: %.4f, Lon: %.4f",
         "location": {
-          "startingColumn": 30,
-          "startingLine": 79
+          "startingColumn": 34,
+          "startingLine": 69
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 145
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search cities, areas...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 122
+        }
+      },
+      {
+        "comment": "",
+        "key": "Searching...",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 162
         }
       }
     ]

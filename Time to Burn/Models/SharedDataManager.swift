@@ -13,6 +13,8 @@ struct SharedUVData: Codable {
     let exposureStatus: ExposureStatus
     let exposureProgress: Double
     let timestamp: Date
+    let locationName: String
+    let lastUpdated: Date
     
     enum ExposureStatus: String, Codable, CaseIterable {
         case safe = "Safe"
@@ -39,7 +41,9 @@ struct SharedUVData: Codable {
         lastSunscreenApplication: Date?,
         sunscreenReapplyTimeRemaining: TimeInterval,
         exposureStatus: ExposureStatus,
-        exposureProgress: Double
+        exposureProgress: Double,
+        locationName: String,
+        lastUpdated: Date
     ) {
         self.currentUVIndex = currentUVIndex
         self.timeToBurn = timeToBurn
@@ -51,6 +55,8 @@ struct SharedUVData: Codable {
         self.exposureStatus = exposureStatus
         self.exposureProgress = exposureProgress
         self.timestamp = Date()
+        self.locationName = locationName
+        self.lastUpdated = lastUpdated
     }
 }
 
@@ -65,14 +71,19 @@ class SharedDataManager: ObservableObject {
     func saveSharedData(_ data: SharedUVData) {
         if let encoded = try? JSONEncoder().encode(data) {
             userDefaults?.set(encoded, forKey: "sharedUVData")
+            print("SharedDataManager: Saved data - UV: \(data.currentUVIndex), Time to Burn: \(data.timeToBurn)")
+        } else {
+            print("SharedDataManager: Failed to encode data")
         }
     }
     
     func loadSharedData() -> SharedUVData? {
         guard let data = userDefaults?.data(forKey: "sharedUVData"),
               let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) else {
+            print("SharedDataManager: No data found or failed to decode")
             return nil
         }
+        print("SharedDataManager: Loaded data - UV: \(decoded.currentUVIndex), Time to Burn: \(decoded.timeToBurn)")
         return decoded
     }
     

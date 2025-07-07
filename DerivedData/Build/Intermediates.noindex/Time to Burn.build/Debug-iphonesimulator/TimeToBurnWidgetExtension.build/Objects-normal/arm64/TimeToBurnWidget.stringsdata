@@ -23,7 +23,15 @@
         "key": "UV Index",
         "location": {
           "startingColumn": 18,
-          "startingLine": 45
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 82
         }
       },
       {
@@ -31,7 +39,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 41,
-          "startingLine": 47
+          "startingLine": 77
         }
       },
       {
@@ -39,7 +47,7 @@
         "key": "--",
         "location": {
           "startingColumn": 63,
-          "startingLine": 47
+          "startingLine": 77
         }
       }
     ]

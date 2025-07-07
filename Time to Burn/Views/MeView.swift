@@ -1,9 +1,11 @@
 import SwiftUI
+import WidgetKit
 
 struct MeView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @EnvironmentObject private var notificationManager: NotificationManager
+    @EnvironmentObject private var timerViewModel: TimerViewModel
     @StateObject private var onboardingManager = OnboardingManager.shared
     @State private var darkModeEnabled = true
     @State private var unitsMetric = true
@@ -140,11 +142,56 @@ struct MeView: View {
                 }
                 
                 // Developer Section (for testing)
-                Section("Developer") {
+                Section {
                     Button("Reset Onboarding") {
                         showingResetOnboardingAlert = true
                     }
                     .foregroundColor(.red)
+                    
+                    // Widget Debug Section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Widget Debug")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                        
+                        Button("Test Widget Data") {
+                            timerViewModel.testWidgetData()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                        .font(.caption)
+                        
+                        Button("Force Widget Refresh") {
+                            timerViewModel.forceWidgetRefresh()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                        .font(.caption)
+                        
+                        Button("Manual Widget Test") {
+                            // Force a manual widget refresh by updating data and reloading
+                            timerViewModel.currentUVIndex = 9
+                            timerViewModel.timeToBurn = 90
+                            timerViewModel.isTimerRunning = true
+                            timerViewModel.updateSharedData()
+                            WidgetCenter.shared.reloadAllTimelines()
+                            print("TimerViewModel: Manual widget test triggered")
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.orange)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                        .font(.caption)
+                    }
+                    .padding(.vertical, 4)
                 }
             }
             .navigationTitle("Settings")

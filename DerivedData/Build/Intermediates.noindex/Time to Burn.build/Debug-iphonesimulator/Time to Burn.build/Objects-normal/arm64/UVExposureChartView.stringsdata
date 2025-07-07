@@ -23,7 +23,7 @@
         "key": "Now",
         "location": {
           "startingColumn": 40,
-          "startingLine": 41
+          "startingLine": 44
         }
       },
       {
@@ -31,7 +31,7 @@
         "key": "Time",
         "location": {
           "startingColumn": 39,
-          "startingLine": 27
+          "startingLine": 30
         }
       },
       {
@@ -39,7 +39,7 @@
         "key": "UV Index",
         "location": {
           "startingColumn": 39,
-          "startingLine": 28
+          "startingLine": 31
         }
       },
       {
@@ -47,7 +47,7 @@
         "key": "Time",
         "location": {
           "startingColumn": 39,
-          "startingLine": 34
+          "startingLine": 37
         }
       },
       {
@@ -55,7 +55,7 @@
         "key": "UV Index",
         "location": {
           "startingColumn": 39,
-          "startingLine": 35
+          "startingLine": 38
         }
       },
       {
@@ -63,7 +63,7 @@
         "key": "Exposure Progress",
         "location": {
           "startingColumn": 26,
-          "startingLine": 74
+          "startingLine": 77
         }
       },
       {
@@ -71,7 +71,7 @@
         "key": "Category",
         "location": {
           "startingColumn": 39,
-          "startingLine": 81
+          "startingLine": 84
         }
       },
       {
@@ -79,7 +79,7 @@
         "key": "Time",
         "location": {
           "startingColumn": 39,
-          "startingLine": 82
+          "startingLine": 85
         }
       },
       {
@@ -87,7 +87,7 @@
         "key": "Max Safe",
         "location": {
           "startingColumn": 44,
-          "startingLine": 87
+          "startingLine": 90
         }
       },
       {
@@ -95,7 +95,7 @@
         "key": "Max Safe",
         "location": {
           "startingColumn": 38,
-          "startingLine": 91
+          "startingLine": 94
         }
       },
       {
@@ -103,7 +103,7 @@
         "key": "Exposure Statistics",
         "location": {
           "startingColumn": 18,
-          "startingLine": 130
+          "startingLine": 133
         }
       }
     ]

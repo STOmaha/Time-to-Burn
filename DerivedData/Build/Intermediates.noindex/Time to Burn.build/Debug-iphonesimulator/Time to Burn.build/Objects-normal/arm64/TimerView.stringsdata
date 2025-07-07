@@ -7,7 +7,15 @@
         "key": "Sun Timer",
         "location": {
           "startingColumn": 30,
-          "startingLine": 38
+          "startingLine": 50
+        }
+      },
+      {
+        "comment": "",
+        "key": "Test Widget Data",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 37
         }
       },
       {
@@ -15,7 +23,7 @@
         "key": "Current UV Index",
         "location": {
           "startingColumn": 26,
-          "startingLine": 55
+          "startingLine": 67
         }
       },
       {
@@ -23,7 +31,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 26,
-          "startingLine": 58
+          "startingLine": 70
         }
       },
       {
@@ -31,7 +39,7 @@
         "key": "Time to Burn",
         "location": {
           "startingColumn": 26,
-          "startingLine": 64
+          "startingLine": 76
         }
       },
       {
@@ -39,7 +47,7 @@
         "key": "∞",
         "location": {
           "startingColumn": 30,
-          "startingLine": 68
+          "startingLine": 80
         }
       },
       {
@@ -47,7 +55,7 @@
         "key": "~%lld min",
         "location": {
           "startingColumn": 30,
-          "startingLine": 72
+          "startingLine": 84
         }
       },
       {
@@ -55,7 +63,7 @@
         "key": "Exposure Progress",
         "location": {
           "startingColumn": 30,
-          "startingLine": 83
+          "startingLine": 95
         }
       },
       {
@@ -63,7 +71,7 @@
         "key": "No UV Exposure",
         "location": {
           "startingColumn": 22,
-          "startingLine": 116
+          "startingLine": 128
         }
       },
       {
@@ -71,7 +79,7 @@
         "key": "UV Index is currently 0",
         "location": {
           "startingColumn": 22,
-          "startingLine": 124
+          "startingLine": 136
         }
       },
       {
@@ -79,7 +87,7 @@
         "key": "No sun protection needed",
         "location": {
           "startingColumn": 22,
-          "startingLine": 127
+          "startingLine": 139
         }
       },
       {
@@ -87,7 +95,7 @@
         "key": "Safe to be outdoors without protection",
         "location": {
           "startingColumn": 22,
-          "startingLine": 136
+          "startingLine": 148
         }
       },
       {
@@ -95,7 +103,7 @@
         "key": "Exposure Timer",
         "location": {
           "startingColumn": 18,
-          "startingLine": 155
+          "startingLine": 167
         }
       },
       {
@@ -103,7 +111,7 @@
         "key": "Elapsed",
         "location": {
           "startingColumn": 26,
-          "startingLine": 175
+          "startingLine": 187
         }
       },
       {
@@ -111,7 +119,7 @@
         "key": "Remaining",
         "location": {
           "startingColumn": 26,
-          "startingLine": 185
+          "startingLine": 197
         }
       },
       {
@@ -119,63 +127,7 @@
         "key": "Total Today",
         "location": {
           "startingColumn": 26,
-          "startingLine": 195
-        }
-      },
-      {
-        "comment": "",
-        "key": "No sunscreen applied yet",
-        "location": {
-          "startingColumn": 22,
-          "startingLine": 249
-        }
-      },
-      {
-        "comment": "",
-        "key": "Sunscreen Reapply",
-        "location": {
-          "startingColumn": 22,
-          "startingLine": 223
-        }
-      },
-      {
-        "comment": "",
-        "key": "Time until reapply:",
-        "location": {
-          "startingColumn": 26,
-          "startingLine": 232
-        }
-      },
-      {
-        "comment": "",
-        "key": "Reapply sunscreen now!",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 242
-        }
-      },
-      {
-        "comment": "",
-        "key": "Apply Sunscreen",
-        "location": {
-          "startingColumn": 26,
-          "startingLine": 259
-        }
-      },
-      {
-        "comment": "",
-        "key": "Reset",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 314
-        }
-      },
-      {
-        "comment": "",
-        "key": "Apply Sunscreen",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 332
+          "startingLine": 207
         }
       }
     ]

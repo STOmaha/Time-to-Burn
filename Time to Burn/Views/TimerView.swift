@@ -31,6 +31,8 @@ struct TimerView: View {
                         // Timer Controls
                                     TimerControlsCard()
                 .environmentObject(timerViewModel)
+                    
+
                     }
                 }
                 .padding(.horizontal)

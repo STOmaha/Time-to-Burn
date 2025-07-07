@@ -51,6 +51,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		B01EFD5D2E1C10D800254047 /* TimeToBurnWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TimeToBurnWidgetExtension.entitlements; sourceTree = "<group>"; };
 		B074DC982DFB19A8009E1727 /* Time to Burn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Time to Burn.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B074DCA52DFB19AA009E1727 /* Time to BurnTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Time to BurnTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B074DCAF2DFB19AA009E1727 /* Time to BurnUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Time to BurnUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -142,6 +143,7 @@
 		B074DC8F2DFB19A8009E1727 = {
 			isa = PBXGroup;
 			children = (
+				B01EFD5D2E1C10D800254047 /* TimeToBurnWidgetExtension.entitlements */,
 				B074DC9A2DFB19A8009E1727 /* Time to Burn */,
 				B074DCA82DFB19AA009E1727 /* Time to BurnTests */,
 				B074DCB22DFB19AA009E1727 /* Time to BurnUITests */,
@@ -675,6 +677,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = TimeToBurnWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -703,6 +706,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = TimeToBurnWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

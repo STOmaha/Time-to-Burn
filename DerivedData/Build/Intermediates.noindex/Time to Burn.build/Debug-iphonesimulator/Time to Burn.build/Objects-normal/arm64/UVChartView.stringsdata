@@ -7,7 +7,7 @@
         "key": "Time to Burn: %@",
         "location": {
           "startingColumn": 26,
-          "startingLine": 61
+          "startingLine": 63
         }
       },
       {
@@ -39,7 +39,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 46,
-          "startingLine": 88
+          "startingLine": 90
         }
       },
       {
@@ -47,7 +47,7 @@
         "key": "UV Threshold",
         "location": {
           "startingColumn": 61,
-          "startingLine": 176
+          "startingLine": 178
         }
       },
       {
@@ -55,7 +55,7 @@
         "key": "Time to Burn at this threshold: ~%@",
         "location": {
           "startingColumn": 22,
-          "startingLine": 255
+          "startingLine": 257
         }
       },
       {
@@ -63,7 +63,7 @@
         "key": "Notification Threshold:",
         "location": {
           "startingColumn": 26,
-          "startingLine": 245
+          "startingLine": 247
         }
       },
       {
@@ -71,7 +71,7 @@
         "key": "UV %lld",
         "location": {
           "startingColumn": 26,
-          "startingLine": 249
+          "startingLine": 251
         }
       }
     ]

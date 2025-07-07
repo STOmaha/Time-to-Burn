@@ -6,11 +6,11 @@ struct TimeToBurnWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: UVIndexProvider()) { entry in
-            UVIndexWidgetView(entry: entry)
+            WidgetView(entry: entry)
         }
         .configurationDisplayName("Current UV Index")
         .description("Shows the current UV Index from the main app.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -20,17 +20,20 @@ struct UVIndexEntry: TimelineEntry {
     let timeToBurn: Int?
     let isTimerRunning: Bool?
     let exposureStatus: String?
+    let locationName: String?
+    let lastUpdated: Date?
     let debugInfo: String?
 }
 
 struct UVIndexProvider: TimelineProvider {
     func placeholder(in context: Context) -> UVIndexEntry {
-        UVIndexEntry(date: Date(), uvIndex: nil, timeToBurn: nil, isTimerRunning: nil, exposureStatus: nil, debugInfo: "Placeholder")
+        UVIndexEntry(date: Date(), uvIndex: nil, timeToBurn: nil, isTimerRunning: nil, exposureStatus: nil, locationName: nil, lastUpdated: nil, debugInfo: "Placeholder")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (UVIndexEntry) -> Void) {
         let sharedData = SharedDataManager.shared.loadSharedData()
-        let debugInfo = sharedData != nil ? "Data loaded: UV=\(sharedData!.currentUVIndex)" : "No data found"
+        let debugInfo = sharedData != nil ? "Snapshot: UV=\(sharedData!.currentUVIndex), TTB=\(sharedData!.timeToBurn)" : "Snapshot: No data"
+        print("Widget: getSnapshot called - \(debugInfo)")
         
         let entry = UVIndexEntry(
             date: Date(), 
@@ -38,6 +41,8 @@ struct UVIndexProvider: TimelineProvider {
             timeToBurn: sharedData?.timeToBurn,
             isTimerRunning: sharedData?.isTimerRunning,
             exposureStatus: sharedData?.exposureStatus.rawValue,
+            locationName: sharedData?.locationName,
+            lastUpdated: sharedData?.lastUpdated,
             debugInfo: debugInfo
         )
         completion(entry)
@@ -45,7 +50,20 @@ struct UVIndexProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<UVIndexEntry>) -> Void) {
         let sharedData = SharedDataManager.shared.loadSharedData()
-        let debugInfo = sharedData != nil ? "Timeline: UV=\(sharedData!.currentUVIndex)" : "Timeline: No data"
+        let debugInfo = sharedData != nil ? "Timeline: UV=\(sharedData!.currentUVIndex), TTB=\(sharedData!.timeToBurn)" : "Timeline: No data"
+        print("Widget: getTimeline called - \(debugInfo)")
+        
+        // Also print the raw UserDefaults data for debugging
+        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+            print("Widget: UserDefaults suite exists")
+            if let data = userDefaults.data(forKey: "sharedUVData") {
+                print("Widget: Raw data exists, size: \(data.count) bytes")
+            } else {
+                print("Widget: No raw data found in UserDefaults")
+            }
+        } else {
+            print("Widget: UserDefaults suite not found")
+        }
         
         let entry = UVIndexEntry(
             date: Date(), 
@@ -53,6 +71,8 @@ struct UVIndexProvider: TimelineProvider {
             timeToBurn: sharedData?.timeToBurn,
             isTimerRunning: sharedData?.isTimerRunning,
             exposureStatus: sharedData?.exposureStatus.rawValue,
+            locationName: sharedData?.locationName,
+            lastUpdated: sharedData?.lastUpdated,
             debugInfo: debugInfo
         )
         
@@ -63,42 +83,20 @@ struct UVIndexProvider: TimelineProvider {
     }
 }
 
-struct UVIndexWidgetView: View {
+struct WidgetView: View {
     let entry: UVIndexEntry
+    @Environment(\.widgetFamily) var family
     
     var body: some View {
-        VStack(spacing: 4) {
-            Text("UV Index")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            Text(entry.uvIndex != nil ? "\(entry.uvIndex!)" : "--")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundColor(.orange)
-            
-            if let timeToBurn = entry.timeToBurn, timeToBurn > 0 {
-                Text("\(timeToBurn) min")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            
-            if let status = entry.exposureStatus {
-                Text(status)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Debug info in small font
-            if let debug = entry.debugInfo {
-                Text(debug)
-                    .font(.system(size: 8))
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
-            }
-        }
-        .padding(8)
-        .containerBackground(for: .widget) {
-            Color(.systemBackground)
+        switch family {
+        case .systemSmall:
+            SmallWidgetView(entry: entry)
+        case .systemMedium:
+            MediumWidgetView(entry: entry)
+        case .systemLarge:
+            LargeWidgetView(entry: entry)
+        default:
+            SmallWidgetView(entry: entry)
         }
     }
 }
@@ -106,5 +104,17 @@ struct UVIndexWidgetView: View {
 #Preview(as: .systemSmall) {
     TimeToBurnWidget()
 } timeline: {
-    UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, isTimerRunning: true, exposureStatus: "Safe", debugInfo: "Preview data")
+    UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, isTimerRunning: true, exposureStatus: "Safe", locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
+}
+
+#Preview(as: .systemMedium) {
+    TimeToBurnWidget()
+} timeline: {
+    UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, isTimerRunning: true, exposureStatus: "Safe", locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
+}
+
+#Preview(as: .systemLarge) {
+    TimeToBurnWidget()
+} timeline: {
+    UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, isTimerRunning: true, exposureStatus: "Safe", locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
 } 

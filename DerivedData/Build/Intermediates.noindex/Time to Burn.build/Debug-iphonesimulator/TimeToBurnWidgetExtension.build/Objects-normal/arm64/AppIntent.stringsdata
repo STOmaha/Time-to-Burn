@@ -7,7 +7,7 @@
         "key": "Configuration",
         "location": {
           "startingColumn": 49,
-          "startingLine": 12
+          "startingLine": 13
         }
       },
       {
@@ -15,7 +15,7 @@
         "key": "This is an example widget.",
         "location": {
           "startingColumn": 49,
-          "startingLine": 13
+          "startingLine": 14
         }
       },
       {
@@ -23,7 +23,39 @@
         "key": "Favorite Emoji",
         "location": {
           "startingColumn": 23,
-          "startingLine": 16
+          "startingLine": 17
+        }
+      },
+      {
+        "comment": "",
+        "key": "Apply Sunscreen",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 23
+        }
+      },
+      {
+        "comment": "",
+        "key": "Apply sunscreen and start 2-hour timer",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 24
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open Timer Tab",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 33
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open the Timer tab in the app",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 34
         }
       }
     ]

@@ -37,6 +37,9 @@ struct Time_to_BurnApp: App {
                     .environmentObject(notificationManager)
                     .environmentObject(timerViewModel)
                     .onAppear {
+                        // Set dependencies for TimerViewModel
+                        timerViewModel.setDependencies(locationManager: locationManager, weatherViewModel: weatherViewModel)
+                        
                         // Fetch initial UV data when app appears
                         Task {
                             await weatherViewModel.refreshData()
