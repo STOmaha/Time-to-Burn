@@ -76,8 +76,8 @@ struct UVIndexProvider: TimelineProvider {
             debugInfo: debugInfo
         )
         
-        // Refresh every 30 seconds for debugging
-        let nextUpdate = Date().addingTimeInterval(30)
+        // Refresh every 15 minutes
+        let nextUpdate = Date().addingTimeInterval(900)
         let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
         completion(timeline)
     }
