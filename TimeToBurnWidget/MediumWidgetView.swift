@@ -5,6 +5,13 @@ struct MediumWidgetView: View {
     let entry: UVIndexEntry
     
     var body: some View {
+        // Add debugging to see what data we're getting
+        let _ = print("🌞 [MediumWidgetView] 📊 Received entry data:")
+        let _ = print("   📊 UV Index: \(entry.uvIndex)")
+        let _ = print("   ⏱️  Time to Burn: \(entry.timeToBurn)")
+        let _ = print("   📍 Location: \(entry.locationName)")
+        let _ = print("   ──────────────────────────────────────")
+        
         ZStack {
             VStack(spacing: 8) {
                 // Header with location and updated time
@@ -14,17 +21,15 @@ struct MediumWidgetView: View {
                             Image(systemName: "location.fill")
                                 .font(.caption)
                                 .foregroundColor(.primary)
-                            Text(entry.locationName ?? "Unknown")
+                            Text(entry.locationName)
                                 .font(.caption)
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
                                 .fontWeight(.medium)
                         }
-                        if let lastUpdated = entry.lastUpdated {
-                            Text("Updated \(formatHour(lastUpdated))")
-                                .font(.caption2)
-                                .foregroundColor(.primary.opacity(0.7))
-                        }
+                        Text("Updated \(formatHour(entry.lastUpdated))")
+                            .font(.caption2)
+                            .foregroundColor(.primary.opacity(0.7))
                     }
                     Spacer()
                 }
@@ -37,9 +42,9 @@ struct MediumWidgetView: View {
                             .foregroundColor(.primary)
                             .fontWeight(.medium)
                         
-                        Text(entry.uvIndex != nil ? "\(entry.uvIndex!)" : "0")
+                        Text("\(entry.uvIndex)")
                             .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(getUVColor(entry.uvIndex ?? 0))
+                            .foregroundColor(getUVColor(entry.uvIndex))
                     }
                     
                     Spacer()
@@ -57,14 +62,14 @@ struct MediumWidgetView: View {
                         
                         Text(getTimeToBurnText(entry.timeToBurn))
                             .font(.system(size: 22, weight: .bold, design: .rounded))
-                            .foregroundColor(getUVColor(entry.uvIndex ?? 0))
+                            .foregroundColor(getUVColor(entry.uvIndex))
                     }
                 }
             }
             .padding(12)
         }
         .containerBackground(for: .widget) {
-            getUVColor(entry.uvIndex ?? 0).opacity(0.15)
+            getUVColor(entry.uvIndex).opacity(0.15)
         }
     }
     
@@ -93,8 +98,8 @@ struct MediumWidgetView: View {
         return lower.color
     }
     
-    func getTimeToBurnText(_ timeToBurn: Int?) -> String {
-        guard let timeToBurn = timeToBurn, timeToBurn > 0 else {
+    func getTimeToBurnText(_ timeToBurn: Int) -> String {
+        if timeToBurn <= 0 {
             return "∞"
         }
         // Convert seconds to minutes

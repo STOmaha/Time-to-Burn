@@ -26,7 +26,7 @@ class TimerViewModel: ObservableObject {
     // MARK: - Private Properties
     private let uvTimer = UVExposureTimer()
     private let notificationManager = NotificationManager.shared
-    private let sharedDataManager = SharedDataManager.shared
+    private let sharedDataManager = MainAppSharedDataManager.shared
     private var cancellables = Set<AnyCancellable>()
     
     // Dependencies for location and weather data
@@ -556,7 +556,7 @@ class TimerViewModel: ObservableObject {
             }
         }
         
-        let sharedData = SharedDataManager.shared.loadSharedData()
+        let sharedData = MainAppSharedDataManager.shared.loadSharedData()
         if let data = sharedData {
             print("⏰ [TimerViewModel] ✅ Shared data accessible - UV: \(data.currentUVIndex)")
         } else {
@@ -646,7 +646,7 @@ class TimerViewModel: ObservableObject {
         updateSharedData()
         
         // Check current shared data
-        let sharedData = SharedDataManager.shared.loadSharedData()
+        let sharedData = MainAppSharedDataManager.shared.loadSharedData()
         if let data = sharedData {
             print("⏰ [TimerViewModel] ✅ Shared data verified:")
             print("   📊 UV Index: \(data.currentUVIndex)")
@@ -721,7 +721,7 @@ class TimerViewModel: ObservableObject {
             hourlyUVData: nil
         )
         
-        SharedDataManager.shared.saveSharedData(testData)
+        MainAppSharedDataManager.shared.saveSharedData(testData)
         
         // Force widget refresh
         print("⏰ [TimerViewModel] 📱 Calling WidgetCenter.shared.reloadAllTimelines()")

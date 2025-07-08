@@ -5,6 +5,13 @@ struct SmallWidgetView: View {
     let entry: UVIndexEntry
     
     var body: some View {
+        // Add debugging to see what data we're getting
+        let _ = print("🌞 [SmallWidgetView] 📊 Received entry data:")
+        let _ = print("   📊 UV Index: \(entry.uvIndex)")
+        let _ = print("   ⏱️  Time to Burn: \(entry.timeToBurn)")
+        let _ = print("   📍 Location: \(entry.locationName)")
+        let _ = print("   ──────────────────────────────────────")
+        
         ZStack {
             VStack(spacing: 8) {
                 // UV Index
@@ -14,9 +21,9 @@ struct SmallWidgetView: View {
                         .foregroundColor(.primary)
                         .fontWeight(.medium)
                     
-                    Text(entry.uvIndex != nil ? "\(entry.uvIndex!)" : "0")
+                    Text("\(entry.uvIndex)")
                         .font(.system(size: 42, weight: .bold, design: .rounded))
-                        .foregroundColor(getUVColor(entry.uvIndex ?? 0))
+                        .foregroundColor(getUVColor(entry.uvIndex))
                 }
                 
                 // Time to Burn
@@ -28,13 +35,13 @@ struct SmallWidgetView: View {
                     
                     Text(getTimeToBurnText(entry.timeToBurn))
                         .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundColor(getUVColor(entry.uvIndex ?? 0))
+                        .foregroundColor(getUVColor(entry.uvIndex))
                 }
             }
             .padding(12)
         }
         .containerBackground(for: .widget) {
-            getUVColor(entry.uvIndex ?? 0).opacity(0.15)
+            getUVColor(entry.uvIndex).opacity(0.15)
         }
     }
     
@@ -63,8 +70,8 @@ struct SmallWidgetView: View {
         return lower.color
     }
     
-    func getTimeToBurnText(_ timeToBurn: Int?) -> String {
-        guard let timeToBurn = timeToBurn, timeToBurn > 0 else {
+    func getTimeToBurnText(_ timeToBurn: Int) -> String {
+        if timeToBurn <= 0 {
             return "∞"
         }
         // Convert seconds to minutes

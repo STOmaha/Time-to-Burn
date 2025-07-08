@@ -5,7 +5,7 @@ struct TimeToBurnWidget: Widget {
     let kind: String = "TimeToBurnWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: UVIndexProvider()) { entry in
+        StaticConfiguration(kind: kind, provider: SimpleUVIndexProvider()) { entry in
             WidgetView(entry: entry)
         }
         .configurationDisplayName("Current UV Index")
@@ -13,60 +13,41 @@ struct TimeToBurnWidget: Widget {
         .supportedFamilies([
             .systemSmall,
             .systemMedium
-            // Uncomment the following lines if your Xcode and SDK support iOS 17+ WidgetFamily members:
-            // .content,
-            // .contentAndPrivacy
         ])
     }
 }
 
 struct UVIndexEntry: TimelineEntry {
     let date: Date
-    let uvIndex: Int?
-    let timeToBurn: Int?
-    let isTimerRunning: Bool?
-    let exposureStatus: String?
-    let locationName: String?
-    let lastUpdated: Date?
-    let debugInfo: String?
+    let uvIndex: Int
+    let timeToBurn: Int
+    let locationName: String
+    let lastUpdated: Date
+    let debugInfo: String
 }
 
-struct UVIndexProvider: TimelineProvider {
+struct SimpleUVIndexProvider: TimelineProvider {
     init() {
-        print("🌞 [Widget] 🚀 UVIndexProvider initialized")
+        print("🌞 [Widget] 🚀 SimpleUVIndexProvider initialized")
     }
     
     func placeholder(in context: Context) -> UVIndexEntry {
         print("🌞 [Widget] 📱 Placeholder requested")
-        return UVIndexEntry(date: Date(), uvIndex: nil, timeToBurn: nil, isTimerRunning: nil, exposureStatus: nil, locationName: nil, lastUpdated: nil, debugInfo: "Placeholder")
+        return UVIndexEntry(
+            date: Date(), 
+            uvIndex: 4,
+            timeToBurn: 2700,
+            locationName: "Loading...",
+            lastUpdated: Date(),
+            debugInfo: "Placeholder"
+        )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (UVIndexEntry) -> Void) {
         print("🌞 [Widget] 📸 Snapshot requested")
         
-        let sharedData = loadSharedDataWithDebug()
-        let entry = UVIndexEntry(
-            date: Date(), 
-            uvIndex: sharedData?.currentUVIndex,
-            timeToBurn: sharedData?.timeToBurn,
-            isTimerRunning: sharedData?.isTimerRunning,
-            exposureStatus: sharedData?.exposureStatus.rawValue,
-            locationName: sharedData?.locationName,
-            lastUpdated: sharedData?.lastUpdated,
-            debugInfo: sharedData != nil ? "Snapshot: UV=\(sharedData!.currentUVIndex)" : "Snapshot: No data"
-        )
-        
-        if let data = sharedData {
-            let uvEmoji = getUVEmoji(data.currentUVIndex)
-            let timeToBurnText = data.timeToBurn == Int.max ? "∞" : "\(data.timeToBurn / 60)min"
-            print("🌞 [Widget] 📸 Snapshot Created:")
-            print("   📊 UV Index: \(uvEmoji) \(data.currentUVIndex)")
-            print("   ⏱️  Time to Burn: \(timeToBurnText)")
-            print("   📍 Location: \(data.locationName)")
-            print("   ──────────────────────────────────────")
-        } else {
-            print("🌞 [Widget] 📸 ❌ No data available for snapshot")
-        }
+        let entry = loadSharedDataDirectly()
+        print("🌞 [Widget] 📸 Snapshot Created: UV=\(entry.uvIndex), Time=\(entry.timeToBurn/60)min, Location=\(entry.locationName)")
         
         completion(entry)
     }
@@ -74,29 +55,8 @@ struct UVIndexProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<UVIndexEntry>) -> Void) {
         print("🌞 [Widget] ⏰ Timeline requested")
         
-        let sharedData = loadSharedDataWithDebug()
-        let entry = UVIndexEntry(
-            date: Date(), 
-            uvIndex: sharedData?.currentUVIndex,
-            timeToBurn: sharedData?.timeToBurn,
-            isTimerRunning: sharedData?.isTimerRunning,
-            exposureStatus: sharedData?.exposureStatus.rawValue,
-            locationName: sharedData?.locationName,
-            lastUpdated: sharedData?.lastUpdated,
-            debugInfo: sharedData != nil ? "Timeline: UV=\(sharedData!.currentUVIndex)" : "Timeline: No data"
-        )
-        
-        if let data = sharedData {
-            let uvEmoji = getUVEmoji(data.currentUVIndex)
-            let timeToBurnText = data.timeToBurn == Int.max ? "∞" : "\(data.timeToBurn / 60)min"
-            print("🌞 [Widget] ⏰ Timeline Entry Created:")
-            print("   📊 UV Index: \(uvEmoji) \(data.currentUVIndex)")
-            print("   ⏱️  Time to Burn: \(timeToBurnText)")
-            print("   📍 Location: \(data.locationName)")
-            print("   ──────────────────────────────────────")
-        } else {
-            print("🌞 [Widget] ⏰ ❌ No data available for timeline")
-        }
+        let entry = loadSharedDataDirectly()
+        print("🌞 [Widget] ⏰ Timeline Entry Created: UV=\(entry.uvIndex), Time=\(entry.timeToBurn/60)min, Location=\(entry.locationName)")
         
         // Refresh every 2 minutes
         let nextUpdate = Date().addingTimeInterval(120)
@@ -104,100 +64,66 @@ struct UVIndexProvider: TimelineProvider {
         completion(timeline)
     }
     
-    // MARK: - Enhanced Data Loading with Debug
+    // MARK: - Direct Data Loading
     
-    private func loadSharedDataWithDebug() -> SharedUVData? {
-        print("🌞 [Widget] 🔍 Attempting to load shared data...")
+    private func loadSharedDataDirectly() -> UVIndexEntry {
+        print("🌞 [Widget] 🔍 Loading shared data directly...")
         
-        // Try main UserDefaults first
-        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
-            print("🌞 [Widget] ✅ Main UserDefaults initialized")
-            
-            if let data = userDefaults.data(forKey: "sharedUVData") {
-                print("🌞 [Widget] 📦 Found data in UserDefaults (\(data.count) bytes)")
-                
-                if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
-                    let uvEmoji = getUVEmoji(decoded.currentUVIndex)
-                    let timeToBurnText = decoded.timeToBurn == Int.max ? "∞" : "\(decoded.timeToBurn / 60)min"
-                    print("🌞 [Widget] ✅ Successfully loaded shared data:")
-                    print("   📊 UV Index: \(uvEmoji) \(decoded.currentUVIndex)")
-                    print("   ⏱️  Time to Burn: \(timeToBurnText)")
-                    print("   📍 Location: \(decoded.locationName)")
-                    print("   ──────────────────────────────────────")
-                    return decoded
-                } else {
-                    print("🌞 [Widget] ❌ Failed to decode data from main UserDefaults")
-                }
-            } else {
-                print("🌞 [Widget] ⚠️  No data found in main UserDefaults")
-            }
-        } else {
-            print("🌞 [Widget] ❌ Failed to initialize main UserDefaults")
+        // Try to load from shared data
+        if let sharedData = WidgetSharedDataManager.shared.loadSharedData() {
+            print("🌞 [Widget] ✅ Successfully loaded shared data: UV=\(sharedData.currentUVIndex)")
+            return UVIndexEntry(
+                date: Date(),
+                uvIndex: sharedData.currentUVIndex,
+                timeToBurn: sharedData.timeToBurn,
+                locationName: sharedData.locationName,
+                lastUpdated: sharedData.lastUpdated,
+                debugInfo: "Loaded from SharedDataManager"
+            )
         }
         
-        // Try alternative UserDefaults
-        print("🌞 [Widget] 🔄 Trying alternative UserDefaults...")
-        if let alternativeUserDefaults = UserDefaults(suiteName: "group.Time-to-Burn.shared") {
-            print("🌞 [Widget] ✅ Alternative UserDefaults initialized")
-            
-            if let data = alternativeUserDefaults.data(forKey: "sharedUVData") {
-                print("🌞 [Widget] 📦 Found data in alternative UserDefaults (\(data.count) bytes)")
-                
-                if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
-                    let uvEmoji = getUVEmoji(decoded.currentUVIndex)
-                    let timeToBurnText = decoded.timeToBurn == Int.max ? "∞" : "\(decoded.timeToBurn / 60)min"
-                    print("🌞 [Widget] ✅ Successfully loaded shared data (Alternative):")
-                    print("   📊 UV Index: \(uvEmoji) \(decoded.currentUVIndex)")
-                    print("   ⏱️  Time to Burn: \(timeToBurnText)")
-                    print("   📍 Location: \(decoded.locationName)")
-                    print("   ──────────────────────────────────────")
-                    return decoded
-                } else {
-                    print("🌞 [Widget] ❌ Failed to decode data from alternative UserDefaults")
-                }
-            } else {
-                print("🌞 [Widget] ⚠️  No data found in alternative UserDefaults")
-            }
-        } else {
-            print("🌞 [Widget] ❌ Failed to initialize alternative UserDefaults")
+        // Fallback: Try direct UserDefaults access
+        print("🌞 [Widget] 🔄 Trying direct UserDefaults access...")
+        
+        // Try main app group
+        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared"),
+           let data = userDefaults.data(forKey: "sharedUVData"),
+           let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
+            print("🌞 [Widget] ✅ Loaded from app group UserDefaults: UV=\(decoded.currentUVIndex)")
+            return UVIndexEntry(
+                date: Date(),
+                uvIndex: decoded.currentUVIndex,
+                timeToBurn: decoded.timeToBurn,
+                locationName: decoded.locationName,
+                lastUpdated: decoded.lastUpdated,
+                debugInfo: "Loaded from app group UserDefaults"
+            )
         }
         
-        // Try standard UserDefaults as last resort
-        print("🌞 [Widget] 🔄 Trying standard UserDefaults as last resort...")
-        if let data = UserDefaults.standard.data(forKey: "sharedUVData") {
-            print("🌞 [Widget] 📦 Found data in standard UserDefaults (\(data.count) bytes)")
-            
-            if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
-                let uvEmoji = getUVEmoji(decoded.currentUVIndex)
-                let timeToBurnText = decoded.timeToBurn == Int.max ? "∞" : "\(decoded.timeToBurn / 60)min"
-                print("🌞 [Widget] ✅ Successfully loaded shared data (Standard):")
-                print("   📊 UV Index: \(uvEmoji) \(decoded.currentUVIndex)")
-                print("   ⏱️  Time to Burn: \(timeToBurnText)")
-                print("   📍 Location: \(decoded.locationName)")
-                print("   ──────────────────────────────────────")
-                return decoded
-            } else {
-                print("🌞 [Widget] ❌ Failed to decode data from standard UserDefaults")
-            }
-        } else {
-            print("🌞 [Widget] ⚠️  No data found in standard UserDefaults")
+        // Try standard UserDefaults
+        if let data = UserDefaults.standard.data(forKey: "sharedUVData"),
+           let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
+            print("🌞 [Widget] ✅ Loaded from standard UserDefaults: UV=\(decoded.currentUVIndex)")
+            return UVIndexEntry(
+                date: Date(),
+                uvIndex: decoded.currentUVIndex,
+                timeToBurn: decoded.timeToBurn,
+                locationName: decoded.locationName,
+                lastUpdated: decoded.lastUpdated,
+                debugInfo: "Loaded from standard UserDefaults"
+            )
         }
         
-        print("🌞 [Widget] ❌ No shared data found in any UserDefaults")
-        return nil
-    }
-    
-    // MARK: - Helper Methods for Beautiful Logging
-    
-    private func getUVEmoji(_ uvIndex: Int) -> String {
-        switch uvIndex {
-        case 0: return "🌙"
-        case 1...2: return "🌤️"
-        case 3...5: return "☀️"
-        case 6...7: return "🔥"
-        case 8...10: return "☠️"
-        default: return "💀"
-        }
+        // Default fallback
+        print("🌞 [Widget] ❌ No shared data found, using defaults")
+        return UVIndexEntry(
+            date: Date(),
+            uvIndex: 0,
+            timeToBurn: 0,
+            locationName: "No Data",
+            lastUpdated: Date(),
+            debugInfo: "No data available"
+        )
     }
 }
 
@@ -206,6 +132,20 @@ struct WidgetView: View {
     @Environment(\.widgetFamily) var family
     
     var body: some View {
+        // Add debugging to see what data we're getting
+        let _ = print("🌞 [WidgetView] 📊 Received entry data:")
+        let _ = print("   📊 UV Index: \(entry.uvIndex)")
+        let _ = print("   ⏱️  Time to Burn: \(entry.timeToBurn)")
+        let _ = print("   📍 Location: \(entry.locationName)")
+        let _ = print("   🕐 Last Updated: \(entry.lastUpdated)")
+        let _ = print("   🔍 Debug Info: \(entry.debugInfo)")
+        let _ = print("   ──────────────────────────────────────")
+        
+        // Temporarily use debug view to see raw data
+        DebugWidgetView(entry: entry)
+        
+        // Original switch (commented out for now)
+        /*
         switch family {
         case .systemSmall:
             SmallWidgetView(entry: entry)
@@ -214,19 +154,59 @@ struct WidgetView: View {
         default:
             SmallWidgetView(entry: entry)
         }
+        */
+    }
+}
+
+// MARK: - Debug Widget View
+struct DebugWidgetView: View {
+    let entry: UVIndexEntry
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("DEBUG DATA")
+                .font(.caption)
+                .foregroundColor(.red)
+            
+            Text("UV: \(entry.uvIndex)")
+                .font(.caption)
+                .foregroundColor(.primary)
+            
+            Text("Time: \(entry.timeToBurn)")
+                .font(.caption)
+                .foregroundColor(.primary)
+            
+            Text("Location: \(entry.locationName)")
+                .font(.caption)
+                .foregroundColor(.primary)
+            
+            Text("Updated: \(formatHour(entry.lastUpdated))")
+                .font(.caption)
+                .foregroundColor(.primary)
+        }
+        .padding(8)
+        .containerBackground(for: .widget) {
+            Color.gray.opacity(0.1)
+        }
+    }
+    
+    private func formatHour(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
     }
 }
 
 #Preview(as: .systemSmall) {
     TimeToBurnWidget()
 } timeline: {
-    UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, isTimerRunning: true, exposureStatus: "Safe", locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
+    UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
 }
 
 #Preview(as: .systemMedium) {
     TimeToBurnWidget()
 } timeline: {
-    UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, isTimerRunning: true, exposureStatus: "Safe", locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
+    UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
 }
 
  
