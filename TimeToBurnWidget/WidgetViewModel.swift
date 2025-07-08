@@ -17,6 +17,19 @@ class WidgetViewModel: ObservableObject {
         } else {
             hourlyUVData = generateMockHourlyData()
         }
+        
+        // Debug logging
+        if let sharedData = sharedData {
+            let uvEmoji = getUVEmoji(sharedData.currentUVIndex)
+            let timeToBurnText = sharedData.timeToBurn == Int.max ? "∞" : "\(sharedData.timeToBurn / 60)min"
+            print("🌞 [WidgetViewModel] 📊 Loaded Shared Data:")
+            print("   📊 UV Index: \(uvEmoji) \(sharedData.currentUVIndex)")
+            print("   ⏱️  Time to Burn: \(timeToBurnText)")
+            print("   📍 Location: \(sharedData.locationName)")
+            print("   ──────────────────────────────────────")
+        } else {
+            print("🌞 [WidgetViewModel] ❌ No shared data available")
+        }
     }
     
     private func generateMockHourlyData() -> [UVData] {
@@ -93,6 +106,19 @@ class WidgetViewModel: ObservableObject {
         return hourlyUVData.map { data in
             let fraction = CGFloat(data.date.timeIntervalSince(first.date) / totalSeconds)
             return (fraction, data.uvIndex, data.date)
+        }
+    }
+    
+    // MARK: - Helper Methods for Beautiful Logging
+    
+    private func getUVEmoji(_ uvIndex: Int) -> String {
+        switch uvIndex {
+        case 0: return "🌙"
+        case 1...2: return "🌤️"
+        case 3...5: return "☀️"
+        case 6...7: return "🔥"
+        case 8...10: return "☠️"
+        default: return "💀"
         }
     }
 } 

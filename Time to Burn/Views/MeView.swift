@@ -175,18 +175,22 @@ struct MeView: View {
                         .cornerRadius(6)
                         .font(.caption)
                         
-                        Button("Manual Widget Test") {
-                            // Force a manual widget refresh by updating data and reloading
-                            timerViewModel.currentUVIndex = 9
-                            timerViewModel.timeToBurn = 90
-                            timerViewModel.isTimerRunning = true
-                            timerViewModel.updateSharedData()
-                            WidgetCenter.shared.reloadAllTimelines()
-                            print("TimerViewModel: Manual widget test triggered")
+                        Button("Aggressive Widget Refresh") {
+                            timerViewModel.forceAggressiveWidgetRefresh()
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color.orange)
+                        .background(Color.purple)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                        .font(.caption)
+                        
+                        Button("Check Widget Status") {
+                            timerViewModel.checkWidgetStatus()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.red)
                         .foregroundColor(.white)
                         .cornerRadius(6)
                         .font(.caption)

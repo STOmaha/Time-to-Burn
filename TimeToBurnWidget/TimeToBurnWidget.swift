@@ -1,7 +1,6 @@
 import WidgetKit
 import SwiftUI
 
-@available(iOS 17.0, *)
 struct TimeToBurnWidget: Widget {
     let kind: String = "TimeToBurnWidget"
 
@@ -13,8 +12,7 @@ struct TimeToBurnWidget: Widget {
         .description("Shows the current UV Index from the main app.")
         .supportedFamilies([
             .systemSmall,
-            .systemMedium,
-            .systemLarge
+            .systemMedium
             // Uncomment the following lines if your Xcode and SDK support iOS 17+ WidgetFamily members:
             // .content,
             // .contentAndPrivacy
@@ -35,14 +33,11 @@ struct UVIndexEntry: TimelineEntry {
 
 struct UVIndexProvider: TimelineProvider {
     func placeholder(in context: Context) -> UVIndexEntry {
-        UVIndexEntry(date: Date(), uvIndex: nil, timeToBurn: nil, isTimerRunning: nil, exposureStatus: nil, locationName: nil, lastUpdated: nil, debugInfo: "Placeholder")
+        return UVIndexEntry(date: Date(), uvIndex: nil, timeToBurn: nil, isTimerRunning: nil, exposureStatus: nil, locationName: nil, lastUpdated: nil, debugInfo: "Placeholder")
     }
 
     func getSnapshot(in context: Context, completion: @escaping (UVIndexEntry) -> Void) {
         let sharedData = SharedDataManager.shared.loadSharedData()
-        let debugInfo = sharedData != nil ? "Snapshot: UV=\(sharedData!.currentUVIndex), TTB=\(sharedData!.timeToBurn)" : "Snapshot: No data"
-        print("Widget: getSnapshot called - \(debugInfo)")
-        
         let entry = UVIndexEntry(
             date: Date(), 
             uvIndex: sharedData?.currentUVIndex,
@@ -51,28 +46,15 @@ struct UVIndexProvider: TimelineProvider {
             exposureStatus: sharedData?.exposureStatus.rawValue,
             locationName: sharedData?.locationName,
             lastUpdated: sharedData?.lastUpdated,
-            debugInfo: debugInfo
+            debugInfo: sharedData != nil ? "Snapshot: UV=\(sharedData!.currentUVIndex)" : "Snapshot: No data"
         )
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<UVIndexEntry>) -> Void) {
+        print("🌞 [Widget] ⏰ Timeline requested")
+        
         let sharedData = SharedDataManager.shared.loadSharedData()
-        let debugInfo = sharedData != nil ? "Timeline: UV=\(sharedData!.currentUVIndex), TTB=\(sharedData!.timeToBurn)" : "Timeline: No data"
-        print("Widget: getTimeline called - \(debugInfo)")
-        
-        // Also print the raw UserDefaults data for debugging
-        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
-            print("Widget: UserDefaults suite exists")
-            if let data = userDefaults.data(forKey: "sharedUVData") {
-                print("Widget: Raw data exists, size: \(data.count) bytes")
-            } else {
-                print("Widget: No raw data found in UserDefaults")
-            }
-        } else {
-            print("Widget: UserDefaults suite not found")
-        }
-        
         let entry = UVIndexEntry(
             date: Date(), 
             uvIndex: sharedData?.currentUVIndex,
@@ -81,13 +63,36 @@ struct UVIndexProvider: TimelineProvider {
             exposureStatus: sharedData?.exposureStatus.rawValue,
             locationName: sharedData?.locationName,
             lastUpdated: sharedData?.lastUpdated,
-            debugInfo: debugInfo
+            debugInfo: sharedData != nil ? "Timeline: UV=\(sharedData!.currentUVIndex)" : "Timeline: No data"
         )
         
-        // Refresh every 15 minutes
-        let nextUpdate = Date().addingTimeInterval(900)
+        if let data = sharedData {
+            let uvEmoji = getUVEmoji(data.currentUVIndex)
+            let timeToBurnText = data.timeToBurn == Int.max ? "∞" : "\(data.timeToBurn / 60)min"
+            print("🌞 [Widget] 📊 Timeline Entry Created:")
+            print("   📊 UV Index: \(uvEmoji) \(data.currentUVIndex)")
+            print("   ⏱️  Time to Burn: \(timeToBurnText)")
+            print("   📍 Location: \(data.locationName)")
+            print("   ──────────────────────────────────────")
+        }
+        
+        // Refresh every 2 minutes
+        let nextUpdate = Date().addingTimeInterval(120)
         let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
         completion(timeline)
+    }
+    
+    // MARK: - Helper Methods for Beautiful Logging
+    
+    private func getUVEmoji(_ uvIndex: Int) -> String {
+        switch uvIndex {
+        case 0: return "🌙"
+        case 1...2: return "🌤️"
+        case 3...5: return "☀️"
+        case 6...7: return "🔥"
+        case 8...10: return "☠️"
+        default: return "💀"
+        }
     }
 }
 
@@ -101,8 +106,6 @@ struct WidgetView: View {
             SmallWidgetView(entry: entry)
         case .systemMedium:
             MediumWidgetView(entry: entry)
-        case .systemLarge:
-            LargeWidgetView(entry: entry)
         default:
             SmallWidgetView(entry: entry)
         }
@@ -121,8 +124,4 @@ struct WidgetView: View {
     UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, isTimerRunning: true, exposureStatus: "Safe", locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
 }
 
-#Preview(as: .systemLarge) {
-    TimeToBurnWidget()
-} timeline: {
-    UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, isTimerRunning: true, exposureStatus: "Safe", locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
-} 
+ 

@@ -87,9 +87,7 @@ struct ForecastView: View {
             .navigationTitle("7-Day UV Forecast")
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
-                Task {
-                    await weatherViewModel.refreshData()
-                }
+                print("📅 [ForecastView] 📊 View appeared, data should be available from shared flow")
             }
         }
     }

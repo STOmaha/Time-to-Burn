@@ -30,11 +30,7 @@ struct UVHomeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             locationManager.weatherViewModel = weatherViewModel
-            
-            // Fetch weather data when view appears
-            Task {
-                await weatherViewModel.refreshData()
-            }
+            print("🏠 [UVHomeView] 📍 Connected to location manager")
         }
         .alert("WeatherKit Error", isPresented: $weatherViewModel.showErrorAlert) {
             Button("OK") { }

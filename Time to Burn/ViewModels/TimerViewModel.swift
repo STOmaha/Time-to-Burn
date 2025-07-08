@@ -42,17 +42,42 @@ class TimerViewModel: ObservableObject {
     
     // MARK: - Initialization
     init() {
+        print("⏰ [TimerViewModel] 🚀 Initializing...")
+        
         setupBindings()
         loadPersistedData()
         setupBackgroundHandling()
-        updateSharedData()
+        // Don't update shared data until we have real weather data
+        // updateSharedData() will be called when dependencies are set
+        
+        print("⏰ [TimerViewModel] ✅ Initialization complete")
     }
     
     // MARK: - Dependency Injection
     func setDependencies(locationManager: LocationManager, weatherViewModel: WeatherViewModel) {
         self.locationManager = locationManager
         self.weatherViewModel = weatherViewModel
-        updateSharedData()
+        
+        print("⏰ [TimerViewModel] 🔗 Dependencies set")
+        
+        // Listen for weather data flow state changes
+        weatherViewModel.$dataFlowState
+            .sink { [weak self] state in
+                if state == .weatherLoaded {
+                    print("⏰ [TimerViewModel] ✅ Weather data loaded, updating shared data...")
+                    self?.updateSharedData()
+                }
+            }
+            .store(in: &cancellables)
+        
+        // Also listen for weather data updates (for refreshes)
+        weatherViewModel.$lastUpdated
+            .sink { [weak self] _ in
+                if weatherViewModel.dataFlowState == .weatherLoaded {
+                    self?.updateSharedData()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Setup
@@ -419,10 +444,24 @@ class TimerViewModel: ObservableObject {
         defaults.set(sunscreenReapplyTime, forKey: "timerSunscreenReapplyTime")
     }
     
-    // MARK: - Shared Data Updates
-    func updateSharedData() {
+    // MARK: - Shared Data Management
+    private func updateSharedData() {
+        // Only update shared data if we have real weather data
+        guard let weatherViewModel = weatherViewModel,
+              weatherViewModel.lastUpdated != nil else {
+            print("⏰ [TimerViewModel] ⏳ Waiting for real weather data before updating shared data")
+            return
+        }
+        
+        // Use the current UV data from WeatherViewModel, not the cached TimerViewModel data
+        let currentUVFromWeather = weatherViewModel.getCurrentUVIndex()
+        
+        let locationName = locationManager?.locationName ?? "Unknown Location"
+        let lastUpdated = weatherViewModel.lastUpdated ?? Date()
+        let todayHourlyData = weatherViewModel.hourlyUVData
+        
         let exposureStatus: SharedUVData.ExposureStatus
-        if currentUVIndex == 0 {
+        if currentUVFromWeather == 0 {
             exposureStatus = .noUV
         } else {
             let totalExposure = totalExposureTime + elapsedTime
@@ -437,17 +476,8 @@ class TimerViewModel: ObservableObject {
             }
         }
         
-        // Get location and last updated data
-        let locationName = locationManager?.locationName ?? "Unknown Location"
-        let lastUpdated = weatherViewModel?.lastUpdated ?? Date()
-        
-        // Get today's hourly UV data for the widget
-        let calendar = Calendar.current
-        let today = Date()
-        let todayHourlyData = weatherViewModel?.hourlyUVData.filter { calendar.isDate($0.date, inSameDayAs: today) } ?? []
-        
         let sharedData = SharedUVData(
-            currentUVIndex: currentUVIndex,
+            currentUVIndex: currentUVFromWeather,
             timeToBurn: timeToBurn,
             elapsedTime: elapsedTime,
             totalExposureTime: totalExposureTime,
@@ -463,11 +493,68 @@ class TimerViewModel: ObservableObject {
         
         sharedDataManager.saveSharedData(sharedData)
         
-        // Debug print to verify data is being saved
-        print("TimerViewModel: Saved shared data - UV: \(currentUVIndex), Time to Burn: \(timeToBurn), Timer Running: \(isTimerRunning), Location: \(locationName), Hourly Data Points: \(todayHourlyData.count)")
-        
-        // Refresh widget immediately when data changes
+        // Refresh widget
+        refreshWidget()
+    }
+    
+    // MARK: - Widget Refresh
+    func refreshWidget() {
         WidgetCenter.shared.reloadAllTimelines()
+        WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
+    }
+    
+    // MARK: - Aggressive Widget Refresh
+    func forceAggressiveWidgetRefresh() {
+        print("⏰ [TimerViewModel] 🔄 Force aggressive widget refresh")
+        
+        updateSharedData()
+        
+        // Multiple refresh attempts with delays
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+    
+    // MARK: - Debug Methods
+    func testWidgetData() {
+        print("⏰ [TimerViewModel] 🧪 Testing widget data")
+        
+        currentUVIndex = 7
+        timeToBurn = 120
+        elapsedTime = 30
+        totalExposureTime = 15
+        isTimerRunning = true
+        
+        updateSharedData()
+        print("⏰ [TimerViewModel] ✅ Test data saved")
+    }
+    
+    // MARK: - Widget Status Check
+    func checkWidgetStatus() {
+        print("⏰ [TimerViewModel] 🔍 Checking widget status...")
+        
+        WidgetCenter.shared.getCurrentConfigurations { result in
+            switch result {
+            case .success(let configurations):
+                print("⏰ [TimerViewModel] 📱 Found \(configurations.count) widget configurations")
+                if configurations.isEmpty {
+                    print("⏰ [TimerViewModel] ⚠️  WARNING - No widgets found! Add widget to home screen.")
+                }
+            case .failure(let error):
+                print("⏰ [TimerViewModel] ❌ Error checking widgets: \(error)")
+            }
+        }
+        
+        let sharedData = SharedDataManager.shared.loadSharedData()
+        if let data = sharedData {
+            print("⏰ [TimerViewModel] ✅ Shared data accessible - UV: \(data.currentUVIndex)")
+        } else {
+            print("⏰ [TimerViewModel] ⚠️  WARNING - Shared data not accessible!")
+        }
     }
     
     // MARK: - Helper Methods
@@ -501,125 +588,46 @@ class TimerViewModel: ObservableObject {
     
     // MARK: - UV Data Sync
     func syncWithCurrentUVData(uvIndex: Int) {
-        print("TimerViewModel: Syncing with UV data - \(uvIndex)")
+        print("⏰ [TimerViewModel] 🔄 Syncing with UV data - UV: \(uvIndex)")
         updateUVIndex(uvIndex)
         // Redundant but safe: ensure Live Activity is updated
         updateLiveActivity()
     }
     
-    // MARK: - Widget Refresh
-    func refreshWidget() {
-        print("TimerViewModel: Refreshing widget")
-        updateSharedData()
-        
-        // Trigger widget refresh
-        WidgetCenter.shared.reloadAllTimelines()
-    }
-    
-    // MARK: - Debug Methods
-    func testWidgetData() {
-        print("TimerViewModel: Testing widget data")
-        
-        // Set some test data
-        currentUVIndex = 7
-        timeToBurn = 120
-        elapsedTime = 30
-        totalExposureTime = 15
-        isTimerRunning = true
-        
-        // Save to shared data
-        updateSharedData()
-        
-        // Force widget refresh
-        WidgetCenter.shared.reloadAllTimelines()
-        
-        print("TimerViewModel: Test data saved - UV: \(currentUVIndex), Time to Burn: \(timeToBurn)")
-    }
-    
+    // MARK: - Manual Widget Test
     func forceWidgetRefresh() {
-        print("TimerViewModel: Forcing widget refresh")
+        print("⏰ [TimerViewModel] 🔄 Manual widget refresh triggered")
+        
+        // Update shared data first
         updateSharedData()
         
-        // Force widget refresh with more aggressive approach
+        // Force widget refresh with multiple approaches
+        print("⏰ [TimerViewModel] 📱 Calling WidgetCenter.shared.reloadAllTimelines()")
         WidgetCenter.shared.reloadAllTimelines()
         
-        // Also try reloading specific widget kind
+        print("⏰ [TimerViewModel] 📱 Calling WidgetCenter.shared.reloadTimelines(ofKind: TimeToBurnWidget)")
         WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
-        
-        // Check what data is currently saved
-        if let sharedData = SharedDataManager.shared.loadSharedData() {
-            print("TimerViewModel: Current shared data - UV: \(sharedData.currentUVIndex), Time to Burn: \(sharedData.timeToBurn)")
-        } else {
-            print("TimerViewModel: No shared data found")
-        }
-        
-        // Test direct UserDefaults access
-        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
-            print("TimerViewModel: UserDefaults suite exists")
-            if let data = userDefaults.data(forKey: "sharedUVData") {
-                print("TimerViewModel: Raw data exists, size: \(data.count) bytes")
-                if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
-                    print("TimerViewModel: Decoded data - UV: \(decoded.currentUVIndex), TTB: \(decoded.timeToBurn)")
-                } else {
-                    print("TimerViewModel: Failed to decode data")
-                }
-            } else {
-                print("TimerViewModel: No raw data found in UserDefaults")
-            }
-        } else {
-            print("TimerViewModel: UserDefaults suite not found")
-        }
-        
-        // Additional debugging - check if widget is available
-        WidgetCenter.shared.getCurrentConfigurations { result in
-            switch result {
-            case .success(let configurations):
-                print("TimerViewModel: Available widgets: \(configurations.count)")
-                for config in configurations {
-                    print("TimerViewModel: Widget kind: \(config.kind)")
-                }
-            case .failure(let error):
-                print("TimerViewModel: Error getting widget configurations: \(error)")
-            }
-        }
-    }
-    
-    func manualWidgetTest() {
-        print("TimerViewModel: Manual widget test triggered")
-        
-        // Set test data
-        currentUVIndex = 9
-        timeToBurn = 90
-        elapsedTime = 45
-        totalExposureTime = 20
-        isTimerRunning = true
-        
-        // Save to shared data
-        updateSharedData()
         
         // Check available widgets
         WidgetCenter.shared.getCurrentConfigurations { result in
             switch result {
-            case .success(let widgets):
-                print("TimerViewModel: Available widgets: \(widgets.count)")
-                for widget in widgets {
-                    print("TimerViewModel: Widget - \(widget.kind)")
+            case .success(let configurations):
+                print("⏰ [TimerViewModel] 📱 Available widget configurations: \(configurations.count)")
+                for config in configurations {
+                    print("⏰ [TimerViewModel] 📱 Widget kind: \(config.kind)")
                 }
             case .failure(let error):
-                print("TimerViewModel: Widget error: \(error)")
+                print("⏰ [TimerViewModel] ❌ Error getting widget configurations: \(error)")
             }
         }
         
-        // Force refresh
-        WidgetCenter.shared.reloadAllTimelines()
-        
-        // Also try to trigger widget refresh with a delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            print("TimerViewModel: Delayed widget refresh")
+        // Also try a delayed refresh
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            print("⏰ [TimerViewModel] ⏰ Delayed widget refresh")
             WidgetCenter.shared.reloadAllTimelines()
         }
         
-        print("TimerViewModel: Manual test completed")
+        print("⏰ [TimerViewModel] ✅ Manual test completed")
     }
     
     // MARK: - Live Activity Actions
@@ -632,6 +640,8 @@ class TimerViewModel: ObservableObject {
         applySunscreen()
         openTimerTab()
     }
+    
+
 }
 
 // MARK: - Notification Names

@@ -22,12 +22,8 @@ class WeatherViewModel: ObservableObject {
     @Published var currentUVData: UVData?
     @Published var hourlyUVData: [UVData] = []
     
-    // Sun times
-    @Published var sunriseTime: Date?
-    @Published var sunsetTime: Date?
-    // Moon times
-    @Published var moonriseTime: Date?
-    @Published var moonsetTime: Date?
+    // Data flow state
+    @Published var dataFlowState: DataFlowState = .initializing
     
     // UV threshold monitoring
     private var lastUVThresholdAlert: Int = 0
@@ -35,36 +31,62 @@ class WeatherViewModel: ObservableObject {
     // Background refresh timer
     private var backgroundRefreshTimer: Timer?
     
+    enum DataFlowState: Equatable {
+        case initializing
+        case waitingForLocation
+        case locationReceived
+        case fetchingWeather
+        case weatherLoaded
+        case error(String)
+        
+        var description: String {
+            switch self {
+            case .initializing: return "🚀 Initializing..."
+            case .waitingForLocation: return "📍 Waiting for location..."
+            case .locationReceived: return "✅ Location received"
+            case .fetchingWeather: return "🌤️ Fetching weather data..."
+            case .weatherLoaded: return "✅ Weather data loaded"
+            case .error(let message): return "❌ Error: \(message)"
+            }
+        }
+        
+        static func == (lhs: DataFlowState, rhs: DataFlowState) -> Bool {
+            switch (lhs, rhs) {
+            case (.initializing, .initializing),
+                 (.waitingForLocation, .waitingForLocation),
+                 (.locationReceived, .locationReceived),
+                 (.fetchingWeather, .fetchingWeather),
+                 (.weatherLoaded, .weatherLoaded):
+                return true
+            case (.error(let lhsMessage), .error(let rhsMessage)):
+                return lhsMessage == rhsMessage
+            default:
+                return false
+            }
+        }
+    }
+    
     init(locationManager: LocationManager) {
         self.locationManager = locationManager
         
+        print("🌤️ [WeatherViewModel] 🚀 Initializing...")
+        
+        // Only initialize once
         Task {
             await requestAuthorizations()
-            
-            // Test WeatherKit connectivity
-            print("WeatherViewModel: Testing WeatherKit connectivity on startup...")
-            let isWeatherKitWorking = await testWeatherKitConnectivity()
-            print("WeatherViewModel: WeatherKit connectivity test result: \(isWeatherKitWorking)")
+            await initializeDataFlow()
         }
-        
-        // Start background refresh
-        startBackgroundRefresh()
     }
     
     // MARK: - Public Methods
+    
+    /// Main entry point for data refresh - follows proper sequential flow
     func refreshData() async {
-        print("WeatherViewModel: refreshData() called")
-        guard let location = locationManager.location else {
-            print("WeatherViewModel: No location available for refresh")
-            return
-        }
-        
-        print("WeatherViewModel: Starting weather data fetch...")
-        await fetchUVData(for: location)
+        print("🌤️ [WeatherViewModel] 🔄 Starting data refresh sequence")
+        await initializeDataFlow()
     }
     
     func appBecameActive() {
-        print("WeatherViewModel: App became active")
         // Refresh data when app becomes active
         Task {
             await refreshData()
@@ -72,22 +94,46 @@ class WeatherViewModel: ObservableObject {
     }
     
     func appWillResignActive() {
-        print("WeatherViewModel: App will resign active")
         // Keep background refresh running
     }
     
     func appDidEnterBackground() {
-        print("WeatherViewModel: App did enter background")
         // Keep background refresh running for Live Activity updates
     }
     
-    // MARK: - Private Methods
-    private func requestAuthorizations() async {
-        print("WeatherViewModel: Requesting authorizations")
+    // MARK: - Private Methods - Sequential Data Flow
+    
+    private func initializeDataFlow() async {
+        print("🌤️ [WeatherViewModel] 🔄 Step 1: Initializing data flow")
+        dataFlowState = .initializing
         
+        // Step 1: Check if we have location permission
+        guard locationManager.authorizationStatus == .authorizedWhenInUse || 
+              locationManager.authorizationStatus == .authorizedAlways else {
+            print("🌤️ [WeatherViewModel] 📍 Step 2: No location permission, requesting...")
+            dataFlowState = .waitingForLocation
+            locationManager.requestLocation()
+            return
+        }
+        
+        // Step 2: Check if we have location data
+        guard let location = locationManager.location else {
+            print("🌤️ [WeatherViewModel] 📍 Step 2: No location data, waiting...")
+            dataFlowState = .waitingForLocation
+            locationManager.requestLocation()
+            return
+        }
+        
+        // Step 3: We have location, fetch weather data
+        print("🌤️ [WeatherViewModel] ✅ Step 3: Location available, fetching weather...")
+        dataFlowState = .locationReceived
+        await fetchUVData(for: location)
+    }
+    
+    private func requestAuthorizations() async {
         // Request notification permissions
         let notificationGranted = await notificationManager.requestNotificationPermission()
-        print("WeatherViewModel: Notification permission granted: \(notificationGranted)")
+        print("🌤️ [WeatherViewModel] 🔔 Notifications: \(notificationGranted ? "✅ Authorized" : "❌ Denied")")
         
         // Setup notification categories
         notificationManager.setupNotificationCategories()
@@ -125,10 +171,8 @@ class WeatherViewModel: ObservableObject {
     }
     
     func fetchUVData(for location: CLLocation) async {
-        print("WeatherViewModel: Fetching UV data for location - \(location.coordinate)")
-        print("WeatherViewModel: WeatherService shared instance: \(weatherService)")
-        print("WeatherViewModel: iOS version: \(UIDevice.current.systemVersion)")
-        print("WeatherViewModel: App bundle identifier: \(Bundle.main.bundleIdentifier ?? "Unknown")")
+        print("🌤️ [WeatherViewModel] 🌤️ Step 4: Fetching UV data for location...")
+        dataFlowState = .fetchingWeather
         
         await MainActor.run {
             isLoading = true
@@ -136,46 +180,48 @@ class WeatherViewModel: ObservableObject {
         }
         
         do {
-            print("WeatherViewModel: Attempting WeatherKit request...")
-            let (currentWeather, hourlyForecast, dailyForecast) = try await weatherService.weather(for: location, including: .current, .hourly, .daily)
-            
-            let todayDayWeather = dailyForecast.first
+            let (currentWeather, hourlyForecast, _) = try await weatherService.weather(for: location, including: .current, .hourly, .daily)
             
             let processedHourlyData = processHourlyData(from: hourlyForecast)
             
             await MainActor.run {
                 let newUVData = UVData(from: currentWeather)
-                let previousUV = self.currentUVData?.uvIndex
                 
                 self.currentUVData = newUVData
                 self.hourlyUVData = processedHourlyData
-                self.sunriseTime = todayDayWeather?.sun.sunrise
-                self.sunsetTime = todayDayWeather?.sun.sunset
-                self.moonriseTime = todayDayWeather?.moon.moonrise
-                self.moonsetTime = todayDayWeather?.moon.moonset
                 self.lastUpdated = Date()
                 self.isLoading = false
+                self.dataFlowState = .weatherLoaded
+                
+                // Beautiful console logging
+                let uvEmoji = getUVEmoji(newUVData.uvIndex)
+                print("🌤️ [WeatherViewModel] ✅ Step 5: Weather data loaded successfully!")
+                print("   📊 Current UV: \(uvEmoji) \(newUVData.uvIndex)")
+                print("   📅 Hourly Data Points: \(processedHourlyData.count)")
+                print("   🕐 Updated: \(formatTime(Date()))")
+                print("   📍 Location: \(locationManager.locationName)")
+                print("   ──────────────────────────────────────")
                 
                 // Check for UV threshold alerts
                 self.checkUVThresholdAlert()
                 
-                print("WeatherViewModel: Weather data updated successfully")
-                print("WeatherViewModel: Current UV Index: \(newUVData.uvIndex)")
-                print("WeatherViewModel: Previous UV Index: \(previousUV ?? 0)")
-                print("WeatherViewModel: Sunrise: \(self.sunriseTime?.description ?? "nil")")
-                print("WeatherViewModel: Sunset: \(self.sunsetTime?.description ?? "nil")")
-                print("WeatherViewModel: Moonrise: \(self.moonriseTime?.description ?? "nil")")
-                print("WeatherViewModel: Moonset: \(self.moonsetTime?.description ?? "nil")")
-                print("WeatherViewModel: Last Updated: \(self.lastUpdated?.description ?? "nil")")
+                // Start background refresh timer after successful load
+                self.startBackgroundRefresh()
             }
             
         } catch {
-            print("WeatherViewModel: Error fetching weather - \(error)")
             await MainActor.run {
                 self.error = error
                 self.isLoading = false
+                self.dataFlowState = .error(error.localizedDescription)
                 self.errorMessage = "WeatherKit Error: \(error.localizedDescription)\nDomain: \((error as NSError).domain)\nCode: \((error as NSError).code)"
                 self.showErrorAlert = true
+                
+                print("🌤️ [WeatherViewModel] ❌ Step 5: Weather data fetch failed!")
+                print("   💥 Error: \(error.localizedDescription)")
+                print("   🔍 Domain: \((error as NSError).domain)")
+                print("   🔢 Code: \((error as NSError).code)")
+                print("   ──────────────────────────────────────")
             }
         }
     }
@@ -190,7 +236,11 @@ class WeatherViewModel: ObservableObject {
         if currentUV >= threshold && lastUVThresholdAlert != currentUV {
             notificationManager.scheduleUVThresholdAlert(uvIndex: currentUV, threshold: threshold)
             lastUVThresholdAlert = currentUV
-            print("WeatherViewModel: UV threshold alert scheduled for UV \(currentUV)")
+            let uvEmoji = getUVEmoji(currentUV)
+            print("🌤️ [WeatherViewModel] 🔔 UV Threshold Alert:")
+            print("   📊 UV Index: \(uvEmoji) \(currentUV) (Threshold: \(threshold))")
+            print("   📱 Alert scheduled")
+            print("   ──────────────────────────────────────")
         }
         
         // Reset alert tracking if UV drops below threshold
@@ -201,22 +251,21 @@ class WeatherViewModel: ObservableObject {
     
     // Add method to test WeatherKit connectivity
     func testWeatherKitConnectivity() async -> Bool {
-        print("WeatherViewModel: Testing WeatherKit connectivity")
-        
         guard let location = locationManager.location else {
-            print("WeatherViewModel: No location available for connectivity test")
+            print("🌤️ [WeatherViewModel] 📍 No location available for connectivity test")
             return false
         }
         
         do {
             // Try a simple weather request
-            print("WeatherViewModel: Testing basic WeatherKit access...")
             _ = try await weatherService.weather(for: location)
-            print("WeatherViewModel: WeatherKit connectivity test successful")
             return true
         } catch {
-            print("WeatherViewModel: WeatherKit connectivity test failed - \(error)")
-            print("WeatherViewModel: Error details - Domain: \((error as NSError).domain), Code: \((error as NSError).code)")
+            print("🌤️ [WeatherViewModel] ❌ WeatherKit connectivity test failed:")
+            print("   💥 Error: \(error)")
+            print("   🔍 Domain: \((error as NSError).domain)")
+            print("   🔢 Code: \((error as NSError).code)")
+            print("   ──────────────────────────────────────")
             return false
         }
     }
@@ -231,7 +280,8 @@ class WeatherViewModel: ObservableObject {
             "errorDescription": error?.localizedDescription ?? "None",
             "notificationsAuthorized": notificationManager.isAuthorized,
             "currentUVIndex": currentUVData?.uvIndex ?? 0,
-            "uvThreshold": notificationManager.notificationSettings.uvThreshold
+            "uvThreshold": notificationManager.notificationSettings.uvThreshold,
+            "dataFlowState": dataFlowState.description
         ]
     }
     
@@ -246,22 +296,17 @@ class WeatherViewModel: ObservableObject {
     
     // MARK: - Background Refresh
     private func startBackgroundRefresh() {
-        print("WeatherViewModel: Starting background refresh timer")
+        print("🌤️ [WeatherViewModel] ⏰ Starting background refresh timer")
         
         // Stop existing timer if running
         stopBackgroundRefresh()
         
         // Create timer that fires every 1 hour (3600 seconds)
         backgroundRefreshTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
-            print("WeatherViewModel: Background refresh timer fired")
+            print("🌤️ [WeatherViewModel] ⏰ Background refresh timer fired")
             Task {
                 await self?.refreshData()
             }
-        }
-        
-        // Also refresh immediately
-        Task {
-            await refreshData()
         }
     }
     
@@ -274,5 +319,24 @@ class WeatherViewModel: ObservableObject {
         // Stop timer synchronously in deinit
         backgroundRefreshTimer?.invalidate()
         backgroundRefreshTimer = nil
+    }
+    
+    // MARK: - Helper Methods for Beautiful Logging
+    
+    private func getUVEmoji(_ uvIndex: Int) -> String {
+        switch uvIndex {
+        case 0: return "🌙"
+        case 1...2: return "🌤️"
+        case 3...5: return "☀️"
+        case 6...7: return "🔥"
+        case 8...10: return "☠️"
+        default: return "💀"
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm:ss a"
+        return formatter.string(from: date)
     }
 } 

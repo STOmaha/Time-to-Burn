@@ -18,6 +18,8 @@ struct Time_to_BurnApp: App {
     @StateObject private var timerViewModel = TimerViewModel()
     
     init() {
+        print("🚀 [App] 🚀 App initializing...")
+        
         let locationManager = LocationManager()
         _locationManager = StateObject(wrappedValue: locationManager)
         _weatherViewModel = StateObject(wrappedValue: WeatherViewModel(locationManager: locationManager))
@@ -26,6 +28,8 @@ struct Time_to_BurnApp: App {
         
         // Setup notification delegate
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
+        
+        print("🚀 [App] ✅ App initialization complete")
     }
     
     var body: some Scene {
@@ -40,13 +44,12 @@ struct Time_to_BurnApp: App {
                         // Set dependencies for TimerViewModel
                         timerViewModel.setDependencies(locationManager: locationManager, weatherViewModel: weatherViewModel)
                         
-                        // Fetch initial UV data when app appears
-                        Task {
-                            await weatherViewModel.refreshData()
-                        }
+                        // Weather data will be fetched automatically when location is available
+                        print("🚀 [App] ✅ App appeared, waiting for location and weather data...")
                     }
                     .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                         // Refresh data when app becomes active
+                        print("🚀 [App] 🔄 App became active, refreshing data...")
                         Task {
                             await weatherViewModel.refreshData()
                         }

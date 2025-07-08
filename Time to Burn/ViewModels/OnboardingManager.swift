@@ -15,10 +15,15 @@ class OnboardingManager: ObservableObject {
     private let notificationManager: NotificationManager
     
     private init() {
-        self.locationManager = LocationManager()
+        print("📚 [OnboardingManager] 🚀 Initializing...")
+        
+        // Use shared instances to avoid duplicates
+        self.locationManager = LocationManager.shared
         self.weatherViewModel = WeatherViewModel(locationManager: locationManager)
         self.notificationManager = NotificationManager.shared
         loadOnboardingState()
+        
+        print("📚 [OnboardingManager] ✅ Initialization complete")
     }
     
     // MARK: - Onboarding Steps
