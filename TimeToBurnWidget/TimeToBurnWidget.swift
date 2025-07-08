@@ -132,20 +132,6 @@ struct WidgetView: View {
     @Environment(\.widgetFamily) var family
     
     var body: some View {
-        // Add debugging to see what data we're getting
-        let _ = print("🌞 [WidgetView] 📊 Received entry data:")
-        let _ = print("   📊 UV Index: \(entry.uvIndex)")
-        let _ = print("   ⏱️  Time to Burn: \(entry.timeToBurn)")
-        let _ = print("   📍 Location: \(entry.locationName)")
-        let _ = print("   🕐 Last Updated: \(entry.lastUpdated)")
-        let _ = print("   🔍 Debug Info: \(entry.debugInfo)")
-        let _ = print("   ──────────────────────────────────────")
-        
-        // Temporarily use debug view to see raw data
-        DebugWidgetView(entry: entry)
-        
-        // Original switch (commented out for now)
-        /*
         switch family {
         case .systemSmall:
             SmallWidgetView(entry: entry)
@@ -154,46 +140,6 @@ struct WidgetView: View {
         default:
             SmallWidgetView(entry: entry)
         }
-        */
-    }
-}
-
-// MARK: - Debug Widget View
-struct DebugWidgetView: View {
-    let entry: UVIndexEntry
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            Text("DEBUG DATA")
-                .font(.caption)
-                .foregroundColor(.red)
-            
-            Text("UV: \(entry.uvIndex)")
-                .font(.caption)
-                .foregroundColor(.primary)
-            
-            Text("Time: \(entry.timeToBurn)")
-                .font(.caption)
-                .foregroundColor(.primary)
-            
-            Text("Location: \(entry.locationName)")
-                .font(.caption)
-                .foregroundColor(.primary)
-            
-            Text("Updated: \(formatHour(entry.lastUpdated))")
-                .font(.caption)
-                .foregroundColor(.primary)
-        }
-        .padding(8)
-        .containerBackground(for: .widget) {
-            Color.gray.opacity(0.1)
-        }
-    }
-    
-    private func formatHour(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: date)
     }
 }
 
@@ -209,4 +155,5 @@ struct DebugWidgetView: View {
     UVIndexEntry(date: .now, uvIndex: 5, timeToBurn: 120, locationName: "San Francisco", lastUpdated: Date(), debugInfo: "Preview data")
 }
 
+ 
  
