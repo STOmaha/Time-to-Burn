@@ -441,6 +441,11 @@ class TimerViewModel: ObservableObject {
         let locationName = locationManager?.locationName ?? "Unknown Location"
         let lastUpdated = weatherViewModel?.lastUpdated ?? Date()
         
+        // Get today's hourly UV data for the widget
+        let calendar = Calendar.current
+        let today = Date()
+        let todayHourlyData = weatherViewModel?.hourlyUVData.filter { calendar.isDate($0.date, inSameDayAs: today) } ?? []
+        
         let sharedData = SharedUVData(
             currentUVIndex: currentUVIndex,
             timeToBurn: timeToBurn,
@@ -452,13 +457,14 @@ class TimerViewModel: ObservableObject {
             exposureStatus: exposureStatus,
             exposureProgress: getExposureProgress(),
             locationName: locationName,
-            lastUpdated: lastUpdated
+            lastUpdated: lastUpdated,
+            hourlyUVData: todayHourlyData
         )
         
         sharedDataManager.saveSharedData(sharedData)
         
         // Debug print to verify data is being saved
-        print("TimerViewModel: Saved shared data - UV: \(currentUVIndex), Time to Burn: \(timeToBurn), Timer Running: \(isTimerRunning), Location: \(locationName)")
+        print("TimerViewModel: Saved shared data - UV: \(currentUVIndex), Time to Burn: \(timeToBurn), Timer Running: \(isTimerRunning), Location: \(locationName), Hourly Data Points: \(todayHourlyData.count)")
         
         // Refresh widget immediately when data changes
         WidgetCenter.shared.reloadAllTimelines()

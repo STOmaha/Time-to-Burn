@@ -1,6 +1,7 @@
 import WidgetKit
 import SwiftUI
 
+@available(iOS 17.0, *)
 struct TimeToBurnWidget: Widget {
     let kind: String = "TimeToBurnWidget"
 
@@ -10,7 +11,14 @@ struct TimeToBurnWidget: Widget {
         }
         .configurationDisplayName("Current UV Index")
         .description("Shows the current UV Index from the main app.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([
+            .systemSmall,
+            .systemMedium,
+            .systemLarge
+            // Uncomment the following lines if your Xcode and SDK support iOS 17+ WidgetFamily members:
+            // .content,
+            // .contentAndPrivacy
+        ])
     }
 }
 

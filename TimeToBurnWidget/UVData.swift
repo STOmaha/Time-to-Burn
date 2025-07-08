@@ -1,9 +1,13 @@
 import Foundation
 
 struct UVData: Identifiable, Codable {
-    let id = UUID()
+    var id = UUID()
     let date: Date
     let uvIndex: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case id, date, uvIndex
+    }
     
     init(uvIndex: Int, date: Date) {
         self.date = date

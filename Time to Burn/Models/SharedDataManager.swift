@@ -15,6 +15,7 @@ struct SharedUVData: Codable {
     let timestamp: Date
     let locationName: String
     let lastUpdated: Date
+    let hourlyUVData: [UVData]?
     
     enum ExposureStatus: String, Codable, CaseIterable {
         case safe = "Safe"
@@ -43,7 +44,8 @@ struct SharedUVData: Codable {
         exposureStatus: ExposureStatus,
         exposureProgress: Double,
         locationName: String,
-        lastUpdated: Date
+        lastUpdated: Date,
+        hourlyUVData: [UVData]? = nil
     ) {
         self.currentUVIndex = currentUVIndex
         self.timeToBurn = timeToBurn
@@ -57,6 +59,7 @@ struct SharedUVData: Codable {
         self.timestamp = Date()
         self.locationName = locationName
         self.lastUpdated = lastUpdated
+        self.hourlyUVData = hourlyUVData
     }
 }
 

@@ -251,8 +251,8 @@ class WeatherViewModel: ObservableObject {
         // Stop existing timer if running
         stopBackgroundRefresh()
         
-        // Create timer that fires every 5 minutes (300 seconds)
-        backgroundRefreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+        // Create timer that fires every 1 hour (3600 seconds)
+        backgroundRefreshTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
             print("WeatherViewModel: Background refresh timer fired")
             Task {
                 await self?.refreshData()

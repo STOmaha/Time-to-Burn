@@ -12,9 +12,11 @@ class WidgetViewModel: ObservableObject {
     
     func loadData() {
         sharedData = SharedDataManager.shared.loadSharedData()
-        // For now, we'll use mock hourly data for the chart
-        // In a real implementation, this would come from the main app's shared data
-        hourlyUVData = generateMockHourlyData()
+        if let sharedData = sharedData, let hourlyData = sharedData.hourlyUVData {
+            hourlyUVData = hourlyData
+        } else {
+            hourlyUVData = generateMockHourlyData()
+        }
     }
     
     private func generateMockHourlyData() -> [UVData] {

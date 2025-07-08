@@ -38,7 +38,7 @@ struct LargeWidgetView: View {
                             .foregroundColor(.primary)
                             .fontWeight(.medium)
                         
-                        Text(entry.uvIndex != nil ? "\(entry.uvIndex!)" : "--")
+                        Text(entry.uvIndex != nil ? "\(entry.uvIndex!)" : "0")
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(viewModel.getUVColor(entry.uvIndex ?? 0))
                     }
