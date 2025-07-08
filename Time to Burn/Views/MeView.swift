@@ -194,6 +194,36 @@ struct MeView: View {
                         .foregroundColor(.white)
                         .cornerRadius(6)
                         .font(.caption)
+                        
+                        Button("Enhanced Widget Refresh") {
+                            timerViewModel.forceEnhancedWidgetRefresh()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.orange)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                        .font(.caption)
+                        
+                        Button("Simple Widget Test") {
+                            timerViewModel.simpleWidgetTest()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.yellow)
+                        .foregroundColor(.black)
+                        .cornerRadius(6)
+                        .font(.caption)
+                        
+                        Button("Comprehensive Widget Test") {
+                            timerViewModel.comprehensiveWidgetTest()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.pink)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                        .font(.caption)
                     }
                     .padding(.vertical, 4)
                 }

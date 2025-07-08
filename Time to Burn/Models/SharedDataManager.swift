@@ -82,7 +82,11 @@ class SharedDataManager: ObservableObject {
     
     func saveSharedData(_ data: SharedUVData) {
         if let encoded = try? JSONEncoder().encode(data) {
+            // Save to app group UserDefaults
             userDefaults?.set(encoded, forKey: "sharedUVData")
+            
+            // Also save to standard UserDefaults as fallback
+            UserDefaults.standard.set(encoded, forKey: "sharedUVData")
             
             // Beautiful console logging with emojis
             let uvEmoji = getUVEmoji(data.currentUVIndex)

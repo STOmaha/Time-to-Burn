@@ -66,6 +66,13 @@ class TimerViewModel: ObservableObject {
                 if state == .weatherLoaded {
                     print("⏰ [TimerViewModel] ✅ Weather data loaded, updating shared data...")
                     self?.updateSharedData()
+                    
+                    // Force widget refresh when weather data is loaded
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        print("⏰ [TimerViewModel] 🔄 Triggering widget refresh after weather data load")
+                        WidgetCenter.shared.reloadAllTimelines()
+                        WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -628,6 +635,185 @@ class TimerViewModel: ObservableObject {
         }
         
         print("⏰ [TimerViewModel] ✅ Manual test completed")
+    }
+    
+    // MARK: - Enhanced Widget Refresh with Debug
+    func forceEnhancedWidgetRefresh() {
+        print("⏰ [TimerViewModel] 🚀 Enhanced widget refresh triggered")
+        
+        // First, update shared data
+        print("⏰ [TimerViewModel] 💾 Updating shared data...")
+        updateSharedData()
+        
+        // Check current shared data
+        let sharedData = SharedDataManager.shared.loadSharedData()
+        if let data = sharedData {
+            print("⏰ [TimerViewModel] ✅ Shared data verified:")
+            print("   📊 UV Index: \(data.currentUVIndex)")
+            print("   ⏱️  Time to Burn: \(data.timeToBurn / 60)min")
+            print("   📍 Location: \(data.locationName)")
+            print("   ──────────────────────────────────────")
+        } else {
+            print("⏰ [TimerViewModel] ❌ Shared data not available!")
+        }
+        
+        // Force immediate widget refresh
+        print("⏰ [TimerViewModel] 📱 Forcing immediate widget refresh...")
+        WidgetCenter.shared.reloadAllTimelines()
+        WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
+        
+        // Check widget configurations
+        WidgetCenter.shared.getCurrentConfigurations { result in
+            switch result {
+            case .success(let configurations):
+                print("⏰ [TimerViewModel] 📱 Widget Status Report:")
+                print("   📊 Total configurations: \(configurations.count)")
+                
+                if configurations.isEmpty {
+                    print("   ⚠️  WARNING: No widgets found! Add widget to home screen.")
+                } else {
+                    for (index, config) in configurations.enumerated() {
+                        print("   📱 Widget \(index + 1): \(config.kind)")
+                    }
+                }
+                print("   ──────────────────────────────────────")
+            case .failure(let error):
+                print("⏰ [TimerViewModel] ❌ Error checking widgets: \(error)")
+            }
+        }
+        
+        // Multiple delayed refreshes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("⏰ [TimerViewModel] ⏰ 1-second delayed refresh")
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            print("⏰ [TimerViewModel] ⏰ 3-second delayed refresh")
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            print("⏰ [TimerViewModel] ⏰ 5-second delayed refresh")
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        
+        print("⏰ [TimerViewModel] ✅ Enhanced widget refresh completed")
+    }
+    
+    // MARK: - Simple Widget Test
+    func simpleWidgetTest() {
+        print("⏰ [TimerViewModel] 🧪 Simple widget test started")
+        
+        // Save some test data
+        let testData = SharedUVData(
+            currentUVIndex: 7,
+            timeToBurn: 1800, // 30 minutes
+            elapsedTime: 300, // 5 minutes
+            totalExposureTime: 600, // 10 minutes
+            isTimerRunning: true,
+            lastSunscreenApplication: Date(),
+            sunscreenReapplyTimeRemaining: 1200,
+            exposureStatus: .warning,
+            exposureProgress: 0.5,
+            locationName: "Test Location",
+            lastUpdated: Date(),
+            hourlyUVData: nil
+        )
+        
+        SharedDataManager.shared.saveSharedData(testData)
+        
+        // Force widget refresh
+        print("⏰ [TimerViewModel] 📱 Calling WidgetCenter.shared.reloadAllTimelines()")
+        WidgetCenter.shared.reloadAllTimelines()
+        
+        print("⏰ [TimerViewModel] 📱 Calling WidgetCenter.shared.reloadTimelines(ofKind: TimeToBurnWidget)")
+        WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
+        
+        print("⏰ [TimerViewModel] ✅ Simple widget test completed")
+    }
+    
+    // MARK: - Comprehensive Widget Test
+    func comprehensiveWidgetTest() {
+        print("⏰ [TimerViewModel] 🔬 Comprehensive widget test started")
+        
+        // Test 1: Check if widget extension is available
+        print("⏰ [TimerViewModel] 🔍 Test 1: Checking widget availability...")
+        WidgetCenter.shared.getCurrentConfigurations { result in
+            switch result {
+            case .success(let configurations):
+                print("⏰ [TimerViewModel] ✅ Widget configurations found: \(configurations.count)")
+                for config in configurations {
+                    print("⏰ [TimerViewModel] 📱 Widget: \(config.kind)")
+                }
+            case .failure(let error):
+                print("⏰ [TimerViewModel] ❌ Error getting widget configurations: \(error)")
+            }
+        }
+        
+        // Test 2: Save test data to multiple locations
+        print("⏰ [TimerViewModel] 🔍 Test 2: Saving test data...")
+        let testData = SharedUVData(
+            currentUVIndex: 9,
+            timeToBurn: 1200, // 20 minutes
+            elapsedTime: 600, // 10 minutes
+            totalExposureTime: 900, // 15 minutes
+            isTimerRunning: false,
+            lastSunscreenApplication: nil,
+            sunscreenReapplyTimeRemaining: 0,
+            exposureStatus: .exceeded,
+            exposureProgress: 0.8,
+            locationName: "Test Location",
+            lastUpdated: Date(),
+            hourlyUVData: nil
+        )
+        
+        // Save to app group
+        if let encoded = try? JSONEncoder().encode(testData) {
+            if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+                userDefaults.set(encoded, forKey: "sharedUVData")
+                print("⏰ [TimerViewModel] ✅ Saved to app group UserDefaults")
+            } else {
+                print("⏰ [TimerViewModel] ❌ Failed to save to app group UserDefaults")
+            }
+            
+            // Save to standard UserDefaults
+            UserDefaults.standard.set(encoded, forKey: "sharedUVData")
+            print("⏰ [TimerViewModel] ✅ Saved to standard UserDefaults")
+            
+            // Save to alternative app group
+            if let altUserDefaults = UserDefaults(suiteName: "group.Time-to-Burn.shared") {
+                altUserDefaults.set(encoded, forKey: "sharedUVData")
+                print("⏰ [TimerViewModel] ✅ Saved to alternative app group UserDefaults")
+            } else {
+                print("⏰ [TimerViewModel] ❌ Failed to save to alternative app group UserDefaults")
+            }
+        }
+        
+        // Test 3: Force widget refresh multiple times
+        print("⏰ [TimerViewModel] 🔍 Test 3: Forcing widget refresh...")
+        
+        // Immediate refresh
+        WidgetCenter.shared.reloadAllTimelines()
+        WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
+        
+        // Delayed refreshes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("⏰ [TimerViewModel] ⏰ 1-second delayed refresh")
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            print("⏰ [TimerViewModel] ⏰ 3-second delayed refresh")
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            print("⏰ [TimerViewModel] ⏰ 5-second delayed refresh")
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        
+        print("⏰ [TimerViewModel] ✅ Comprehensive widget test completed")
     }
     
     // MARK: - Live Activity Actions

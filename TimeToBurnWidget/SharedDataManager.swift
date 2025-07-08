@@ -67,9 +67,20 @@ struct SharedUVData: Codable {
 class SharedDataManager: ObservableObject {
     static let shared = SharedDataManager()
     
-    private let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared")
+    private let userDefaults: UserDefaults?
     
-    private init() {}
+    private init() {
+        print("🌞 [Widget SharedDataManager] 🚀 Initializing...")
+        
+        // Initialize UserDefaults with proper error handling
+        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+            self.userDefaults = userDefaults
+            print("🌞 [Widget SharedDataManager] ✅ App Group UserDefaults initialized successfully")
+        } else {
+            self.userDefaults = nil
+            print("🌞 [Widget SharedDataManager] ❌ Failed to initialize App Group UserDefaults")
+        }
+    }
     
     func saveSharedData(_ data: SharedUVData) {
         if let encoded = try? JSONEncoder().encode(data) {
@@ -93,36 +104,83 @@ class SharedDataManager: ObservableObject {
     }
     
     func loadSharedData() -> SharedUVData? {
+        print("🌞 [Widget SharedDataManager] 🔍 Loading shared data...")
+        
         // Try main UserDefaults first
-        if let data = userDefaults?.data(forKey: "sharedUVData") {
-            if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
-                let uvEmoji = getUVEmoji(decoded.currentUVIndex)
-                let timeToBurnText = decoded.timeToBurn == Int.max ? "∞" : "\(decoded.timeToBurn / 60)min"
-                print("🌞 [Widget] 📥 Loaded Shared Data:")
-                print("   📊 UV Index: \(uvEmoji) \(decoded.currentUVIndex)")
-                print("   ⏱️  Time to Burn: \(timeToBurnText)")
-                print("   📍 Location: \(decoded.locationName)")
-                print("   ──────────────────────────────────────")
-                return decoded
+        if let userDefaults = userDefaults {
+            print("🌞 [Widget SharedDataManager] ✅ Main UserDefaults available")
+            
+            if let data = userDefaults.data(forKey: "sharedUVData") {
+                print("🌞 [Widget SharedDataManager] 📦 Found data (\(data.count) bytes)")
+                
+                if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
+                    let uvEmoji = getUVEmoji(decoded.currentUVIndex)
+                    let timeToBurnText = decoded.timeToBurn == Int.max ? "∞" : "\(decoded.timeToBurn / 60)min"
+                    print("🌞 [Widget SharedDataManager] ✅ Successfully loaded shared data:")
+                    print("   📊 UV Index: \(uvEmoji) \(decoded.currentUVIndex)")
+                    print("   ⏱️  Time to Burn: \(timeToBurnText)")
+                    print("   📍 Location: \(decoded.locationName)")
+                    print("   ──────────────────────────────────────")
+                    return decoded
+                } else {
+                    print("🌞 [Widget SharedDataManager] ❌ Failed to decode data from main UserDefaults")
+                }
+            } else {
+                print("🌞 [Widget SharedDataManager] ⚠️  No data found in main UserDefaults")
             }
+        } else {
+            print("🌞 [Widget SharedDataManager] ❌ Main UserDefaults not available")
         }
         
         // Try alternative UserDefaults
-        let alternativeUserDefaults = UserDefaults(suiteName: "group.Time-to-Burn.shared")
-        if let data = alternativeUserDefaults?.data(forKey: "sharedUVData") {
+        print("🌞 [Widget SharedDataManager] 🔄 Trying alternative UserDefaults...")
+        if let alternativeUserDefaults = UserDefaults(suiteName: "group.Time-to-Burn.shared") {
+            print("🌞 [Widget SharedDataManager] ✅ Alternative UserDefaults initialized")
+            
+            if let data = alternativeUserDefaults.data(forKey: "sharedUVData") {
+                print("🌞 [Widget SharedDataManager] 📦 Found data in alternative UserDefaults (\(data.count) bytes)")
+                
+                if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
+                    let uvEmoji = getUVEmoji(decoded.currentUVIndex)
+                    let timeToBurnText = decoded.timeToBurn == Int.max ? "∞" : "\(decoded.timeToBurn / 60)min"
+                    print("🌞 [Widget SharedDataManager] ✅ Successfully loaded shared data (Alternative):")
+                    print("   📊 UV Index: \(uvEmoji) \(decoded.currentUVIndex)")
+                    print("   ⏱️  Time to Burn: \(timeToBurnText)")
+                    print("   📍 Location: \(decoded.locationName)")
+                    print("   ──────────────────────────────────────")
+                    return decoded
+                } else {
+                    print("🌞 [Widget SharedDataManager] ❌ Failed to decode data from alternative UserDefaults")
+                }
+            } else {
+                print("🌞 [Widget SharedDataManager] ⚠️  No data found in alternative UserDefaults")
+            }
+        } else {
+            print("🌞 [Widget SharedDataManager] ❌ Failed to initialize alternative UserDefaults")
+        }
+        
+        // Try standard UserDefaults as last resort
+        print("🌞 [Widget SharedDataManager] 🔄 Trying standard UserDefaults as last resort...")
+        if let data = UserDefaults.standard.data(forKey: "sharedUVData") {
+            print("🌞 [Widget SharedDataManager] 📦 Found data in standard UserDefaults (\(data.count) bytes)")
+            
             if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
                 let uvEmoji = getUVEmoji(decoded.currentUVIndex)
                 let timeToBurnText = decoded.timeToBurn == Int.max ? "∞" : "\(decoded.timeToBurn / 60)min"
-                print("🌞 [Widget] 📥 Loaded Shared Data (Alternative):")
+                print("🌞 [Widget SharedDataManager] ✅ Successfully loaded shared data (Standard):")
                 print("   📊 UV Index: \(uvEmoji) \(decoded.currentUVIndex)")
                 print("   ⏱️  Time to Burn: \(timeToBurnText)")
                 print("   📍 Location: \(decoded.locationName)")
                 print("   ──────────────────────────────────────")
                 return decoded
+            } else {
+                print("🌞 [Widget SharedDataManager] ❌ Failed to decode data from standard UserDefaults")
             }
+        } else {
+            print("🌞 [Widget SharedDataManager] ⚠️  No data found in standard UserDefaults")
         }
         
-        print("🌞 [Widget] ❌ No shared data found")
+        print("🌞 [Widget SharedDataManager] ❌ No shared data found in any UserDefaults")
         return nil
     }
     
