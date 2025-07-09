@@ -5,47 +5,67 @@ struct MediumWidgetView: View {
     let entry: UVIndexEntry
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
+        let uvColor = UVColorUtils.getUVColor(entry.uvIndex)
+        HStack(alignment: .center) {
+            // Left column: UV Index, number, severity
+            VStack(alignment: .center, spacing: 6) {
                 Text("UV Index")
                     .font(.headline)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text(entry.locationName)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
-            HStack(alignment: .firstTextBaseline) {
+                    .foregroundColor(uvColor)
                 Text("\(entry.uvIndex)")
-                    .font(.system(size: 56, weight: .bold, design: .rounded))
-                    .foregroundColor(UVColorUtils.getUVColor(entry.uvIndex))
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Time to Burn")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(timeToBurnString)
-                        .font(.title2)
-                        .foregroundColor(.primary)
-                }
+                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .foregroundColor(uvColor)
+                Text(UVColorUtils.getUVCategory(for: entry.uvIndex))
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundColor(uvColor)
             }
-            Spacer(minLength: 0)
-            Text("Updated \(lastUpdatedString)")
-                .font(.footnote)
-                .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity)
+            
+            // Right column: Location, updated, time to burn
+            VStack(alignment: .center, spacing: 8) {
+                HStack(spacing: 4) {
+                    Image(systemName: "location.fill")
+                        .font(.caption)
+                        .foregroundColor(uvColor)
+                    Text(entry.locationName)
+                        .font(.subheadline)
+                        .foregroundColor(uvColor)
+                        .lineLimit(1)
+                }
+                Text("Updated \(lastUpdatedString)")
+                    .font(.caption)
+                    .foregroundColor(uvColor)
+                    .padding(.bottom, 20)
+                HStack(spacing: 4) {
+                    Image(systemName: "hourglass")
+                        .font(.caption)
+                        .foregroundColor(uvColor)
+                    Text("Time to Burn:")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(uvColor)
+                }
+                Text(timeToBurnString)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(uvColor)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .padding()
+        .padding(22)
         .containerBackground(for: .widget) {
-            UVColorUtils.getUVColor(entry.uvIndex).opacity(0.12)
+            uvColor.opacity(0.12)
         }
     }
     
     private var timeToBurnString: String {
+        if entry.uvIndex == 0 { return "∞" }
         if entry.timeToBurn <= 0 { return "∞" }
         let minutes = entry.timeToBurn / 60
         return "\(minutes) min"
     }
+    
     private var lastUpdatedString: String {
         UVColorUtils.formatHour(entry.lastUpdated)
     }
