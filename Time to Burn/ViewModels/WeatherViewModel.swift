@@ -3,6 +3,7 @@ import WeatherKit
 import CoreLocation
 import SwiftUI
 import UserNotifications
+import WidgetKit
 
 @MainActor
 class WeatherViewModel: ObservableObject {
@@ -71,6 +72,9 @@ class WeatherViewModel: ObservableObject {
         
         print("🌤️ [WeatherViewModel] 🚀 Initializing...")
         
+        // Setup daily weather refresh notification listener
+        setupDailyWeatherRefreshListener()
+        
         // Only initialize once
         Task {
             await requestAuthorizations()
@@ -137,6 +141,11 @@ class WeatherViewModel: ObservableObject {
         
         // Setup notification categories
         notificationManager.setupNotificationCategories()
+        
+        // Schedule daily weather refresh if notifications are authorized
+        if notificationGranted {
+            scheduleDailyWeatherRefresh()
+        }
     }
     
     private func startOfDay() -> Date {
@@ -207,6 +216,9 @@ class WeatherViewModel: ObservableObject {
                 
                 // Start background refresh timer after successful load
                 self.startBackgroundRefresh()
+                
+                // Save weather data to shared storage for widget
+                self.saveWeatherDataToSharedStorage()
             }
             
         } catch {
@@ -294,6 +306,43 @@ class WeatherViewModel: ObservableObject {
         return currentUVData
     }
     
+    // MARK: - Daily Weather Refresh
+    private func setupDailyWeatherRefreshListener() {
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("dailyWeatherRefresh"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            print("🌤️ [WeatherViewModel] 🌤️ Daily weather refresh notification received")
+            Task {
+                await self?.refreshData()
+            }
+        }
+    }
+    
+    func scheduleDailyWeatherRefresh() {
+        print("🌤️ [WeatherViewModel] ⏰ Scheduling daily 8am weather refresh...")
+        notificationManager.scheduleDailyWeatherRefresh()
+    }
+    
+    func cancelDailyWeatherRefresh() {
+        print("🌤️ [WeatherViewModel] ⏰ Cancelling daily weather refresh...")
+        notificationManager.cancelDailyWeatherRefresh()
+    }
+    
+    func isDailyWeatherRefreshScheduled() async -> Bool {
+        let center = UNUserNotificationCenter.current()
+        let requests = await center.pendingNotificationRequests()
+        return requests.contains { $0.identifier == "daily_weather_refresh" }
+    }
+    
+    // MARK: - Testing Methods
+    func testDailyWeatherRefresh() {
+        print("🌤️ [WeatherViewModel] 🧪 Testing daily weather refresh...")
+        // Simulate the daily weather refresh notification
+        NotificationCenter.default.post(name: Notification.Name("dailyWeatherRefresh"), object: nil)
+    }
+    
     // MARK: - Background Refresh
     private func startBackgroundRefresh() {
         print("🌤️ [WeatherViewModel] ⏰ Starting background refresh timer")
@@ -319,6 +368,9 @@ class WeatherViewModel: ObservableObject {
         // Stop timer synchronously in deinit
         backgroundRefreshTimer?.invalidate()
         backgroundRefreshTimer = nil
+        
+        // Remove notification observer
+        NotificationCenter.default.removeObserver(self, name: Notification.Name("dailyWeatherRefresh"), object: nil)
     }
     
     // MARK: - Helper Methods for Beautiful Logging
@@ -338,5 +390,37 @@ class WeatherViewModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm:ss a"
         return formatter.string(from: date)
+    }
+    
+    // MARK: - Shared Data Write for Widget
+    private func saveWeatherDataToSharedStorage() {
+        // Prepare shared data
+        guard let currentUVData = self.currentUVData else { return }
+        let sharedData = SharedUVData(
+            currentUVIndex: currentUVData.uvIndex,
+            timeToBurn: 0, // You may want to calculate this or pass from TimerViewModel
+            elapsedTime: 0,
+            totalExposureTime: 0,
+            isTimerRunning: false,
+            lastSunscreenApplication: nil,
+            sunscreenReapplyTimeRemaining: 0,
+            exposureStatus: .safe,
+            exposureProgress: 0.0,
+            locationName: locationManager.locationName,
+            lastUpdated: self.lastUpdated ?? Date(),
+            hourlyUVData: self.hourlyUVData,
+            currentCloudCover: currentUVData.cloudCover,
+            currentCloudCondition: currentUVData.cloudCondition
+        )
+        // Save to shared storage
+        if let encoded = try? JSONEncoder().encode(sharedData) {
+            if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+                userDefaults.set(encoded, forKey: "sharedUVData")
+                userDefaults.synchronize()
+                print("🌤️ [WeatherViewModel] ✅ Saved weather data to shared storage for widget")
+            }
+        }
+        // Request widget reload
+        WidgetCenter.shared.reloadAllTimelines()
     }
 } 

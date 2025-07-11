@@ -3,6 +3,13 @@ import SwiftUI
 struct NotificationSettingsView: View {
     @StateObject private var notificationManager = NotificationManager.shared
     @State private var showingPermissionAlert = false
+    @State private var dailyWeatherRefreshEnabled = false
+    @State private var showingDailyRefreshInfo = false
+    let weatherViewModel: WeatherViewModel?
+    
+    init(weatherViewModel: WeatherViewModel? = nil) {
+        self.weatherViewModel = weatherViewModel
+    }
     
     var body: some View {
         NavigationView {
@@ -127,6 +134,41 @@ struct NotificationSettingsView: View {
                     }
                 }
                 
+                // Daily Weather Refresh Section
+                Section(header: Text("Weather Updates")) {
+                    Toggle("Daily Weather Refresh", isOn: $dailyWeatherRefreshEnabled)
+                        .disabled(!notificationManager.isAuthorized)
+                        .onChange(of: dailyWeatherRefreshEnabled) { _, newValue in
+                            if newValue {
+                                weatherViewModel?.scheduleDailyWeatherRefresh()
+                            } else {
+                                weatherViewModel?.cancelDailyWeatherRefresh()
+                            }
+                        }
+                    
+                    if dailyWeatherRefreshEnabled {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "sun.max.fill")
+                                    .foregroundColor(.orange)
+                                Text("Refresh Time")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                            Text("Automatically update UV data at 8:00 AM daily")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Button("Learn More") {
+                                showingDailyRefreshInfo = true
+                            }
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                        }
+                        .padding(.leading, 4)
+                    }
+                }
+                
                 // Daily Summary Section
                 Section(header: Text("Daily Summary")) {
                     Toggle("Daily Exposure Summary", isOn: $notificationManager.notificationSettings.dailySummaryEnabled)
@@ -165,6 +207,14 @@ struct NotificationSettingsView: View {
             .onChange(of: notificationManager.notificationSettings) { _, newSettings in
                 notificationManager.updateSettings(newSettings)
             }
+            .onAppear {
+                // Check if daily weather refresh is scheduled
+                Task {
+                    if let weatherViewModel = weatherViewModel {
+                        dailyWeatherRefreshEnabled = await weatherViewModel.isDailyWeatherRefreshScheduled()
+                    }
+                }
+            }
             .alert("Enable Notifications", isPresented: $showingPermissionAlert) {
                 Button("Settings") {
                     if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
@@ -174,6 +224,11 @@ struct NotificationSettingsView: View {
                 Button("Cancel", role: .cancel) { }
             } message: {
                 Text("To receive sun protection alerts, please enable notifications in Settings.")
+            }
+            .alert("Daily Weather Refresh", isPresented: $showingDailyRefreshInfo) {
+                Button("OK") { }
+            } message: {
+                Text("This feature automatically refreshes your UV data every morning at 8:00 AM. It uses a local notification to trigger the refresh, ensuring you always have the most current weather information for your sun exposure planning.")
             }
         }
     }
@@ -188,10 +243,12 @@ struct NotificationSettingsView: View {
             }
         }
     }
+    
+
 }
 
 struct NotificationSettingsView_Previews: PreviewProvider {
     static var previews: some View {
-        NotificationSettingsView()
+        NotificationSettingsView(weatherViewModel: nil)
     }
 } 

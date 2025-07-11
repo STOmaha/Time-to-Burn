@@ -102,7 +102,7 @@ struct MeView: View {
                         }
                     }
                     
-                    NavigationLink(destination: NotificationSettingsView()) {
+                    NavigationLink(destination: NotificationSettingsView(weatherViewModel: weatherViewModel)) {
                         HStack {
                             Image(systemName: "gear")
                                 .foregroundColor(.blue)
@@ -205,6 +205,12 @@ struct MeView: View {
                         showNotificationBanner("Widget test data saved", type: .success)
                     }
                     .foregroundColor(.blue)
+                    
+                    Button("Test Daily Weather Refresh") {
+                        weatherViewModel.testDailyWeatherRefresh()
+                        showNotificationBanner("Daily weather refresh triggered", type: .success)
+                    }
+                    .foregroundColor(.orange)
                 }
                 }
             }

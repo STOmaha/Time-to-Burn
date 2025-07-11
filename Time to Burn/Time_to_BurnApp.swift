@@ -52,6 +52,11 @@ struct Time_to_BurnApp: App {
                         // Request notification permissions on app start
                         Task {
                             await notificationManager.forceRequestNotificationPermission()
+                            
+                            // Schedule daily weather refresh after permissions are granted
+                            if notificationManager.isAuthorized {
+                                weatherViewModel.scheduleDailyWeatherRefresh()
+                            }
                         }
                         
                         // Weather data will be fetched automatically when location is available
@@ -89,7 +94,35 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     }
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        // Handle notification tap
+        let identifier = response.notification.request.identifier
+        let actionIdentifier = response.actionIdentifier
+        
+        print("🔔 [NotificationDelegate] Notification received: \(identifier), action: \(actionIdentifier)")
+        
+        // Handle daily weather refresh notification
+        if identifier == "daily_weather_refresh" || actionIdentifier == "REFRESH_WEATHER" {
+            print("🔔 [NotificationDelegate] 🌤️ Daily weather refresh triggered")
+            
+            // Post notification to trigger weather refresh
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Notification.Name("dailyWeatherRefresh"), object: nil)
+            }
+        }
+        
         completionHandler()
+    }
+    
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive notification: UNNotification) {
+        let identifier = notification.request.identifier
+        
+        // Handle daily weather refresh notification when app is in background
+        if identifier == "daily_weather_refresh" {
+            print("🔔 [NotificationDelegate] 🌤️ Daily weather refresh received in background")
+            
+            // Post notification to trigger weather refresh
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Notification.Name("dailyWeatherRefresh"), object: nil)
+            }
+        }
     }
 }

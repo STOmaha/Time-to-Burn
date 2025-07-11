@@ -341,12 +341,26 @@ class NotificationManager: ObservableObject {
             options: []
         )
         
+        let weatherRefreshAction = UNNotificationAction(
+            identifier: "REFRESH_WEATHER",
+            title: "Refresh Now",
+            options: [.foreground]
+        )
+        
+        let weatherRefreshCategory = UNNotificationCategory(
+            identifier: "DAILY_WEATHER_REFRESH",
+            actions: [weatherRefreshAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        
         UNUserNotificationCenter.current().setNotificationCategories([
             sunscreenCategory,
             sunscreenExpiredCategory,
             exposureCategory,
             uvCategory,
-            summaryCategory
+            summaryCategory,
+            weatherRefreshCategory
         ])
     }
     
@@ -549,6 +563,54 @@ class NotificationManager: ObservableObject {
                 }
             }
         }
+    }
+    
+    // MARK: - Daily Weather Refresh Notifications
+    func scheduleDailyWeatherRefresh() {
+        print("🔔 [NotificationManager] Scheduling daily 8am weather refresh...")
+        guard isAuthorized else { 
+            print("🔔 [NotificationManager] ❌ Cannot schedule weather refresh - notifications not authorized")
+            return 
+        }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "🌤️ Daily Weather Update"
+        content.body = "Updating your UV index and sun exposure data for today."
+        content.sound = .default
+        content.categoryIdentifier = "DAILY_WEATHER_REFRESH"
+        
+        // Schedule for 8:00 AM daily
+        var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        components.hour = 8
+        components.minute = 0
+        components.second = 0
+        
+        if let targetDate = Calendar.current.date(from: components) {
+            // If it's already past 8am today, schedule for tomorrow
+            if targetDate <= Date() {
+                components.day = (components.day ?? 1) + 1
+            }
+            
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+            let request = UNNotificationRequest(
+                identifier: "daily_weather_refresh",
+                content: content,
+                trigger: trigger
+            )
+            
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("🔔 [NotificationManager] ❌ Error scheduling daily weather refresh - \(error)")
+                } else {
+                    print("🔔 [NotificationManager] ✅ Daily weather refresh scheduled for 8:00 AM daily")
+                }
+            }
+        }
+    }
+    
+    func cancelDailyWeatherRefresh() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["daily_weather_refresh"])
+        print("🔔 [NotificationManager] ✅ Daily weather refresh cancelled")
     }
     
     // MARK: - Cleanup
