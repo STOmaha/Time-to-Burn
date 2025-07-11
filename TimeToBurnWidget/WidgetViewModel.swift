@@ -83,7 +83,9 @@ class WidgetViewModel: ObservableObject {
     
     func formatHour(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
+        // Check if 24-hour clock is enabled in UserDefaults
+        let is24HourClock = UserDefaults.standard.bool(forKey: "is24HourClock")
+        formatter.dateFormat = is24HourClock ? "HH:mm" : "h:mm a"
         return formatter.string(from: date)
     }
     

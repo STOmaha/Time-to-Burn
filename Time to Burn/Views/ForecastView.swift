@@ -5,6 +5,12 @@ struct ForecastView: View {
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @State private var userThreshold: Int = UserDefaults.standard.integer(forKey: "uvUserThreshold") == 0 ? 6 : UserDefaults.standard.integer(forKey: "uvUserThreshold")
     
+    // MARK: - Homogeneous Background
+    var homogeneousBackground: Color {
+        let uvIndex = weatherViewModel.currentUVData?.uvIndex ?? 0
+        return UVColorUtils.getHomogeneousBackgroundColor(uvIndex)
+    }
+    
     private func getUVData(forDayOffset offset: Int) -> [UVData] {
         let calendar = Calendar.current
         guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: Date())) else { return [] }
@@ -69,20 +75,28 @@ struct ForecastView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    ForEach(0..<7, id: \.self) { dayOffset in
-                        DayForecastCard(
-                            dayOffset: dayOffset,
-                            uvData: getUVData(forDayOffset: dayOffset),
-                            userThreshold: userThreshold,
-                            dayInfo: getDayNameAndDate(forDayOffset: dayOffset)
-                        )
+            ZStack {
+                // Homogeneous UV background
+                Rectangle()
+                    .fill(homogeneousBackground)
+                    .ignoresSafeArea()
+                
+                // Content
+                ScrollView {
+                    VStack(spacing: 24) {
+                        ForEach(0..<7, id: \.self) { dayOffset in
+                            DayForecastCard(
+                                dayOffset: dayOffset,
+                                uvData: getUVData(forDayOffset: dayOffset),
+                                userThreshold: userThreshold,
+                                dayInfo: getDayNameAndDate(forDayOffset: dayOffset)
+                            )
+                        }
                     }
+                    .padding(.horizontal)
+                    .padding(.top, 24)
+                    .padding(.bottom, 32)
                 }
-                .padding(.horizontal)
-                .padding(.top, 24)
-                .padding(.bottom, 32)
             }
             .navigationTitle("7-Day UV Forecast")
             .navigationBarTitleDisplayMode(.large)

@@ -153,9 +153,7 @@ class SearchViewModel: ObservableObject {
     
     func getTimeToBurnString() -> String {
         let uvIndex = getCurrentUVIndex()
-        if uvIndex == 0 { return "∞" }
-        let minutes = UVColorUtils.calculateTimeToBurnMinutes(uvIndex: uvIndex)
-        return "\(minutes) minutes"
+        return UnitConverter.shared.formatTimeToBurn(uvIndex)
     }
 }
 

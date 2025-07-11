@@ -71,7 +71,10 @@ struct UVExposureLiveActivity: Widget {
                 }
             }
             .padding()
-            .background(Color(.systemBackground))
+            .background(
+                // Use blue background when sunscreen is active, otherwise use system background
+                context.state.isSunscreenActive ? Color.blue.opacity(0.15) : Color(.systemBackground)
+            )
         } dynamicIsland: { context in
             // Dynamic Island
             DynamicIsland {
@@ -288,7 +291,6 @@ struct SunscreenTimerSection: View {
             }
         }
         .padding()
-        .background(Color.blue.opacity(0.1))
         .cornerRadius(12)
     }
     
@@ -306,7 +308,9 @@ struct SunscreenTimerSection: View {
     
     private func formatExpirationTime(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.timeStyle = .short
+        // Check if 24-hour clock is enabled in UserDefaults
+        let is24HourClock = UserDefaults.standard.bool(forKey: "is24HourClock")
+        formatter.dateFormat = is24HourClock ? "HH:mm" : "h:mm a"
         return formatter.string(from: date)
     }
 }
@@ -352,7 +356,6 @@ struct SunscreenPromptSection: View {
             }
         }
         .padding()
-        .background(Color.orange.opacity(0.1))
         .cornerRadius(12)
     }
 } 

@@ -58,9 +58,29 @@ struct SimpleUVIndexProvider: TimelineProvider {
         let entry = loadSharedDataDirectly()
         print("🌞 [Widget] ⏰ Timeline Entry Created: UV=\(entry.uvIndex), Time=\(entry.timeToBurn/60)min, Location=\(entry.locationName)")
         
-        // Refresh every 2 minutes
-        let nextUpdate = Date().addingTimeInterval(120)
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
+        // Create multiple timeline entries to ensure widget updates regularly
+        var entries: [UVIndexEntry] = []
+        
+        // Current entry
+        entries.append(entry)
+        
+        // Future entries every 30 minutes for the next 2 hours
+        for i in 1...4 {
+            let futureDate = Date().addingTimeInterval(TimeInterval(i * 1800)) // 30 minutes * i
+            let futureEntry = UVIndexEntry(
+                date: futureDate,
+                uvIndex: entry.uvIndex,
+                timeToBurn: entry.timeToBurn,
+                locationName: entry.locationName,
+                lastUpdated: entry.lastUpdated,
+                debugInfo: "Future entry \(i)"
+            )
+            entries.append(futureEntry)
+        }
+        
+        // Set policy to refresh every 30 minutes
+        let nextUpdate = Date().addingTimeInterval(1800)
+        let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
         completion(timeline)
     }
     
@@ -69,7 +89,10 @@ struct SimpleUVIndexProvider: TimelineProvider {
     private func loadSharedDataDirectly() -> UVIndexEntry {
         print("🌞 [Widget] 🔍 Loading shared data directly...")
         
-        // Try to load from shared data
+        // Debug data sources for troubleshooting
+        debugDataSources()
+        
+        // Try to load from shared data manager first (most reliable)
         if let sharedData = WidgetSharedDataManager.shared.loadSharedData() {
             print("🌞 [Widget] ✅ Successfully loaded shared data: UV=\(sharedData.currentUVIndex)")
             return UVIndexEntry(
@@ -114,7 +137,7 @@ struct SimpleUVIndexProvider: TimelineProvider {
             )
         }
         
-        // Default fallback
+        // Default fallback with more informative debug info
         print("🌞 [Widget] ❌ No shared data found, using defaults")
         return UVIndexEntry(
             date: Date(),
@@ -122,8 +145,36 @@ struct SimpleUVIndexProvider: TimelineProvider {
             timeToBurn: 0,
             locationName: "No Data",
             lastUpdated: Date(),
-            debugInfo: "No data available"
+            debugInfo: "No data available - check main app has run and saved data"
         )
+    }
+    
+    // MARK: - Debug Helper
+    private func debugDataSources() {
+        print("🌞 [Widget] 🔍 Debugging data sources...")
+        
+        // Check app group UserDefaults
+        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+            if let data = userDefaults.data(forKey: "sharedUVData") {
+                print("🌞 [Widget] ✅ App group has data: \(data.count) bytes")
+                if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
+                    print("🌞 [Widget] ✅ App group data decodable: UV=\(decoded.currentUVIndex)")
+                } else {
+                    print("🌞 [Widget] ❌ App group data not decodable")
+                }
+            } else {
+                print("🌞 [Widget] ❌ App group has no data")
+            }
+        } else {
+            print("🌞 [Widget] ❌ App group UserDefaults not accessible")
+        }
+        
+        // Check standard UserDefaults
+        if let data = UserDefaults.standard.data(forKey: "sharedUVData") {
+            print("🌞 [Widget] ✅ Standard UserDefaults has data: \(data.count) bytes")
+        } else {
+            print("🌞 [Widget] ❌ Standard UserDefaults has no data")
+        }
     }
 }
 

@@ -16,6 +16,7 @@ struct Time_to_BurnApp: App {
     @StateObject private var notificationManager = NotificationManager.shared
     @StateObject private var onboardingManager = OnboardingManager.shared
     @StateObject private var timerViewModel = TimerViewModel()
+    @StateObject private var settingsManager = SettingsManager.shared
     
     init() {
         print("🚀 [App] 🚀 App initializing...")
@@ -25,6 +26,9 @@ struct Time_to_BurnApp: App {
         _weatherViewModel = StateObject(wrappedValue: WeatherViewModel(locationManager: locationManager))
         _notificationManager = StateObject(wrappedValue: NotificationManager.shared)
         _onboardingManager = StateObject(wrappedValue: OnboardingManager.shared)
+        
+        // Configure UnitConverter with SettingsManager
+        UnitConverter.shared.configure(with: SettingsManager.shared)
         
         // Setup notification delegate
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
@@ -40,16 +44,23 @@ struct Time_to_BurnApp: App {
                     .environmentObject(weatherViewModel)
                     .environmentObject(notificationManager)
                     .environmentObject(timerViewModel)
+                    .environmentObject(settingsManager)
                     .onAppear {
                         // Set dependencies for TimerViewModel
                         timerViewModel.setDependencies(locationManager: locationManager, weatherViewModel: weatherViewModel)
+                        
+                        // Request notification permissions on app start
+                        Task {
+                            await notificationManager.forceRequestNotificationPermission()
+                        }
                         
                         // Weather data will be fetched automatically when location is available
                         print("🚀 [App] ✅ App appeared, waiting for location and weather data...")
                     }
                     .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                        // Refresh data when app becomes active
-                        print("🚀 [App] 🔄 App became active, refreshing data...")
+                        // Check for daily sunscreen reset and refresh data when app becomes active
+                        print("🚀 [App] 🔄 App became active, checking daily reset and refreshing data...")
+                        timerViewModel.handleAppBecameActive()
                         Task {
                             await weatherViewModel.refreshData()
                         }
@@ -62,6 +73,7 @@ struct Time_to_BurnApp: App {
                     .environmentObject(locationManager)
                     .environmentObject(weatherViewModel)
                     .environmentObject(notificationManager)
+                    .environmentObject(settingsManager)
             }
         }
     }

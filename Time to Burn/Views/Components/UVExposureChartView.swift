@@ -208,14 +208,7 @@ struct StatCard: View {
 
 // MARK: - Helper Functions
 private func formatTimeInterval(_ timeInterval: TimeInterval) -> String {
-    let hours = Int(timeInterval) / 3600
-    let minutes = Int(timeInterval) / 60 % 60
-    
-    if hours > 0 {
-        return "\(hours)h \(minutes)m"
-    } else {
-        return "\(minutes)m"
-    }
+    return UnitConverter.shared.formatTime(timeInterval, style: .short)
 }
 
 #Preview {

@@ -39,15 +39,14 @@ struct UVColorUtils {
     
     // MARK: - Time Formatting Functions
     static func formatHour(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: date)
+        return UnitConverter.shared.formatHour(date)
     }
     
     static func formatKeyTime(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "h a"
-        return formatter.string(from: date).lowercased()
+        formatter.dateFormat = UnitConverter.shared.settingsManager?.is24HourClock == true ? "HH" : "h a"
+        let timeString = formatter.string(from: date)
+        return UnitConverter.shared.settingsManager?.is24HourClock == true ? timeString : timeString.lowercased()
     }
     
     // MARK: - UV Advice Functions
@@ -94,6 +93,31 @@ struct UVColorUtils {
             blue: 1.0 - (1.0 - base.components().b) * 0.18
         )
         return pastel
+    }
+    
+    // MARK: - Homogeneous Background Color
+    static func getHomogeneousBackgroundColor(_ uvIndex: Int) -> Color {
+        let base = getUVColor(uvIndex)
+        // Create a very subtle background that works across all tabs
+        // More subtle than pastel for better readability
+        let homogeneous = Color(
+            red: 1.0 - (1.0 - base.components().r) * 0.08,
+            green: 1.0 - (1.0 - base.components().g) * 0.08,
+            blue: 1.0 - (1.0 - base.components().b) * 0.08
+        )
+        return homogeneous
+    }
+    
+    // MARK: - Tab Bar Background Color
+    static func getTabBarBackgroundColor(_ uvIndex: Int) -> Color {
+        let base = getUVColor(uvIndex)
+        // Slightly more pronounced for tab bar
+        let tabBar = Color(
+            red: 1.0 - (1.0 - base.components().r) * 0.12,
+            green: 1.0 - (1.0 - base.components().g) * 0.12,
+            blue: 1.0 - (1.0 - base.components().b) * 0.12
+        )
+        return tabBar
     }
 }
 

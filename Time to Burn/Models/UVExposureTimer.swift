@@ -147,6 +147,17 @@ class UVExposureTimer: ObservableObject {
             currentState = .exceeded
             stopInternalTimer()
             uvChangeNotification = "⚠️ UV \(newUVIndex) - Exposure limit exceeded!"
+            
+            // Trigger exposure exceeded notification
+            NotificationCenter.default.post(
+                name: .exposureExceeded,
+                object: nil,
+                userInfo: [
+                    "uvIndex": newUVIndex,
+                    "previousUV": previousUV,
+                    "timeToBurn": timeToBurn
+                ]
+            )
         }
     }
     
@@ -179,7 +190,20 @@ class UVExposureTimer: ObservableObject {
     func checkSunscreenExpiration() {
         guard let status = sunscreenStatus, status.isExpired else { return }
         
-        // Sunscreen has expired, resume UV exposure tracking
+        // Sunscreen has expired, trigger alarm
+        print("🧴 [UVExposureTimer] 🚨 Sunscreen timer expired!")
+        
+        // Post notification for sunscreen expiration alarm
+        NotificationCenter.default.post(
+            name: .sunscreenExpired,
+            object: nil,
+            userInfo: [
+                "applicationTime": status.applicationTime,
+                "reapplyTime": status.reapplyTime
+            ]
+        )
+        
+        // Automatically resume UV exposure tracking
         sunscreenStatus = nil
         if currentState == .sunscreenApplied {
             currentState = .paused
@@ -187,6 +211,12 @@ class UVExposureTimer: ObservableObject {
         
         // Stop sunscreen timer
         stopSunscreenTimer()
+        
+        // Resume UV exposure timer if UV is present
+        if currentUVIndex > 0 {
+            print("🧴 [UVExposureTimer] 🔄 Automatically resuming UV exposure tracking")
+            resumeTimer()
+        }
     }
     
     func cancelSunscreenTimer() {
@@ -245,6 +275,17 @@ class UVExposureTimer: ObservableObject {
         if currentTotalExposure >= TimeInterval(timeToBurn) {
             currentState = .exceeded
             stopInternalTimer()
+            
+            // Trigger exposure exceeded notification
+            NotificationCenter.default.post(
+                name: .exposureExceeded,
+                object: nil,
+                userInfo: [
+                    "uvIndex": currentUVIndex,
+                    "previousUV": currentUVIndex, // Same UV since this is normal timer update
+                    "timeToBurn": timeToBurn
+                ]
+            )
         }
     }
     
@@ -253,19 +294,31 @@ class UVExposureTimer: ObservableObject {
         
         // Calculate exposure time at previous UV level
         let exposureAtPreviousUV = Date().timeIntervalSince(startTime)
-        totalExposureTime = exposureAtLastUVChange + exposureAtPreviousUV
         
-        // Update tracking for new UV level (but don't reset session)
+        // Convert exposure time to equivalent time at new UV level
+        // Higher UV levels cause more damage, so we need to scale the exposure time
+        let previousTimeToBurn = UVColorUtils.calculateTimeToBurn(uvIndex: previousUV)
+        let newTimeToBurn = UVColorUtils.calculateTimeToBurn(uvIndex: newUV)
+        
+        // Calculate what percentage of the previous UV's limit was reached
+        let exposurePercentage = exposureAtPreviousUV / TimeInterval(previousTimeToBurn)
+        
+        // Convert that percentage to equivalent time at the new UV level
+        let equivalentExposureAtNewUV = exposurePercentage * TimeInterval(newTimeToBurn)
+        
+        // Update total exposure time with the converted equivalent exposure
+        totalExposureTime = exposureAtLastUVChange + equivalentExposureAtNewUV
+        
+        // Update tracking for new UV level
         lastUVChangeTime = Date()
         exposureAtLastUVChange = totalExposureTime
         
-        // Keep the same session start time so elapsed time continues from where it was
-        // This prevents the timer from appearing to reset
+        // Reset session start time to now, so elapsed time starts fresh for new UV level
+        sessionStartTime = Date()
+        elapsedTime = 0
         
         // Calculate remaining time with new UV level
-        let newTimeToBurn = UVColorUtils.calculateTimeToBurn(uvIndex: newUV)
-        let currentTotalExposure = totalExposureTime + elapsedTime
-        let remainingTime = max(0, TimeInterval(newTimeToBurn) - currentTotalExposure)
+        let remainingTime = max(0, TimeInterval(newTimeToBurn) - totalExposureTime)
         
         // Provide user notification about UV change
         if newUV > previousUV {
@@ -290,15 +343,7 @@ class UVExposureTimer: ObservableObject {
     
     // MARK: - Time Formatting
     func formatTime(_ timeInterval: TimeInterval) -> String {
-        let hours = Int(timeInterval) / 3600
-        let minutes = Int(timeInterval) / 60 % 60
-        let seconds = Int(timeInterval) % 60
-        
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            return String(format: "%d:%02d", minutes, seconds)
-        }
+        return UnitConverter.shared.formatTime(timeInterval, style: .standard)
     }
     
     func formatRemainingTime() -> String {

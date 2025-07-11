@@ -4,6 +4,7 @@ import UserNotifications
 import ActivityKit
 import WidgetKit
 import Combine
+import AudioToolbox
 
 @MainActor
 class TimerViewModel: ObservableObject {
@@ -47,6 +48,9 @@ class TimerViewModel: ObservableObject {
         setupBindings()
         loadPersistedData()
         setupBackgroundHandling()
+        setupBackgroundDailyReset()
+        setupExposureExceededListener()
+        setupSunscreenExpiredListener()
         // Don't update shared data until we have real weather data
         // updateSharedData() will be called when dependencies are set
         
@@ -237,8 +241,14 @@ class TimerViewModel: ObservableObject {
     func applySunscreen() {
         uvTimer.applySunscreen()
         
-        // Update Live Activity
-        updateLiveActivity()
+        // Start or update Live Activity for sunscreen countdown
+        if uvExposureActivity == nil {
+            // Start new Live Activity if none exists
+            startLiveActivity()
+        } else {
+            // Update existing Live Activity
+            updateLiveActivity()
+        }
         
         // Schedule sunscreen reminder
         if let status = sunscreenStatus {
@@ -251,8 +261,12 @@ class TimerViewModel: ObservableObject {
     func cancelSunscreenTimer() {
         uvTimer.cancelSunscreenTimer()
         
-        // Update Live Activity
-        updateLiveActivity()
+        // Update Live Activity or stop it if no timer is running
+        if isTimerRunning {
+            updateLiveActivity()
+        } else {
+            stopLiveActivity()
+        }
         
         // Cancel any scheduled sunscreen reminders
         notificationManager.cancelSunscreenReminders()
@@ -267,6 +281,120 @@ class TimerViewModel: ObservableObject {
         updateLiveActivity()
         // Update shared data for widget when UV changes
         updateSharedData()
+    }
+    
+    // MARK: - Exposure Exceeded Handling
+    private func setupExposureExceededListener() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleExposureExceeded),
+            name: .exposureExceeded,
+            object: nil
+        )
+    }
+    
+    // MARK: - Sunscreen Expired Alarm Handling
+    private func setupSunscreenExpiredListener() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSunscreenExpired),
+            name: .sunscreenExpired,
+            object: nil
+        )
+    }
+    
+    @objc private func handleExposureExceeded(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let uvIndex = userInfo["uvIndex"] as? Int,
+              let previousUV = userInfo["previousUV"] as? Int,
+              let timeToBurn = userInfo["timeToBurn"] as? Int else {
+            return
+        }
+        
+        print("⏰ [TimerViewModel] 🚨 Exposure exceeded due to UV increase: \(previousUV) → \(uvIndex)")
+        
+        // Trigger haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+        impactFeedback.impactOccurred()
+        
+        // Schedule system notification
+        notificationManager.scheduleExposureWarning(
+            warningType: .exceeded,
+            timeToBurn: timeToBurn
+        )
+        
+        // Trigger additional haptic feedback for urgency
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let notificationFeedback = UINotificationFeedbackGenerator()
+            notificationFeedback.notificationOccurred(.warning)
+        }
+        
+        // Check if sunscreen should be applied
+        checkSunscreenApplicationNeeded()
+        
+        // Update Live Activity immediately
+        updateLiveActivity()
+    }
+    
+    @objc private func handleSunscreenExpired(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let applicationTime = userInfo["applicationTime"] as? Date,
+              let reapplyTime = userInfo["reapplyTime"] as? Date else {
+            return
+        }
+        
+        print("⏰ [TimerViewModel] 🚨 Sunscreen timer expired! Application: \(applicationTime), Reapply: \(reapplyTime)")
+        
+        // Trigger multiple haptic feedback for alarm effect
+        let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
+        impactFeedback.impactOccurred()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            impactFeedback.impactOccurred()
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            impactFeedback.impactOccurred()
+        }
+        
+        // Play alarm sound
+        playAlarmSound()
+        
+        // Show alarm modal
+        showSunscreenAlarmModal()
+        
+        // Schedule system notification as backup
+        notificationManager.scheduleSunscreenExpiredAlert()
+        
+        // Update Live Activity to reflect the automatic resume
+        updateLiveActivity()
+        updateSharedData()
+    }
+    
+    private func playAlarmSound() {
+        // Play a custom alarm sound
+        AudioServicesPlaySystemSound(1005) // System sound for alarm
+    }
+    
+    private func showSunscreenAlarmModal() {
+        // This will be handled by the UI layer
+        // The modal will be shown in the main view
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .showSunscreenAlarm, object: nil)
+        }
+    }
+    
+    private func checkSunscreenApplicationNeeded() {
+        // If no sunscreen is active and exposure is exceeded, prompt for sunscreen
+        if !isSunscreenActive && currentState == .exceeded {
+            print("⏰ [TimerViewModel] 🧴 Prompting for sunscreen application due to exceeded exposure")
+            
+            // Show sunscreen prompt in UI
+            shouldShowSunscreenPrompt = true
+            
+            // Schedule sunscreen reminder notification
+            notificationManager.scheduleSunscreenReminder(at: Date())
+        }
     }
     
     // MARK: - Background Handling
@@ -312,6 +440,23 @@ class TimerViewModel: ObservableObject {
     }
     
     // MARK: - Live Activity
+    private func getUVColor(for uvIndex: Int) -> String {
+        switch uvIndex {
+        case 0...2:
+            return "green"
+        case 3...5:
+            return "yellow"
+        case 6...7:
+            return "orange"
+        case 8...10:
+            return "red"
+        case 11...:
+            return "purple"
+        default:
+            return "gray"
+        }
+    }
+    
     private func startLiveActivity() {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         
@@ -332,7 +477,9 @@ class TimerViewModel: ObservableObject {
             exposureProgress: uvTimer.exposureProgress,
             shouldShowSunscreenPrompt: shouldShowSunscreenPrompt,
             sunscreenExpirationTime: sunscreenStatus?.reapplyTime,
-            sunscreenProgress: sunscreenStatus != nil ? max(0, 1.0 - (sunscreenTimerRemaining / (2 * 60 * 60))) : 0.0
+            sunscreenProgress: sunscreenStatus != nil ? max(0, 1.0 - (sunscreenTimerRemaining / (2 * 60 * 60))) : 0.0,
+            currentUVIndex: currentUVIndex,
+            currentUVColor: getUVColor(for: currentUVIndex)
         )
         
         do {
@@ -344,8 +491,10 @@ class TimerViewModel: ObservableObject {
             
             // Start frequent Live Activity updates
             startLiveActivityUpdateTimer()
+            
+            print("⏰ [TimerViewModel] 🚀 Live Activity started - Sunscreen active: \(isSunscreenActive), Timer running: \(isTimerRunning)")
         } catch {
-            print("Failed to start Live Activity: \(error)")
+            print("⏰ [TimerViewModel] ❌ Failed to start Live Activity: \(error)")
         }
     }
     
@@ -362,7 +511,9 @@ class TimerViewModel: ObservableObject {
                 exposureProgress: uvTimer.exposureProgress,
                 shouldShowSunscreenPrompt: shouldShowSunscreenPrompt,
                 sunscreenExpirationTime: sunscreenStatus?.reapplyTime,
-                sunscreenProgress: sunscreenStatus != nil ? max(0, 1.0 - (sunscreenTimerRemaining / (2 * 60 * 60))) : 0.0
+                sunscreenProgress: sunscreenStatus != nil ? max(0, 1.0 - (sunscreenTimerRemaining / (2 * 60 * 60))) : 0.0,
+                currentUVIndex: currentUVIndex,
+                currentUVColor: getUVColor(for: currentUVIndex)
             )
             
             await uvExposureActivity?.update(ActivityContent(state: contentState, staleDate: nil))
@@ -382,7 +533,9 @@ class TimerViewModel: ObservableObject {
                 exposureProgress: uvTimer.exposureProgress,
                 shouldShowSunscreenPrompt: shouldShowSunscreenPrompt,
                 sunscreenExpirationTime: sunscreenStatus?.reapplyTime,
-                sunscreenProgress: sunscreenStatus != nil ? max(0, 1.0 - (sunscreenTimerRemaining / (2 * 60 * 60))) : 0.0
+                sunscreenProgress: sunscreenStatus != nil ? max(0, 1.0 - (sunscreenTimerRemaining / (2 * 60 * 60))) : 0.0,
+                currentUVIndex: currentUVIndex,
+                currentUVColor: getUVColor(for: currentUVIndex)
             )
             
             await uvExposureActivity?.end(ActivityContent(state: contentState, staleDate: nil), dismissalPolicy: .immediate)
@@ -432,6 +585,9 @@ class TimerViewModel: ObservableObject {
         
         sunscreenReapplyTime = defaults.double(forKey: "timerSunscreenReapplyTime")
         
+        // Check for daily reset - if last sunscreen application was on a different day, reset it
+        checkAndResetDailySunscreen()
+        
         // Restore UV timer state
         uvTimer.updateUVIndex(currentUVIndex)
         
@@ -451,6 +607,90 @@ class TimerViewModel: ObservableObject {
         defaults.set(sunscreenReapplyTime, forKey: "timerSunscreenReapplyTime")
     }
     
+    // MARK: - Daily Reset Logic
+    private func checkAndResetDailySunscreen() {
+        guard let lastApplication = lastSunscreenApplication else { return }
+        
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Check if the last sunscreen application was on a different day
+        if !calendar.isDate(lastApplication, inSameDayAs: today) {
+            print("⏰ [TimerViewModel] 🌅 Daily reset: Last sunscreen application was on \(lastApplication), resetting for new day")
+            
+            // Reset sunscreen status
+            lastSunscreenApplication = nil
+            sunscreenReapplyTime = 0
+            isSunscreenActive = false
+            sunscreenTimerRemaining = 0
+            
+            // Reset the UV timer's sunscreen status
+            uvTimer.cancelSunscreenTimer()
+            
+            // Update shared data and widget
+            updateSharedData()
+            refreshWidget()
+        }
+    }
+    
+    // MARK: - App Lifecycle Handling
+    func handleAppBecameActive() {
+        // Check for daily reset when app becomes active
+        checkAndResetDailySunscreen()
+        
+        // Schedule daily summary if enabled
+        notificationManager.scheduleDailySummaryIfNeeded()
+    }
+    
+    // MARK: - Background Daily Reset
+    private func setupBackgroundDailyReset() {
+        // Calculate time until next midnight
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Get tomorrow's midnight
+        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+              let midnight = calendar.date(bySettingHour: 0, minute: 0, second: 0, of: tomorrow) else {
+            return
+        }
+        
+        let timeUntilMidnight = midnight.timeIntervalSince(now)
+        
+        print("⏰ [TimerViewModel] 🌅 Setting up background daily reset for \(midnight) (in \(timeUntilMidnight/3600) hours)")
+        
+        // Schedule timer for midnight
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeUntilMidnight) { [weak self] in
+            self?.performDailyReset()
+            // Set up the next midnight reset
+            self?.setupBackgroundDailyReset()
+        }
+    }
+    
+    private func performDailyReset() {
+        print("⏰ [TimerViewModel] 🌅 Performing scheduled daily reset at midnight")
+        
+        // Reset sunscreen status
+        lastSunscreenApplication = nil
+        sunscreenReapplyTime = 0
+        isSunscreenActive = false
+        sunscreenTimerRemaining = 0
+        
+        // Reset the UV timer's sunscreen status
+        uvTimer.cancelSunscreenTimer()
+        
+        // Save the reset state
+        savePersistedData()
+        
+        // Update shared data and widget
+        updateSharedData()
+        refreshWidget()
+        
+        // Schedule daily summary for the new day if enabled
+        notificationManager.scheduleDailySummaryIfNeeded()
+        
+        print("⏰ [TimerViewModel] ✅ Daily reset completed")
+    }
+    
     // MARK: - Shared Data Management
     private func updateSharedData() {
         // Only update shared data if we have real weather data
@@ -462,6 +702,7 @@ class TimerViewModel: ObservableObject {
         
         // Use the current UV data from WeatherViewModel, not the cached TimerViewModel data
         let currentUVFromWeather = weatherViewModel.getCurrentUVIndex()
+        let currentUVData = weatherViewModel.getCurrentUVData()
         
         let locationName = locationManager?.locationName ?? "Unknown Location"
         let lastUpdated = weatherViewModel.lastUpdated ?? Date()
@@ -495,7 +736,9 @@ class TimerViewModel: ObservableObject {
             exposureProgress: getExposureProgress(),
             locationName: locationName,
             lastUpdated: lastUpdated,
-            hourlyUVData: todayHourlyData
+            hourlyUVData: todayHourlyData,
+            currentCloudCover: currentUVData?.cloudCover ?? 0,
+            currentCloudCondition: currentUVData?.cloudCondition ?? "Clear"
         )
         
         sharedDataManager.saveSharedData(sharedData)
@@ -733,6 +976,53 @@ class TimerViewModel: ObservableObject {
         print("⏰ [TimerViewModel] ✅ Simple widget test completed")
     }
     
+    // MARK: - Widget Data Test
+    func testWidgetDataFlow() {
+        print("⏰ [TimerViewModel] 🧪 Testing widget data flow...")
+        
+        // Create test data with current time
+        let testData = SharedUVData(
+            currentUVIndex: 8,
+            timeToBurn: 1800, // 30 minutes
+            elapsedTime: 600, // 10 minutes
+            totalExposureTime: 900, // 15 minutes
+            isTimerRunning: false,
+            lastSunscreenApplication: nil,
+            sunscreenReapplyTimeRemaining: 0,
+            exposureStatus: .warning,
+            exposureProgress: 0.6,
+            locationName: "Test Location",
+            lastUpdated: Date(),
+            hourlyUVData: nil
+        )
+        
+        // Save to all possible locations
+        print("⏰ [TimerViewModel] 💾 Saving test data...")
+        
+        // Save via shared data manager
+        MainAppSharedDataManager.shared.saveSharedData(testData)
+        
+        // Save directly to app group
+        if let encoded = try? JSONEncoder().encode(testData) {
+            if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+                userDefaults.set(encoded, forKey: "sharedUVData")
+                userDefaults.synchronize()
+                print("⏰ [TimerViewModel] ✅ Saved to app group UserDefaults")
+            }
+            
+            // Save to standard UserDefaults as backup
+            UserDefaults.standard.set(encoded, forKey: "sharedUVData")
+            print("⏰ [TimerViewModel] ✅ Saved to standard UserDefaults")
+        }
+        
+        // Force widget refresh
+        print("⏰ [TimerViewModel] 📱 Forcing widget refresh...")
+        WidgetCenter.shared.reloadAllTimelines()
+        WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
+        
+        print("⏰ [TimerViewModel] ✅ Widget data flow test completed")
+    }
+    
     // MARK: - Comprehensive Widget Test
     func comprehensiveWidgetTest() {
         print("⏰ [TimerViewModel] 🔬 Comprehensive widget test started")
@@ -827,10 +1117,54 @@ class TimerViewModel: ObservableObject {
         openTimerTab()
     }
     
+    // MARK: - Live Activity Testing Methods
+    func testStartLiveActivity() {
+        print("⏰ [TimerViewModel] 🧪 Testing Live Activity start...")
+        startLiveActivity()
+    }
+    
+    func testUpdateLiveActivity() {
+        print("⏰ [TimerViewModel] 🧪 Testing Live Activity update...")
+        updateLiveActivity()
+    }
+    
+    func testStopLiveActivity() {
+        print("⏰ [TimerViewModel] 🧪 Testing Live Activity stop...")
+        stopLiveActivity()
+    }
+    
+    // MARK: - Notification Testing
+    func testNotifications() {
+        print("⏰ [TimerViewModel] 🧪 Testing notifications...")
+        
+        // Test notification permission
+        Task {
+            await notificationManager.forceRequestNotificationPermission()
+            
+            // Send test notification
+            notificationManager.sendTestNotification()
+            
+            // Test sunscreen expired alert
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                self.notificationManager.scheduleSunscreenExpiredAlert()
+            }
+            
+            // Test exposure warning
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                self.notificationManager.scheduleExposureWarning(warningType: .exceeded, timeToBurn: 1800)
+            }
+        }
+        
+        print("⏰ [TimerViewModel] ✅ Notification tests scheduled")
+    }
+    
 
 }
 
 // MARK: - Notification Names
 extension Notification.Name {
     static let openTimerTab = Notification.Name("openTimerTab")
+    static let exposureExceeded = Notification.Name("exposureExceeded")
+    static let sunscreenExpired = Notification.Name("sunscreenExpired")
+    static let showSunscreenAlarm = Notification.Name("showSunscreenAlarm")
 } 

@@ -7,25 +7,54 @@ struct UVData: Identifiable, Codable {
     let id = UUID()
     let date: Date
     let uvIndex: Int
+    let cloudCover: Double
+    let cloudCondition: String
     
     enum CodingKeys: String, CodingKey {
         case date
         case uvIndex = "value"
+        case cloudCover
+        case cloudCondition
     }
 
     init(from hourWeather: HourWeather) {
         self.date = hourWeather.date
         self.uvIndex = Int(hourWeather.uvIndex.value)
+        self.cloudCover = hourWeather.cloudCover
+        self.cloudCondition = UVData.getCloudCondition(from: hourWeather.cloudCover)
     }
 
     init(from currentWeather: CurrentWeather) {
         self.date = currentWeather.date
         self.uvIndex = Int(currentWeather.uvIndex.value)
+        self.cloudCover = currentWeather.cloudCover
+        self.cloudCondition = UVData.getCloudCondition(from: currentWeather.cloudCover)
     }
     
-    init(uvIndex: Int, date: Date) {
+    init(uvIndex: Int, date: Date, cloudCover: Double = 0, cloudCondition: String = "Clear") {
         self.date = date
         self.uvIndex = uvIndex
+        self.cloudCover = cloudCover
+        self.cloudCondition = cloudCondition
+    }
+    
+    private static func getCloudCondition(from cloudCover: Double) -> String {
+        switch cloudCover {
+        case 0..<10:
+            return "Clear"
+        case 10..<25:
+            return "Mostly Clear"
+        case 25..<50:
+            return "Partly Cloudy"
+        case 50..<75:
+            return "Mostly Cloudy"
+        case 75..<90:
+            return "Cloudy"
+        case 90...100:
+            return "Overcast"
+        default:
+            return "Unknown"
+        }
     }
 }
 
@@ -44,6 +73,8 @@ struct SharedUVData: Codable {
     let locationName: String
     let lastUpdated: Date
     let hourlyUVData: [UVData]?
+    let currentCloudCover: Double
+    let currentCloudCondition: String
     
     enum ExposureStatus: String, Codable, CaseIterable {
         case safe = "Safe"
@@ -73,7 +104,9 @@ struct SharedUVData: Codable {
         exposureProgress: Double,
         locationName: String,
         lastUpdated: Date,
-        hourlyUVData: [UVData]? = nil
+        hourlyUVData: [UVData]? = nil,
+        currentCloudCover: Double = 0,
+        currentCloudCondition: String = "Clear"
     ) {
         self.currentUVIndex = currentUVIndex
         self.timeToBurn = timeToBurn
@@ -88,6 +121,8 @@ struct SharedUVData: Codable {
         self.locationName = locationName
         self.lastUpdated = lastUpdated
         self.hourlyUVData = hourlyUVData
+        self.currentCloudCover = currentCloudCover
+        self.currentCloudCondition = currentCloudCondition
     }
 }
 

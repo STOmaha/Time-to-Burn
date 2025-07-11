@@ -5,9 +5,9 @@ struct UVHomeView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     
-    var pastelBackground: Color {
+    var homogeneousBackground: Color {
         let uv = weatherViewModel.currentUVData?.uvIndex ?? 0
-        return UVColorUtils.getPastelUVColor(uv)
+        return UVColorUtils.getHomogeneousBackgroundColor(uv)
     }
     
     var body: some View {
@@ -16,6 +16,9 @@ struct UVHomeView: View {
                 UVForecastCardView()
                     .environmentObject(weatherViewModel)
                     .padding(.top, 24)
+                
+                // CloudCoverageCardView removed as requested
+                
                 UVChartCardView()
                     .environmentObject(weatherViewModel)
             }
@@ -25,7 +28,7 @@ struct UVHomeView: View {
         .refreshable {
             await weatherViewModel.refreshData()
         }
-        .background(pastelBackground)
+        .background(homogeneousBackground)
         .navigationTitle("UV Index")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

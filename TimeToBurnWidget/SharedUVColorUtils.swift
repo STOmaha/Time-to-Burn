@@ -40,14 +40,19 @@ struct UVColorUtils {
     // MARK: - Time Formatting Functions
     static func formatHour(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
+        // Check if 24-hour clock is enabled in UserDefaults
+        let is24HourClock = UserDefaults.standard.bool(forKey: "is24HourClock")
+        formatter.dateFormat = is24HourClock ? "HH:mm" : "h:mm a"
         return formatter.string(from: date)
     }
     
     static func formatKeyTime(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "h a"
-        return formatter.string(from: date).lowercased()
+        // Check if 24-hour clock is enabled in UserDefaults
+        let is24HourClock = UserDefaults.standard.bool(forKey: "is24HourClock")
+        formatter.dateFormat = is24HourClock ? "HH" : "h a"
+        let timeString = formatter.string(from: date)
+        return is24HourClock ? timeString : timeString.lowercased()
     }
     
     // MARK: - UV Advice Functions

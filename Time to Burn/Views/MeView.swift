@@ -1,20 +1,58 @@
 import SwiftUI
 import WidgetKit
+import AudioToolbox
 
 struct MeView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @EnvironmentObject private var notificationManager: NotificationManager
     @EnvironmentObject private var timerViewModel: TimerViewModel
+    @EnvironmentObject private var settingsManager: SettingsManager
     @StateObject private var onboardingManager = OnboardingManager.shared
-    @State private var darkModeEnabled = true
-    @State private var unitsMetric = true
     @State private var showingDailySummaryAlert = false
     @State private var showingResetOnboardingAlert = false
     
+    // MARK: - Homogeneous Background
+    var homogeneousBackground: Color {
+        let uvIndex = weatherViewModel.currentUVData?.uvIndex ?? 0
+        return UVColorUtils.getHomogeneousBackgroundColor(uvIndex)
+    }
+    
+    // Custom notification banner state
+    @State private var showingNotificationBanner = false
+    @State private var notificationBannerMessage = ""
+    @State private var notificationBannerType: NotificationBannerType = .info
+    
+    enum NotificationBannerType {
+        case success, warning, error, info
+        
+        var color: Color {
+            switch self {
+            case .success: return .green
+            case .warning: return .orange
+            case .error: return .red
+            case .info: return .blue
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .success: return "checkmark.circle.fill"
+            case .warning: return "exclamationmark.triangle.fill"
+            case .error: return "xmark.circle.fill"
+            case .info: return "info.circle.fill"
+            }
+        }
+    }
+    
     var body: some View {
         NavigationView {
-            List {
+            ZStack {
+                // Homogeneous UV background
+                homogeneousBackground
+                    .ignoresSafeArea()
+                
+                List {
                 // Profile Section
                 Section("Profile") {
                     HStack {
@@ -105,15 +143,29 @@ struct MeView: View {
                 
                 // App Settings Section
                 Section("App Settings") {
-                    Toggle("Dark Mode", isOn: $darkModeEnabled)
-                        .onChange(of: darkModeEnabled) { oldValue, newValue in
-                            // Handle dark mode toggle
-                        }
+                    Toggle("Dark Mode", isOn: $settingsManager.isDarkModeEnabled)
                     
-                    Toggle("Metric Units", isOn: $unitsMetric)
-                        .onChange(of: unitsMetric) { oldValue, newValue in
-                            // Handle units toggle
-                        }
+                    Toggle("Metric Units", isOn: $settingsManager.isMetricUnits)
+                    
+                    Toggle("24-Hour Clock", isOn: $settingsManager.is24HourClock)
+                    
+                    HStack {
+                        Text("Current Units")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(settingsManager.isMetricUnits ? "Metric (°C, km)" : "Imperial (°F, mi)")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                    
+                    HStack {
+                        Text("Current Time Format")
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text(settingsManager.is24HourClock ? "24-hour" : "12-hour")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
                 }
                 
                 // Daily Summary Section
@@ -141,91 +193,19 @@ struct MeView: View {
                     }
                 }
                 
-                // Developer Section (for testing)
-                Section {
+                // Developer Tools Section
+                Section("Developer Tools") {
                     Button("Reset Onboarding") {
                         showingResetOnboardingAlert = true
                     }
                     .foregroundColor(.red)
                     
-                    // Widget Debug Section
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Widget Debug")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.secondary)
-                        
-                        Button("Test Widget Data") {
-                            timerViewModel.testWidgetData()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                        .font(.caption)
-                        
-                        Button("Force Widget Refresh") {
-                            timerViewModel.forceWidgetRefresh()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.green)
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                        .font(.caption)
-                        
-                        Button("Aggressive Widget Refresh") {
-                            timerViewModel.forceAggressiveWidgetRefresh()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.purple)
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                        .font(.caption)
-                        
-                        Button("Check Widget Status") {
-                            timerViewModel.checkWidgetStatus()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.red)
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                        .font(.caption)
-                        
-                        Button("Enhanced Widget Refresh") {
-                            timerViewModel.forceEnhancedWidgetRefresh()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.orange)
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                        .font(.caption)
-                        
-                        Button("Simple Widget Test") {
-                            timerViewModel.simpleWidgetTest()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.yellow)
-                        .foregroundColor(.black)
-                        .cornerRadius(6)
-                        .font(.caption)
-                        
-                        Button("Comprehensive Widget Test") {
-                            timerViewModel.comprehensiveWidgetTest()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.pink)
-                        .foregroundColor(.white)
-                        .cornerRadius(6)
-                        .font(.caption)
+                    Button("Test Widget Data") {
+                        timerViewModel.testWidgetDataFlow()
+                        showNotificationBanner("Widget test data saved", type: .success)
                     }
-                    .padding(.vertical, 4)
+                    .foregroundColor(.blue)
+                }
                 }
             }
             .navigationTitle("Settings")
@@ -246,5 +226,56 @@ struct MeView: View {
                 Text("This will show the onboarding flow again. This is useful for testing.")
             }
         }
+        .overlay(
+            // Custom notification banner
+            VStack {
+                if showingNotificationBanner {
+                    HStack {
+                        Image(systemName: notificationBannerType.icon)
+                            .foregroundColor(notificationBannerType.color)
+                        Text(notificationBannerMessage)
+                            .fontWeight(.medium)
+                        Spacer()
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showingNotificationBanner = false
+                            }
+                        }) {
+                            Image(systemName: "xmark")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(radius: 5)
+                    .padding(.horizontal)
+                    .padding(.top, 50)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                Spacer()
+            }
+        )
     }
+    
+
+    
+    // MARK: - Custom Notification Banner
+    private func showNotificationBanner(_ message: String, type: NotificationBannerType) {
+        notificationBannerMessage = message
+        notificationBannerType = type
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showingNotificationBanner = true
+        }
+        
+        // Auto-hide after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showingNotificationBanner = false
+            }
+        }
+    }
+    
+
 } 

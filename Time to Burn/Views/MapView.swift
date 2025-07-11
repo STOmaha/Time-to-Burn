@@ -10,9 +10,19 @@ struct MapView: View {
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
     )
     
+    // MARK: - Homogeneous Background
+    var homogeneousBackground: Color {
+        let uvIndex = weatherViewModel.currentUVData?.uvIndex ?? 0
+        return UVColorUtils.getHomogeneousBackgroundColor(uvIndex)
+    }
+    
     var body: some View {
         NavigationView {
             ZStack {
+                // Homogeneous UV background
+                homogeneousBackground
+                    .ignoresSafeArea()
+                
                 // Main Map View
                 VStack(spacing: 0) {
                     // Search bar with autocomplete

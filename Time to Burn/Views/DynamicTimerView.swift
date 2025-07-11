@@ -5,32 +5,46 @@ struct DynamicTimerView: View {
     @EnvironmentObject private var timerViewModel: TimerViewModel
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @State private var showingUVChart = false
+    @State private var showingSunscreenAlarm = false
+    
+    // MARK: - Homogeneous Background
+    private var homogeneousBackground: Color {
+        let currentUV = weatherViewModel.currentUVData?.uvIndex ?? 0
+        return UVColorUtils.getHomogeneousBackgroundColor(currentUV)
+    }
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Current UV and Time to Burn Info
-                    UVInfoCard()
-                        .environmentObject(timerViewModel)
-                        .environmentObject(weatherViewModel)
-                    
-                    // UV Change Notification
-                    if let notification = timerViewModel.uvChangeNotification {
-                        UVChangeNotificationCard(message: notification)
+            ZStack {
+                // Full screen homogeneous background
+                homogeneousBackground
+                    .ignoresSafeArea()
+                    .animation(.easeInOut(duration: 1.0), value: homogeneousBackground)
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Current UV and Time to Burn Info
+                        UVInfoCard()
+                            .environmentObject(timerViewModel)
+                            .environmentObject(weatherViewModel)
+                        
+                        // UV Change Notification
+                        if let notification = timerViewModel.uvChangeNotification {
+                            UVChangeNotificationCard(message: notification)
+                        }
+                        
+                        // Dynamic content based on timer state
+                        if timerViewModel.isUVZero {
+                            UVZeroWarningCard()
+                        } else if timerViewModel.currentState == .running || timerViewModel.currentState == .paused || timerViewModel.currentState == .sunscreenApplied {
+                            ActiveTimerContent()
+                        } else {
+                            InactiveTimerContent()
+                        }
                     }
-                    
-                    // Dynamic content based on timer state
-                    if timerViewModel.isUVZero {
-                        UVZeroWarningCard()
-                    } else if timerViewModel.currentState == .running || timerViewModel.currentState == .paused || timerViewModel.currentState == .sunscreenApplied {
-                        ActiveTimerContent()
-                    } else {
-                        InactiveTimerContent()
-                    }
+                    .padding(.horizontal)
+                    .padding(.top, 24)
                 }
-                .padding(.horizontal)
-                .padding(.top, 24)
             }
             .navigationTitle("Sun Timer")
             .navigationBarTitleDisplayMode(.large)
@@ -57,7 +71,12 @@ struct DynamicTimerView: View {
                     .environmentObject(weatherViewModel)
                     .environmentObject(timerViewModel)
             }
-
+            .sheet(isPresented: $showingSunscreenAlarm) {
+                SunscreenAlarmModal(timerViewModel: timerViewModel)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .showSunscreenAlarm)) { _ in
+                showingSunscreenAlarm = true
+            }
         }
     }
 }
@@ -180,8 +199,8 @@ struct ExposureProgressCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
 }
@@ -230,7 +249,7 @@ struct CompressedExposureProgressCard: View {
                 Text("Max Time")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: timerViewModel.currentUVIndex)) min")
+                Text(UnitConverter.shared.formatTimeToBurn(timerViewModel.currentUVIndex))
                     .font(.subheadline)
                     .fontWeight(.medium)
             }
@@ -238,8 +257,8 @@ struct CompressedExposureProgressCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 1)
         )
     }
 }
@@ -298,8 +317,8 @@ struct TodaySummaryCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
 }
@@ -343,8 +362,8 @@ struct QuickStartCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
 }
@@ -372,11 +391,16 @@ struct SunscreenStatusCard: View {
                         .foregroundColor(.secondary)
                     
                     let timeRemaining = timerViewModel.getSunscreenReapplyTimeRemaining()
-                    if timeRemaining > 0 {
+                    if timeRemaining > 300 {
                         Text("Reapply in: \(timerViewModel.formatTime(timeRemaining))")
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundColor(timeRemaining < 300 ? .red : .blue)
+                            .foregroundColor(.blue)
+                    } else if timeRemaining > 0 {
+                        Text("Reapply in: \(timerViewModel.formatTime(timeRemaining))")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(.red)
                     } else {
                         Text("Time to reapply!")
                             .font(.title3)
@@ -408,8 +432,8 @@ struct SunscreenStatusCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
 }
@@ -461,8 +485,8 @@ struct ExposureWarningsCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
 }
@@ -501,8 +525,8 @@ struct CompressedExposureWarningsCard: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
         )
     }
 }
@@ -560,11 +584,16 @@ struct SunscreenReapplyCard: View {
                         .foregroundColor(.secondary)
                     
                     let timeRemaining = timerViewModel.getSunscreenReapplyTimeRemaining()
-                    if timeRemaining > 0 {
+                    if timeRemaining > 300 {
                         Text("Reapply in: \(timerViewModel.formatTime(timeRemaining))")
                             .font(.title3)
                             .fontWeight(.bold)
-                            .foregroundColor(timeRemaining < 300 ? .red : .blue)
+                            .foregroundColor(.blue)
+                    } else if timeRemaining > 0 {
+                        Text("Reapply in: \(timerViewModel.formatTime(timeRemaining))")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(.red)
                     } else {
                         Text("Time to reapply!")
                             .font(.title3)
@@ -596,8 +625,8 @@ struct SunscreenReapplyCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
 }
@@ -670,8 +699,8 @@ struct TimerControlsCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
     
@@ -742,6 +771,86 @@ struct UVChangeNotificationCard: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 8)
         .transition(.move(edge: .top).combined(with: .opacity))
+    }
+}
+
+// MARK: - Sunscreen Alarm Modal
+struct SunscreenAlarmModal: View {
+    @Environment(\.dismiss) private var dismiss
+    let timerViewModel: TimerViewModel
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                // Alarm icon and title
+                VStack(spacing: 16) {
+                    Image(systemName: "alarm.fill")
+                        .font(.system(size: 60))
+                        .foregroundColor(.red)
+                        .scaleEffect(1.2)
+                    
+                    Text("Sunscreen Timer Expired!")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                    
+                    Text("Your sunscreen protection has expired. UV exposure tracking has automatically resumed. You can reapply sunscreen now or continue without it.")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                
+                // Action buttons
+                VStack(spacing: 16) {
+                    Button(action: {
+                        timerViewModel.applySunscreen()
+                        dismiss()
+                    }) {
+                        HStack {
+                            Image(systemName: "drop.fill")
+                            Text("Reapply Sunscreen")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .cornerRadius(12)
+                    }
+                    
+                    Button(action: {
+                        // UV exposure timer is already running, just dismiss
+                        dismiss()
+                    }) {
+                        HStack {
+                            Image(systemName: "play.fill")
+                            Text("Continue Without Sunscreen")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.orange)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+                }
+                .padding(.horizontal)
+                
+                Spacer()
+            }
+            .padding()
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Dismiss") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .interactiveDismissDisabled() // Prevent dismissal by swipe
     }
 }
 

@@ -72,7 +72,7 @@ struct UVInfoCard: View {
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(.green)
                     } else {
-                        Text("~\(UVColorUtils.calculateTimeToBurnMinutes(uvIndex: currentUV)) min")
+                        Text("~\(UnitConverter.shared.formatTimeToBurn(currentUV))")
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundColor(uvColor)
                     }
@@ -103,8 +103,8 @@ struct UVInfoCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
 }
@@ -144,8 +144,8 @@ struct UVZeroWarningCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
 }
@@ -208,8 +208,8 @@ struct TimerDisplayCard: View {
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.systemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+                .fill(Color(.systemBackground).opacity(0.95))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
         )
     }
 }

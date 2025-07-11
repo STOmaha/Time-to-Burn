@@ -6,6 +6,17 @@ struct ContentView: View {
     @EnvironmentObject private var timerViewModel: TimerViewModel
     @State private var selectedTab = 0
     
+    // MARK: - Homogeneous Background System
+    var homogeneousBackground: Color {
+        let uvIndex = weatherViewModel.currentUVData?.uvIndex ?? 0
+        return UVColorUtils.getHomogeneousBackgroundColor(uvIndex)
+    }
+    
+    var tabBarBackground: Color {
+        let uvIndex = weatherViewModel.currentUVData?.uvIndex ?? 0
+        return UVColorUtils.getTabBarBackgroundColor(uvIndex)
+    }
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             // UV Tab - Home page with UV chart and data
@@ -59,12 +70,16 @@ struct ContentView: View {
                 }
                 .tag(4)
         }
+        .background(homogeneousBackground)
         .accentColor(.orange) // UV-themed accent color
         .onAppear {
-            // Ensure TabBar has proper contrast
+            // Configure TabBar with UV-themed background
             let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = UIColor.systemBackground
+            
+            // Convert SwiftUI Color to UIColor for tab bar
+            let tabBarUIColor = UIColor(tabBarBackground)
+            appearance.backgroundColor = tabBarUIColor
             
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
@@ -79,6 +94,14 @@ struct ContentView: View {
             if let uvIndex = newUVIndex {
                 timerViewModel.updateUVIndex(uvIndex)
             }
+            
+            // Update tab bar background when UV index changes
+            let appearance = UITabBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = UIColor(tabBarBackground)
+            
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             // Refresh widget when app becomes active
