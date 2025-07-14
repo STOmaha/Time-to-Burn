@@ -329,6 +329,11 @@ struct DayForecastCard: View {
                 .fill(getUVBackgroundColor())
                 .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(UVColorUtils.getUVColor(getMaxUV()), lineWidth: 4)
+        )
+        .padding(.vertical, 6)
     }
     
     private func getUVBackgroundColor() -> Color {

@@ -660,4 +660,189 @@ struct NotificationSettings: Equatable {
     var uvThresholdAlertsEnabled: Bool = true
     var dailySummaryEnabled: Bool = false
     var uvThreshold: Int = 6
+    var smartNotificationsEnabled: Bool = true
+    var environmentalFactorAlertsEnabled: Bool = true
+    var educationalNotificationsEnabled: Bool = true
+}
+
+// MARK: - Smart Notification Integration
+
+extension NotificationManager {
+    
+    /// Trigger smart notification assessment
+    func triggerSmartNotificationAssessment(baseUVIndex: Int) {
+        print("🔔 [NotificationManager] Triggering smart notification assessment...")
+        
+        Task {
+            await SmartNotificationViewModel.shared.performRiskAssessment(baseUVIndex: baseUVIndex)
+        }
+    }
+    
+    /// Send contextual environmental warning
+    func sendEnvironmentalWarning(
+        factor: String,
+        description: String,
+        riskLevel: RiskLevel,
+        recommendations: [String]
+    ) {
+        print("🔔 [NotificationManager] Sending environmental warning...")
+        
+        guard isAuthorized && notificationSettings.environmentalFactorAlertsEnabled else {
+            print("🔔 [NotificationManager] ❌ Environmental warnings disabled or not authorized")
+            return
+        }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "⚠️ Environmental UV Risk: \(factor)"
+        content.body = "\(description). \(recommendations.first ?? "Take extra precautions.")"
+        content.sound = .default
+        content.categoryIdentifier = "ENVIRONMENTAL_WARNING"
+        
+        // Add user info for detailed handling
+        content.userInfo = [
+            "factor": factor,
+            "riskLevel": riskLevel.rawValue,
+            "recommendations": recommendations
+        ]
+        
+        let request = UNNotificationRequest(
+            identifier: "environmental_warning_\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("🔔 [NotificationManager] ❌ Error sending environmental warning - \(error)")
+            } else {
+                print("🔔 [NotificationManager] ✅ Environmental warning sent successfully")
+            }
+        }
+    }
+    
+    /// Send educational UV tip
+    func sendEducationalTip(tip: String, category: String = "UV Safety") {
+        print("🔔 [NotificationManager] Sending educational tip...")
+        
+        guard isAuthorized && notificationSettings.educationalNotificationsEnabled else {
+            print("🔔 [NotificationManager] ❌ Educational notifications disabled or not authorized")
+            return
+        }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "💡 \(category) Tip"
+        content.body = tip
+        content.sound = .default
+        content.categoryIdentifier = "EDUCATIONAL_TIP"
+        
+        let request = UNNotificationRequest(
+            identifier: "educational_tip_\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("🔔 [NotificationManager] ❌ Error sending educational tip - \(error)")
+            } else {
+                print("🔔 [NotificationManager] ✅ Educational tip sent successfully")
+            }
+        }
+    }
+    
+    /// Send comprehensive risk assessment notification
+    func sendRiskAssessmentNotification(assessment: UVRiskAssessment) {
+        print("🔔 [NotificationManager] Sending risk assessment notification...")
+        
+        guard isAuthorized && notificationSettings.smartNotificationsEnabled else {
+            print("🔔 [NotificationManager] ❌ Smart notifications disabled or not authorized")
+            return
+        }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "🌡️ UV Risk Assessment: \(assessment.riskLevel.rawValue)"
+        
+        // Create comprehensive body with key factors
+        var bodyComponents: [String] = []
+        bodyComponents.append("Adjusted UV: \(assessment.adjustedUVIndex)")
+        
+        // Add key environmental factors
+        if assessment.environmentalFactors.altitude > 1000 {
+            bodyComponents.append("High altitude detected")
+        }
+        if assessment.environmentalFactors.snowConditions.snowCoverage > 0 {
+            bodyComponents.append("Snow reflection active")
+        }
+        if assessment.environmentalFactors.waterProximity.distanceToWater < 1000 {
+            bodyComponents.append("Water reflection nearby")
+        }
+        
+        content.body = bodyComponents.joined(separator: " • ")
+        content.sound = .default
+        content.categoryIdentifier = "RISK_ASSESSMENT"
+        
+        // Add comprehensive user info
+        content.userInfo = [
+            "riskLevel": assessment.riskLevel.rawValue,
+            "adjustedUV": assessment.adjustedUVIndex,
+            "riskScore": assessment.riskScore,
+            "environmentalFactors": [
+                "altitude": assessment.environmentalFactors.altitude,
+                "snowCoverage": assessment.environmentalFactors.snowConditions.snowCoverage,
+                "waterDistance": assessment.environmentalFactors.waterProximity.distanceToWater,
+                "terrainType": assessment.environmentalFactors.terrainType.rawValue
+            ]
+        ]
+        
+        let request = UNNotificationRequest(
+            identifier: "risk_assessment_\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("🔔 [NotificationManager] ❌ Error sending risk assessment - \(error)")
+            } else {
+                print("🔔 [NotificationManager] ✅ Risk assessment notification sent successfully")
+            }
+        }
+    }
+    
+    /// Setup enhanced notification categories
+    func setupEnhancedNotificationCategories() {
+        let categories: [UNNotificationCategory] = [
+            // Existing categories...
+            UNNotificationCategory(
+                identifier: "ENVIRONMENTAL_WARNING",
+                actions: [
+                    UNNotificationAction(identifier: "VIEW_DETAILS", title: "View Details", options: [.foreground]),
+                    UNNotificationAction(identifier: "DISMISS", title: "Dismiss", options: [.destructive])
+                ],
+                intentIdentifiers: [],
+                options: []
+            ),
+            UNNotificationCategory(
+                identifier: "EDUCATIONAL_TIP",
+                actions: [
+                    UNNotificationAction(identifier: "LEARN_MORE", title: "Learn More", options: [.foreground]),
+                    UNNotificationAction(identifier: "DISMISS", title: "Dismiss", options: [.destructive])
+                ],
+                intentIdentifiers: [],
+                options: []
+            ),
+            UNNotificationCategory(
+                identifier: "RISK_ASSESSMENT",
+                actions: [
+                    UNNotificationAction(identifier: "VIEW_FULL_REPORT", title: "View Full Report", options: [.foreground]),
+                    UNNotificationAction(identifier: "DISMISS", title: "Dismiss", options: [.destructive])
+                ],
+                intentIdentifiers: [],
+                options: []
+            )
+        ]
+        
+        UNUserNotificationCenter.current().setNotificationCategories(Set(categories))
+        print("🔔 [NotificationManager] ✅ Enhanced notification categories setup complete")
+    }
 } 
