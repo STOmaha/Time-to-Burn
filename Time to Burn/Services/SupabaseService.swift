@@ -19,8 +19,8 @@ class SupabaseService: ObservableObject {
     // MARK: - Initialization
     private init() {
         // TODO: Replace with your actual Supabase credentials
-        let supabaseURL = URL(string: "YOUR_SUPABASE_URL")!
-        let supabaseKey = "YOUR_SUPABASE_ANON_KEY"
+        let supabaseURL = URL(string: "https://svkrlwzwnirhgbyardze.supabase.co")!
+        let supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2a3Jsd3p3bmlyaGdieWFyZHplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0Mjk1OTcsImV4cCI6MjA2ODAwNTU5N30.qKyu4nuFwtU-Vsa_0JIeiQrbfMgLFF2R6EwMwLnzsc4"
         
         self.client = SupabaseClient(
             supabaseURL: supabaseURL,
