@@ -854,6 +854,9 @@ struct SunscreenAlarmModal: View {
     }
 }
 
+// Note: TimerDisplayCard is already defined in TimerView.swift
+// The adjustment buttons functionality has been added to the existing TimerDisplayCard
+
 #Preview {
     DynamicTimerView()
         .environmentObject(TimerViewModel())

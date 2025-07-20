@@ -252,6 +252,9 @@ class WeatherViewModel: ObservableObject {
         
         // Trigger smart notification assessment
         notificationManager.triggerSmartNotificationAssessment(baseUVIndex: currentUV)
+        
+        // Log the alert if it was scheduled
+        if currentUV >= threshold && lastUVThresholdAlert == currentUV {
             let uvEmoji = getUVEmoji(currentUV)
             print("🌤️ [WeatherViewModel] 🔔 UV Threshold Alert:")
             print("   📊 UV Index: \(uvEmoji) \(currentUV) (Threshold: \(threshold))")

@@ -218,7 +218,7 @@ class SmartNotificationViewModel: ObservableObject {
             type: .recommendation,
             title: title,
             body: body,
-            priority: recommendation.priority,
+            priority: convertPriority(recommendation.priority),
             riskAssessment: assessment,
             scheduledTime: Date()
         )
@@ -378,6 +378,16 @@ class SmartNotificationViewModel: ObservableObject {
         // This would integrate with your existing weather service
         // For now, return a placeholder
         return nil
+    }
+    
+    /// Convert Recommendation.Priority to SmartNotification.Priority
+    private func convertPriority(_ priority: Recommendation.Priority) -> SmartNotification.Priority {
+        switch priority {
+        case .low: return .low
+        case .medium: return .medium
+        case .high: return .high
+        case .critical: return .critical
+        }
     }
 }
 

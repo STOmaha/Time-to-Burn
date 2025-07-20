@@ -274,6 +274,41 @@ class TimerViewModel: ObservableObject {
         savePersistedData()
     }
     
+    // MARK: - Time Adjustment Methods
+    func adjustUnrecordedSunTime(_ adjustment: TimeInterval) {
+        // Adjust the total exposure time to account for unrecorded sun exposure
+        // Positive values add time, negative values subtract time
+        let newTotalExposure = totalExposureTime + adjustment
+        totalExposureTime = max(0, newTotalExposure)
+        
+        // Update the UV timer's total exposure time
+        uvTimer.totalExposureTime = totalExposureTime
+        
+        // Save the adjusted data
+        savePersistedData()
+        updateSharedData()
+        updateLiveActivity()
+        
+        print("⏰ [TimerViewModel] ☀️ Adjusted unrecorded sun time by \(adjustment) seconds. New total: \(totalExposureTime)")
+    }
+    
+    func adjustShadeTime(_ adjustment: TimeInterval) {
+        // Adjust the total exposure time to account for time spent in shade
+        // Positive values add time (more shade = less exposure), negative values subtract time
+        let newTotalExposure = totalExposureTime - adjustment
+        totalExposureTime = max(0, newTotalExposure)
+        
+        // Update the UV timer's total exposure time
+        uvTimer.totalExposureTime = totalExposureTime
+        
+        // Save the adjusted data
+        savePersistedData()
+        updateSharedData()
+        updateLiveActivity()
+        
+        print("⏰ [TimerViewModel] 🌳 Adjusted shade time by \(adjustment) seconds. New total: \(totalExposureTime)")
+    }
+    
     // MARK: - UV Index Updates
     func updateUVIndex(_ uvIndex: Int) {
         uvTimer.updateUVIndex(uvIndex)
@@ -708,12 +743,17 @@ class TimerViewModel: ObservableObject {
         let lastUpdated = weatherViewModel.lastUpdated ?? Date()
         let todayHourlyData = weatherViewModel.hourlyUVData
         
+        // Calculate time to burn based on current UV index from weather data
+        let calculatedTimeToBurn = UVColorUtils.calculateTimeToBurn(uvIndex: currentUVFromWeather)
+        
+        print("⏰ [TimerViewModel] 📊 Widget Data - UV: \(currentUVFromWeather), Time to Burn: \(calculatedTimeToBurn/60)min, Location: \(locationName)")
+        
         let exposureStatus: SharedUVData.ExposureStatus
         if currentUVFromWeather == 0 {
             exposureStatus = .noUV
         } else {
             let totalExposure = totalExposureTime + elapsedTime
-            let maxExposure = TimeInterval(timeToBurn)
+            let maxExposure = TimeInterval(calculatedTimeToBurn)
             
             if totalExposure >= maxExposure {
                 exposureStatus = .exceeded
@@ -726,7 +766,7 @@ class TimerViewModel: ObservableObject {
         
         let sharedData = SharedUVData(
             currentUVIndex: currentUVFromWeather,
-            timeToBurn: timeToBurn,
+            timeToBurn: calculatedTimeToBurn,
             elapsedTime: elapsedTime,
             totalExposureTime: totalExposureTime,
             isTimerRunning: isTimerRunning,

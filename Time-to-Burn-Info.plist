@@ -2,22 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSUserNotificationUsageDescription</key>
-	<string>Time to Burn will send you notifications about UV index changes and when you need to take precautions.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>background-processing</string>
-		<string>background-app-refresh</string>
-		<string>background-fetch</string>
-	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Time to Burn needs your location to provide accurate UV index data for your area.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Time to Burn needs your location to provide accurate UV index data and send location-based alerts.</string>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
-	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
-	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -28,6 +12,14 @@
 				<string>timetoburn</string>
 			</array>
 		</dict>
+	</array>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Time to Burn will send you notifications about UV index changes and when you need to take precautions.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>background-processing</string>
+		<string>background-app-refresh</string>
+		<string>background-fetch</string>
 	</array>
 </dict>
 </plist>

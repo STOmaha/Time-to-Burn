@@ -29,13 +29,12 @@ struct UVExposureLiveActivity: Widget {
                     .frame(height: 8)
                     .cornerRadius(4)
                 
-                // Sunscreen timer section (when active)
+                // Sunscreen timer section (when active) - takes priority over prompt
                 if context.state.isSunscreenActive {
                     SunscreenTimerSection(context: context)
                 }
-                
-                // Sunscreen prompt section (when needed)
-                if context.state.shouldShowSunscreenPrompt {
+                // Sunscreen prompt section (when needed, but only if sunscreen is not active)
+                else if context.state.shouldShowSunscreenPrompt {
                     SunscreenPromptSection(context: context)
                 }
                 

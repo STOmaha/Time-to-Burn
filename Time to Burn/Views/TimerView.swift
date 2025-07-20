@@ -204,6 +204,66 @@ struct TimerDisplayCard: View {
                         .foregroundColor(.primary)
                 }
             }
+            
+            // Time Adjustment Buttons
+            VStack(spacing: 12) {
+                Text("Adjust Unrecorded Time")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 8)
+                
+                HStack(spacing: 16) {
+                    // Unrecorded Sun Time Adjustment
+                    VStack(spacing: 8) {
+                        Text("☀️ Sun Time")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                        
+                        HStack(spacing: 8) {
+                            Button(action: {
+                                timerViewModel.adjustUnrecordedSunTime(-300) // -5 minutes
+                            }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.red)
+                            }
+                            
+                            Button(action: {
+                                timerViewModel.adjustUnrecordedSunTime(300) // +5 minutes
+                            }) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.green)
+                            }
+                        }
+                    }
+                    
+                    // Shade Time Adjustment
+                    VStack(spacing: 8) {
+                        Text("🌳 Shade Time")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                        
+                        HStack(spacing: 8) {
+                            Button(action: {
+                                timerViewModel.adjustShadeTime(-300) // -5 minutes
+                            }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.red)
+                            }
+                            
+                            Button(action: {
+                                timerViewModel.adjustShadeTime(300) // +5 minutes
+                            }) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(.green)
+                            }
+                        }
+                    }
+                }
+            }
         }
         .padding(24)
         .background(

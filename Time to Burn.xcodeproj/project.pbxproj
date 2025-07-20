@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B058FFD22E2C3AE800F5C3BB /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD12E2C3AE800F5C3BB /* Auth */; };
+		B058FFD42E2C3AE800F5C3BB /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD32E2C3AE800F5C3BB /* Functions */; };
+		B058FFD62E2C3AE800F5C3BB /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD52E2C3AE800F5C3BB /* PostgREST */; };
+		B058FFD82E2C3AE800F5C3BB /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD72E2C3AE800F5C3BB /* Realtime */; };
+		B058FFDA2E2C3AE800F5C3BB /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD92E2C3AE800F5C3BB /* Storage */; };
 		B08275CA2E1160A100242AE1 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B08275C92E1160A100242AE1 /* WidgetKit.framework */; };
 		B08275CC2E1160A100242AE1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B08275CB2E1160A100242AE1 /* SwiftUI.framework */; };
 		B08275DD2E1160A200242AE1 /* TimeToBurnWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B08275C72E1160A100242AE1 /* TimeToBurnWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -112,6 +117,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B058FFD62E2C3AE800F5C3BB /* PostgREST in Frameworks */,
+				B058FFD42E2C3AE800F5C3BB /* Functions in Frameworks */,
+				B058FFD22E2C3AE800F5C3BB /* Auth in Frameworks */,
+				B058FFDA2E2C3AE800F5C3BB /* Storage in Frameworks */,
+				B058FFD82E2C3AE800F5C3BB /* Realtime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -196,6 +206,11 @@
 			);
 			name = "Time to Burn";
 			packageProductDependencies = (
+				B058FFD12E2C3AE800F5C3BB /* Auth */,
+				B058FFD32E2C3AE800F5C3BB /* Functions */,
+				B058FFD52E2C3AE800F5C3BB /* PostgREST */,
+				B058FFD72E2C3AE800F5C3BB /* Realtime */,
+				B058FFD92E2C3AE800F5C3BB /* Storage */,
 			);
 			productName = "Time to Burn";
 			productReference = B074DC982DFB19A8009E1727 /* Time to Burn.app */;
@@ -538,13 +553,14 @@
 				INFOPLIST_FILE = "Time-to-Burn-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Time to Burn";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.weather";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Time to Burn needs your location to provide accurate UV index information and send you alerts about dangerous UV levels.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Time to Burn needs your location to provide accurate UV index information for your area.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Time to Burn needs your location to provide accurate UV index data and send location-based alerts.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Time to Burn needs your location to provide accurate UV index data for your area.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -579,13 +595,14 @@
 				INFOPLIST_FILE = "Time-to-Burn-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Time to Burn";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.weather";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Time to Burn needs your location to provide accurate UV index information and send you alerts about dangerous UV levels.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Time to Burn needs your location to provide accurate UV index information for your area.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Time to Burn needs your location to provide accurate UV index data and send location-based alerts.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Time to Burn needs your location to provide accurate UV index data for your area.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -794,6 +811,34 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B058FFD12E2C3AE800F5C3BB /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B01EFD8E2E2579CF00254047 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		B058FFD32E2C3AE800F5C3BB /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B01EFD8E2E2579CF00254047 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		B058FFD52E2C3AE800F5C3BB /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B01EFD8E2E2579CF00254047 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		B058FFD72E2C3AE800F5C3BB /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B01EFD8E2E2579CF00254047 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		B058FFD92E2C3AE800F5C3BB /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B01EFD8E2E2579CF00254047 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B074DC902DFB19A8009E1727 /* Project object */;
 }

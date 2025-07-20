@@ -70,6 +70,33 @@ struct EnvironmentalFactors: Codable, Identifiable {
     private enum LocationCodingKeys: String, CodingKey {
         case latitude, longitude
     }
+    
+    func toDictionary() -> [String: Any] {
+        return [
+            "altitude": altitude,
+            "snowConditions": [
+                "hasRecentSnowfall": snowConditions.hasRecentSnowfall,
+                "snowDepth": snowConditions.snowDepth,
+                "snowCoverage": snowConditions.snowCoverage,
+                "snowAge": snowConditions.snowAge,
+                "snowType": snowConditions.snowType.rawValue
+            ],
+            "waterProximity": [
+                "distanceToWater": waterProximity.distanceToWater,
+                "waterBodyType": waterProximity.waterBodyType.rawValue,
+                "nearestWaterBody": waterProximity.nearestWaterBody?.toDictionary() ?? [:]
+            ],
+            "terrainType": terrainType.rawValue,
+            "seasonalFactors": [
+                "season": seasonalFactors.season.rawValue,
+                "dayOfYear": seasonalFactors.dayOfYear,
+                "isWinterSolstice": seasonalFactors.isWinterSolstice,
+                "isSummerSolstice": seasonalFactors.isSummerSolstice,
+                "isEquinox": seasonalFactors.isEquinox,
+                "seasonalUVMultiplier": seasonalFactors.seasonalUVMultiplier
+            ]
+        ]
+    }
 }
 
 // MARK: - Snow Conditions
@@ -187,6 +214,18 @@ struct WaterProximity: Codable {
         
         private enum CoordCodingKeys: String, CodingKey {
             case latitude, longitude
+        }
+        
+        func toDictionary() -> [String: Any] {
+            return [
+                "name": name,
+                "type": type.rawValue,
+                "size": size.rawValue,
+                "coordinates": [
+                    "latitude": coordinates.latitude,
+                    "longitude": coordinates.longitude
+                ]
+            ]
         }
     }
     

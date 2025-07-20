@@ -55,11 +55,11 @@ struct TerrainAnalysisUtils {
             // Gobi Desert
             (latitude: 35.0...50.0, longitude: 85.0...120.0),
             // Mojave Desert
-            (latitude: 32.0...38.0, longitude: -118.0...-114.0),
+            (latitude: 32.0...38.0, longitude: (-118.0)...(-114.0)),
             // Sonoran Desert
-            (latitude: 25.0...35.0, longitude: -118.0...-105.0),
+            (latitude: 25.0...35.0, longitude: (-118.0)...(-105.0)),
             // Australian Outback
-            (latitude: -25.0...-15.0, longitude: 115.0...145.0)
+            (latitude: (-25.0)...(-15.0), longitude: 115.0...145.0)
         ]
         
         for desert in deserts {
@@ -76,15 +76,15 @@ struct TerrainAnalysisUtils {
         // Simplified forest detection based on major forest regions
         let forests = [
             // Amazon Rainforest
-            (latitude: -10.0...5.0, longitude: -80.0...-50.0),
+            (latitude: (-10.0)...5.0, longitude: (-80.0)...(-50.0)),
             // Boreal Forest (North America)
-            (latitude: 45.0...70.0, longitude: -140.0...-60.0),
+            (latitude: 45.0...70.0, longitude: (-140.0)...(-60.0)),
             // Boreal Forest (Eurasia)
             (latitude: 45.0...70.0, longitude: 20.0...180.0),
             // Congo Rainforest
-            (latitude: -5.0...5.0, longitude: 10.0...30.0),
+            (latitude: (-5.0)...5.0, longitude: 10.0...30.0),
             // Southeast Asian Rainforest
-            (latitude: -10.0...20.0, longitude: 90.0...130.0)
+            (latitude: (-10.0)...20.0, longitude: 90.0...130.0)
         ]
         
         for forest in forests {
@@ -104,11 +104,11 @@ struct TerrainAnalysisUtils {
         // Major urban areas (simplified)
         let urbanAreas = [
             // North America
-            (latitude: 40.0...45.0, longitude: -80.0...-70.0), // NYC area
-            (latitude: 34.0...35.0, longitude: -119.0...-118.0), // LA area
-            (latitude: 41.0...42.0, longitude: -88.0...-87.0), // Chicago area
+            (latitude: 40.0...45.0, longitude: (-80.0)...(-70.0)), // NYC area
+            (latitude: 34.0...35.0, longitude: (-119.0)...(-118.0)), // LA area
+            (latitude: 41.0...42.0, longitude: (-88.0)...(-87.0)), // Chicago area
             // Europe
-            (latitude: 48.0...53.0, longitude: -5.0...15.0), // Western Europe
+            (latitude: 48.0...53.0, longitude: (-5.0)...15.0), // Western Europe
             // Asia
             (latitude: 35.0...40.0, longitude: 135.0...140.0), // Tokyo area
             (latitude: 22.0...23.0, longitude: 113.0...114.0), // Hong Kong area
