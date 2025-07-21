@@ -295,7 +295,7 @@ struct EnvironmentalFactorsView: View {
         }
         
         // Fetch environmental data
-        await environmentalDataService.fetchEnvironmentalData(for: location)
+        _ = await environmentalDataService.fetchEnvironmentalData(for: location)
         
         // Perform risk assessment if we have UV data
         if let currentUV = getCurrentUVIndex() {

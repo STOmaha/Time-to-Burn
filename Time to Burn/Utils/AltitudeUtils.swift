@@ -125,7 +125,7 @@ struct AltitudeUtils {
         // In a production app, you'd use a proper elevation API
         
         let latitude = location.coordinate.latitude
-        let longitude = location.coordinate.longitude
+        let _ = location.coordinate.longitude
         
         // Simple estimation based on latitude (mountains tend to be at certain latitudes)
         // This is just for demonstration - not accurate

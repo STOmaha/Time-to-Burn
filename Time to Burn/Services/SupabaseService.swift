@@ -13,6 +13,16 @@ struct MockAuthResponse {
     let user: MockSupabaseUser?
 }
 
+struct MockAuthCredentials {
+    let provider: MockAuthProvider
+    let idToken: String
+}
+
+enum MockAuthProvider {
+    case apple
+    case google
+}
+
 struct MockSupabaseClient {
     var auth: MockAuthService
     var database: MockDatabaseService
@@ -129,6 +139,20 @@ struct MockAuthService {
     func signOut() async throws {
         // Mock implementation - always succeeds
     }
+    
+    func resetPasswordForEmail(_ email: String) async throws {
+        // Mock implementation - always succeeds
+    }
+    
+    func signInWithIdToken(credentials: MockAuthCredentials) async throws -> MockAuthResponse {
+        // Mock implementation - always succeeds
+        return MockAuthResponse(user: MockSupabaseUser(
+            id: UUID(),
+            email: "mock@example.com",
+            createdAt: Date(),
+            userMetadata: nil
+        ))
+    }
 }
 
 // MARK: - Supabase Service
@@ -189,69 +213,61 @@ class SupabaseService: ObservableObject {
     }
     
     /// Sign up with email and password
-    func signUp(email: String, password: String) async -> Bool {
+    func signUp(email: String, password: String, name: String) async throws {
         isLoading = true
         error = nil
         
         do {
-            let response = try await client.auth.signUp(
+            let authResponse = try await client.auth.signUp(
                 email: email,
                 password: password
             )
             
             await MainActor.run {
+                self.isAuthenticated = authResponse.user != nil
+                self.currentUser = self.convertSupabaseUser(authResponse.user)
                 self.isLoading = false
-                if let user = response.user {
-                    self.isAuthenticated = true
-                    self.currentUser = self.convertSupabaseUser(user)
-                    print("🌐 [SupabaseService] ✅ Sign up successful for: \(email)")
-                } else {
-                    print("🌐 [SupabaseService] ⚠️ Sign up requires email confirmation")
-                }
+                print("🌐 [SupabaseService] ✅ Sign up successful")
             }
-            return true
         } catch {
             await MainActor.run {
-                self.isLoading = false
                 self.error = error
+                self.isLoading = false
                 print("🌐 [SupabaseService] ❌ Sign up failed: \(error)")
             }
-            return false
+            throw error
         }
     }
     
     /// Sign in with email and password
-    func signIn(email: String, password: String) async -> Bool {
+    func signIn(email: String, password: String) async throws {
         isLoading = true
         error = nil
         
         do {
-            let response = try await client.auth.signIn(
+            let authResponse = try await client.auth.signIn(
                 email: email,
                 password: password
             )
             
             await MainActor.run {
+                self.isAuthenticated = authResponse.user != nil
+                self.currentUser = self.convertSupabaseUser(authResponse.user)
                 self.isLoading = false
-                if let user = response.user {
-                    self.isAuthenticated = true
-                    self.currentUser = self.convertSupabaseUser(user)
-                    print("🌐 [SupabaseService] ✅ Sign in successful for: \(email)")
-                }
+                print("🌐 [SupabaseService] ✅ Sign in successful")
             }
-            return true
         } catch {
             await MainActor.run {
-                self.isLoading = false
                 self.error = error
+                self.isLoading = false
                 print("🌐 [SupabaseService] ❌ Sign in failed: \(error)")
             }
-            return false
+            throw error
         }
     }
     
     /// Sign out
-    func signOut() async {
+    func signOut() async throws {
         do {
             try await client.auth.signOut()
             await MainActor.run {
@@ -264,50 +280,104 @@ class SupabaseService: ObservableObject {
                 self.error = error
                 print("🌐 [SupabaseService] ❌ Sign out failed: \(error)")
             }
+            throw error
         }
     }
     
-    /// Test authentication
-    func testAuthentication() async -> Bool {
-        print("🌐 [SupabaseService] 🧪 Testing authentication")
+    /// Reset password
+    func resetPassword(email: String) async throws {
+        do {
+            try await client.auth.resetPasswordForEmail(email)
+            print("🌐 [SupabaseService] ✅ Password reset email sent")
+        } catch {
+            await MainActor.run {
+                self.error = error
+                print("🌐 [SupabaseService] ❌ Password reset failed: \(error)")
+            }
+            throw error
+        }
+    }
+    
+    /// Sign in with Apple
+    func signInWithApple(identityToken: String) async throws {
+        print("🌐 [SupabaseService] 🍎 Signing in with Apple")
         
-        let session = client.auth.session
-        let isAuth = session != nil
-        print("🌐 [SupabaseService] ✅ Authentication test: \(isAuth ? "Authenticated" : "Not authenticated")")
-        return isAuth
+        do {
+            let authResponse = try await client.auth.signInWithIdToken(
+                credentials: MockAuthCredentials(
+                    provider: .apple,
+                    idToken: identityToken
+                )
+            )
+            
+            await MainActor.run {
+                self.isAuthenticated = authResponse.user != nil
+                self.currentUser = self.convertSupabaseUser(authResponse.user)
+                print("🌐 [SupabaseService] ✅ Apple sign in successful")
+            }
+        } catch {
+            print("🌐 [SupabaseService] ❌ Apple sign in failed: \(error)")
+            throw error
+        }
     }
     
-    /// Test connection to Supabase
-    func testConnection() async -> Bool {
-        print("🌐 [SupabaseService] 🧪 Testing connection")
-        return true // Mock implementation
-    }
-    
-    /// Get user profile
-    func getUserProfile() async throws -> [String: Any]? {
-        print("🌐 [SupabaseService] 📋 Getting user profile")
-        return nil // Mock implementation
-    }
-    
-    /// Create user profile
-    func createUserProfile(email: String, name: String) async throws {
-        print("🌐 [SupabaseService] 📋 Creating user profile for \(email)")
-        // Mock implementation
-    }
-    
-    /// Create default user preferences
-    func createDefaultUserPreferences() async throws {
-        print("🌐 [SupabaseService] ⚙️ Creating default user preferences")
-        // Mock implementation
+    /// Sign in with Google
+    func signInWithGoogle() async throws {
+        print("🌐 [SupabaseService] 🔍 Signing in with Google")
+        
+        do {
+            // For now, this is a mock implementation
+            // In a real app, you would integrate with Google Sign-In SDK
+            let authResponse = try await client.auth.signInWithIdToken(
+                credentials: MockAuthCredentials(
+                    provider: .google,
+                    idToken: "mock_google_token"
+                )
+            )
+            
+            await MainActor.run {
+                self.isAuthenticated = authResponse.user != nil
+                self.currentUser = self.convertSupabaseUser(authResponse.user)
+                print("🌐 [SupabaseService] ✅ Google sign in successful")
+            }
+        } catch {
+            print("🌐 [SupabaseService] ❌ Google sign in failed: \(error)")
+            throw error
+        }
     }
     
     // MARK: - Database Operations
     
-    /// Save user location data
-    func saveUserLocation(latitude: Double, longitude: Double, userId: UUID) async -> Bool {
-        guard isAuthenticated else {
-            print("🌐 [SupabaseService] ❌ Not authenticated for location save")
-            return false
+    /// Create user profile
+    func createUserProfile(email: String, name: String) async throws {
+        guard let userId = currentUser?.id else {
+            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        
+        let profileData: [String: Any] = [
+            "user_id": userId.uuidString,
+            "email": email,
+            "full_name": name,
+            "created_at": Date().timeIntervalSince1970
+        ]
+        
+        do {
+            let response = try await client.database
+                .from("user_profiles")
+                .insert(profileData)
+                .execute()
+            
+            print("🌐 [SupabaseService] ✅ User profile created")
+        } catch {
+            print("🌐 [SupabaseService] ❌ Failed to create user profile: \(error)")
+            throw error
+        }
+    }
+    
+    /// Save user location
+    func saveUserLocation(latitude: Double, longitude: Double) async throws {
+        guard let userId = currentUser?.id else {
+            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
         let locationData: [String: Any] = [
@@ -323,22 +393,21 @@ class SupabaseService: ObservableObject {
                 .insert(locationData)
                 .execute()
             
-            print("🌐 [SupabaseService] ✅ Location saved successfully")
-            return true
+            print("🌐 [SupabaseService] ✅ User location saved")
         } catch {
-            print("🌐 [SupabaseService] ❌ Failed to save location: \(error)")
-            return false
+            print("🌐 [SupabaseService] ❌ Failed to save user location: \(error)")
+            throw error
         }
     }
     
     /// Save UV monitoring data
-    func saveUVData(uvIndex: Double, latitude: Double, longitude: Double, environmentalFactors: EnvironmentalFactors) async -> Bool {
-        guard isAuthenticated else {
-            print("🌐 [SupabaseService] ❌ Not authenticated for UV data save")
-            return false
+    func saveUVData(uvIndex: Double, latitude: Double, longitude: Double, environmentalFactors: EnvironmentalFactors) async throws {
+        guard let userId = currentUser?.id else {
+            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
         let uvData: [String: Any] = [
+            "user_id": userId.uuidString,
             "uv_index": uvIndex,
             "latitude": latitude,
             "longitude": longitude,
@@ -353,19 +422,17 @@ class SupabaseService: ObservableObject {
                 .insert(uvData)
                 .execute()
             
-            print("🌐 [SupabaseService] ✅ UV data saved successfully")
-            return true
+            print("🌐 [SupabaseService] ✅ UV data saved")
         } catch {
             print("🌐 [SupabaseService] ❌ Failed to save UV data: \(error)")
-            return false
+            throw error
         }
     }
     
     /// Save user preferences
-    func saveUserPreferences(userId: UUID, preferences: [String: Any]) async -> Bool {
-        guard isAuthenticated else {
-            print("🌐 [SupabaseService] ❌ Not authenticated for preferences save")
-            return false
+    func saveUserPreferences(preferences: [String: Any]) async throws {
+        guard let userId = currentUser?.id else {
+            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
         var preferenceData = preferences
@@ -378,19 +445,17 @@ class SupabaseService: ObservableObject {
                 .upsert(preferenceData)
                 .execute()
             
-            print("🌐 [SupabaseService] ✅ User preferences saved successfully")
-            return true
+            print("🌐 [SupabaseService] ✅ User preferences saved")
         } catch {
             print("🌐 [SupabaseService] ❌ Failed to save user preferences: \(error)")
-            return false
+            throw error
         }
     }
     
-    /// Load user preferences
-    func loadUserPreferences(userId: UUID) async -> [String: Any]? {
-        guard isAuthenticated else {
-            print("🌐 [SupabaseService] ❌ Not authenticated for preferences load")
-            return nil
+    /// Get user preferences
+    func getUserPreferences() async throws -> [String: Any]? {
+        guard let userId = currentUser?.id else {
+            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
         do {
@@ -401,24 +466,65 @@ class SupabaseService: ObservableObject {
                 .single()
                 .execute()
             
-            if let data = response.data as? [String: Any] {
-                print("🌐 [SupabaseService] ✅ User preferences loaded successfully")
-                return data
-            } else {
-                print("🌐 [SupabaseService] ⚠️ No user preferences found")
-                return nil
-            }
+            return response.data as? [String: Any]
         } catch {
-            print("🌐 [SupabaseService] ❌ Failed to load user preferences: \(error)")
-            return nil
+            print("🌐 [SupabaseService] ❌ Failed to get user preferences: \(error)")
+            throw error
         }
     }
     
-    /// Load UV history for a user
-    func loadUVHistory(userId: UUID, limit: Int = 50) async -> [UVData] {
-        guard isAuthenticated else {
-            print("🌐 [SupabaseService] ❌ Not authenticated for UV history load")
-            return []
+    /// Get user profile
+    func getUserProfile() async throws -> [String: Any]? {
+        guard let userId = currentUser?.id else {
+            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        
+        do {
+            let response = try await client.database
+                .from("user_profiles")
+                .select("*")
+                .eq("user_id", value: userId.uuidString)
+                .single()
+                .execute()
+            
+            return response.data as? [String: Any]
+        } catch {
+            print("🌐 [SupabaseService] ❌ Failed to get user profile: \(error)")
+            throw error
+        }
+    }
+    
+    /// Create default user preferences
+    func createDefaultUserPreferences() async throws {
+        guard let userId = currentUser?.id else {
+            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        
+        let defaultPreferences: [String: Any] = [
+            "user_id": userId.uuidString,
+            "notifications_enabled": true,
+            "uv_alert_threshold": 3,
+            "location_sharing": false,
+            "created_at": Date().timeIntervalSince1970
+        ]
+        
+        do {
+            _ = try await client.database
+                .from("user_preferences")
+                .insert(defaultPreferences)
+                .execute()
+            
+            print("🌐 [SupabaseService] ✅ Default user preferences created")
+        } catch {
+            print("🌐 [SupabaseService] ❌ Failed to create default user preferences: \(error)")
+            throw error
+        }
+    }
+    
+    /// Get UV history for user
+    func getUVHistory(limit: Int = 100) async throws -> [UVData] {
+        guard let userId = currentUser?.id else {
+            throw NSError(domain: "SupabaseService", code: 401, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
         do {
@@ -432,11 +538,11 @@ class SupabaseService: ObservableObject {
             
             let data = response.data ?? [:]
             let uvHistory = try parseUVDataArray(from: data)
-            print("🌐 [SupabaseService] ✅ UV history loaded: \(uvHistory.count) records")
+            print("🌐 [SupabaseService] ✅ Retrieved \(uvHistory.count) UV history records")
             return uvHistory
         } catch {
-            print("🌐 [SupabaseService] ❌ Failed to load UV history: \(error)")
-            return []
+            print("🌐 [SupabaseService] ❌ Failed to get UV history: \(error)")
+            throw error
         }
     }
     
@@ -448,17 +554,13 @@ class SupabaseService: ObservableObject {
             return []
         }
         
-        return records.compactMap { record -> UVData? in
+        return records.compactMap { record in
             guard let uvIndex = record["uv_index"] as? Double,
-                  let latitude = record["latitude"] as? Double,
-                  let longitude = record["longitude"] as? Double,
+                  let _ = record["latitude"] as? Double,
+                  let _ = record["longitude"] as? Double,
                   let recordedAt = record["recorded_at"] as? Double else {
                 return nil
             }
-            
-            // Create a simple EnvironmentalFactors instance for now
-            let location = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-            let environmentalFactors = EnvironmentalFactors(location: location)
             
             return UVData(
                 uvIndex: Int(uvIndex),
@@ -466,6 +568,37 @@ class SupabaseService: ObservableObject {
                 cloudCover: 0.0,
                 cloudCondition: "Clear"
             )
+        }
+    }
+    
+    // MARK: - Testing Methods
+    
+    /// Test authentication
+    func testAuthentication() async -> Bool {
+        print("🌐 [SupabaseService] 🧪 Testing authentication")
+        
+        let session = client.auth.session
+        let isAuth = session != nil
+        print("🌐 [SupabaseService] ✅ Authentication test: \(isAuth ? "Authenticated" : "Not authenticated")")
+        return isAuth
+    }
+    
+    /// Test connection to Supabase
+    func testConnection() async -> Bool {
+        print("🌐 [SupabaseService] 🧪 Testing connection")
+        
+        do {
+            _ = try await client.database
+                .from("user_locations")
+                .select("id")
+                .limit(1)
+                .execute()
+            
+            print("🌐 [SupabaseService] ✅ Connection test successful")
+            return true
+        } catch {
+            print("🌐 [SupabaseService] ❌ Connection test failed: \(error)")
+            return false
         }
     }
 }

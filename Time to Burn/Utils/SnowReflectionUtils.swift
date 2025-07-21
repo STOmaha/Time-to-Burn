@@ -152,7 +152,7 @@ struct SnowReflectionUtils {
         // This is a simplified estimation
         // In a production app, you'd use specialized snow data APIs
         
-        let temperature = weather.temperature.value
+        let _ = weather.temperature.value
         let condition = weather.condition
         
         // Very basic estimation based on temperature and conditions

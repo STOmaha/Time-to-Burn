@@ -63,9 +63,12 @@ class EnvironmentalDataService: ObservableObject {
                 
                 print("🌍 [EnvironmentalDataService] ✅ Environmental data loaded successfully!")
                 print("   📍 Location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
-                print("   ⛰️ Altitude: \(Int(alt))m")
-                print("   ❄️ Snow: \(snow.snowType.rawValue) (\(Int(snow.snowCoverage))% coverage)")
-                print("   💧 Water: \(water.waterBodyType.rawValue) (\(Int(water.distanceToWater))m away)")
+                let altitudeText = alt.isFinite ? "\(Int(alt))m" : "Unknown"
+                let snowCoverageText = snow.snowCoverage.isFinite ? "\(Int(snow.snowCoverage))% coverage" : "Unknown coverage"
+                print("   ⛰️ Altitude: \(altitudeText)")
+                print("   ❄️ Snow: \(snow.snowType.rawValue) (\(snowCoverageText))")
+                let distanceText = water.distanceToWater.isFinite ? "\(Int(water.distanceToWater))m away" : "No water nearby"
+                print("   💧 Water: \(water.waterBodyType.rawValue) (\(distanceText))")
                 print("   🏔️ Terrain: \(terrainType.rawValue)")
                 print("   🍂 Season: \(seasonal.season.rawValue)")
                 print("   ──────────────────────────────────────")
@@ -91,7 +94,7 @@ class EnvironmentalDataService: ObservableObject {
             return
         }
         
-        await fetchEnvironmentalData(for: location)
+        _ = await fetchEnvironmentalData(for: location)
     }
     
     // MARK: - Individual Data Fetching Methods

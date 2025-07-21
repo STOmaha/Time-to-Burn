@@ -102,7 +102,7 @@ enum RiskLevel: String, Codable, CaseIterable {
 
 // MARK: - Risk Factor
 struct RiskFactor: Codable, Identifiable {
-    let id = UUID()
+    let id: UUID
     let type: RiskFactorType
     let severity: RiskSeverity
     let description: String
@@ -158,7 +158,7 @@ struct RiskFactor: Codable, Identifiable {
 
 // MARK: - Recommendation
 struct Recommendation: Codable, Identifiable {
-    let id = UUID()
+    let id: UUID
     let type: RecommendationType
     let priority: Priority
     let title: String
@@ -319,6 +319,7 @@ struct UVRiskCalculator {
         if assessment.environmentalFactors.altitude > 1000 {
             let severity: RiskFactor.RiskSeverity = assessment.environmentalFactors.altitude > 3000 ? .high : .moderate
             factors.append(RiskFactor(
+                id: UUID(),
                 type: .altitude,
                 severity: severity,
                 description: "Elevation of \(Int(assessment.environmentalFactors.altitude))m increases UV exposure",
@@ -331,6 +332,7 @@ struct UVRiskCalculator {
         if assessment.environmentalFactors.snowConditions.snowCoverage > 0 {
             let severity: RiskFactor.RiskSeverity = assessment.environmentalFactors.snowConditions.snowType == .fresh ? .high : .moderate
             factors.append(RiskFactor(
+                id: UUID(),
                 type: .snowReflection,
                 severity: severity,
                 description: "\(assessment.environmentalFactors.snowConditions.snowType.rawValue) snow reflects up to \(Int(assessment.environmentalFactors.snowConditions.snowType.reflectionFactor * 100))% of UV",
@@ -342,6 +344,7 @@ struct UVRiskCalculator {
         // Water reflection factor
         if assessment.environmentalFactors.waterProximity.distanceToWater < 1000 {
             factors.append(RiskFactor(
+                id: UUID(),
                 type: .waterReflection,
                 severity: .moderate,
                 description: "Nearby \(assessment.environmentalFactors.waterProximity.waterBodyType.rawValue.lowercased()) reflects UV",
@@ -353,6 +356,7 @@ struct UVRiskCalculator {
         // Cloud cover factor (educational)
         if assessment.environmentalFactors.snowConditions.snowCoverage > 50 {
             factors.append(RiskFactor(
+                id: UUID(),
                 type: .cloudCover,
                 severity: .low,
                 description: "Clouds don't block all UV rays - protection still needed",
@@ -373,6 +377,7 @@ struct UVRiskCalculator {
         switch assessment.riskLevel {
         case .veryLow, .low:
             recommendations.append(Recommendation(
+                id: UUID(),
                 type: .sunscreen,
                 priority: .low,
                 title: "Basic Sun Protection",
@@ -382,6 +387,7 @@ struct UVRiskCalculator {
             
         case .moderate:
             recommendations.append(Recommendation(
+                id: UUID(),
                 type: .timing,
                 priority: .medium,
                 title: "Avoid Peak Hours",
@@ -391,6 +397,7 @@ struct UVRiskCalculator {
             
         case .high:
             recommendations.append(Recommendation(
+                id: UUID(),
                 type: .avoidance,
                 priority: .high,
                 title: "Minimize Sun Exposure",
@@ -400,6 +407,7 @@ struct UVRiskCalculator {
             
         case .veryHigh, .extreme:
             recommendations.append(Recommendation(
+                id: UUID(),
                 type: .avoidance,
                 priority: .critical,
                 title: "Extreme UV Risk",
@@ -411,6 +419,7 @@ struct UVRiskCalculator {
         // Environmental-specific recommendations
         if assessment.environmentalFactors.altitude > 2000 {
             recommendations.append(Recommendation(
+                id: UUID(),
                 type: .education,
                 priority: .high,
                 title: "High Altitude Warning",
@@ -421,6 +430,7 @@ struct UVRiskCalculator {
         
         if assessment.environmentalFactors.snowConditions.snowCoverage > 0 {
             recommendations.append(Recommendation(
+                id: UUID(),
                 type: .clothing,
                 priority: .high,
                 title: "Snow Reflection Protection",
@@ -431,6 +441,7 @@ struct UVRiskCalculator {
         
         if assessment.environmentalFactors.waterProximity.distanceToWater < 500 {
             recommendations.append(Recommendation(
+                id: UUID(),
                 type: .sunscreen,
                 priority: .medium,
                 title: "Water Reflection Protection",

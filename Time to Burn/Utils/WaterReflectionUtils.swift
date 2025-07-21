@@ -153,8 +153,8 @@ struct WaterReflectionUtils {
         // This is a simplified simulation
         // In a real app, you'd query a water body database
         
-        let latitude = location.coordinate.latitude
-        let longitude = location.coordinate.longitude
+        let _ = location.coordinate.latitude
+        let _ = location.coordinate.longitude
         
         // Simulate finding water bodies based on location
         let waterBodies = await generateSimulatedWaterBodies(near: location)

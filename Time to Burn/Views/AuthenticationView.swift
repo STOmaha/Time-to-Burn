@@ -198,7 +198,7 @@ struct AuthenticationView: View {
         Task {
             do {
                 if isSignUp {
-                    _ = try await supabaseService.signUp(email: email, password: password)
+                    _ = try await supabaseService.signUp(email: email, password: password, name: "User")
                 } else {
                     _ = try await supabaseService.signIn(email: email, password: password)
                 }

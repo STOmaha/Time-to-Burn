@@ -394,7 +394,7 @@ class SmartNotificationViewModel: ObservableObject {
 // MARK: - Smart Notification Model
 
 struct SmartNotification: Identifiable, Codable {
-    let id = UUID()
+    let id: UUID
     let type: NotificationType
     let title: String
     let body: String
@@ -404,6 +404,7 @@ struct SmartNotification: Identifiable, Codable {
     let isDelivered: Bool
     
     init(type: NotificationType, title: String, body: String, priority: Priority, riskAssessment: UVRiskAssessment, scheduledTime: Date) {
+        self.id = UUID()
         self.type = type
         self.title = title
         self.body = body
