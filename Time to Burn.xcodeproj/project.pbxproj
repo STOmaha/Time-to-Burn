@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B058005C2E2E8FE800F5C3BB /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFDB2E2C3AE800F5C3BB /* Supabase */; };
 		B058FFD22E2C3AE800F5C3BB /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD12E2C3AE800F5C3BB /* Auth */; };
 		B058FFD42E2C3AE800F5C3BB /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD32E2C3AE800F5C3BB /* Functions */; };
 		B058FFD62E2C3AE800F5C3BB /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD52E2C3AE800F5C3BB /* PostgREST */; };
@@ -117,6 +118,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B058005C2E2E8FE800F5C3BB /* Supabase in Frameworks */,
 				B058FFD62E2C3AE800F5C3BB /* PostgREST in Frameworks */,
 				B058FFD42E2C3AE800F5C3BB /* Functions in Frameworks */,
 				B058FFD22E2C3AE800F5C3BB /* Auth in Frameworks */,
@@ -211,6 +213,7 @@
 				B058FFD52E2C3AE800F5C3BB /* PostgREST */,
 				B058FFD72E2C3AE800F5C3BB /* Realtime */,
 				B058FFD92E2C3AE800F5C3BB /* Storage */,
+				B058FFDB2E2C3AE800F5C3BB /* Supabase */,
 			);
 			productName = "Time to Burn";
 			productReference = B074DC982DFB19A8009E1727 /* Time to Burn.app */;
@@ -837,6 +840,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B01EFD8E2E2579CF00254047 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Storage;
+		};
+		B058FFDB2E2C3AE800F5C3BB /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B01EFD8E2E2579CF00254047 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

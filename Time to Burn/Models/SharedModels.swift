@@ -58,6 +58,27 @@ struct UVData: Identifiable, Codable {
     }
 }
 
+// MARK: - UV Exposure Session Model
+struct UVExposureSession: Identifiable, Codable {
+    let id: UUID
+    let startTime: Date
+    let endTime: Date?
+    let durationMinutes: Int
+    let uvIndex: Double
+    let latitude: Double
+    let longitude: Double
+    
+    init(id: UUID = UUID(), startTime: Date, endTime: Date? = nil, durationMinutes: Int, uvIndex: Double, latitude: Double, longitude: Double) {
+        self.id = id
+        self.startTime = startTime
+        self.endTime = endTime
+        self.durationMinutes = durationMinutes
+        self.uvIndex = uvIndex
+        self.latitude = latitude
+        self.longitude = longitude
+    }
+}
+
 // MARK: - Shared UV Exposure Data Model
 struct SharedUVData: Codable {
     let currentUVIndex: Int

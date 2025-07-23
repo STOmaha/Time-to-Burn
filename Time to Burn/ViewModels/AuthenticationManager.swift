@@ -48,6 +48,9 @@ class AuthenticationManager: ObservableObject {
                         
                         // Create user profile if needed
                         await self?.createUserProfileIfNeeded()
+                        
+                        // Request push notification permission after authentication
+                        await self?.requestPushNotificationPermission()
                     } else {
                         print("🔐 [AuthenticationManager] ❌ User not authenticated")
                         self?.showAuthentication = true
@@ -71,6 +74,7 @@ class AuthenticationManager: ObservableObject {
         
         if isAuthenticated {
             await createUserProfileIfNeeded()
+            await requestPushNotificationPermission()
         }
         
         await MainActor.run {
@@ -162,13 +166,27 @@ class AuthenticationManager: ObservableObject {
     func testAuthentication() async -> Bool {
         print("🔐 [AuthenticationManager] 🧪 Testing authentication...")
         
-        let isConnected = await supabaseService.testConnection()
-        let isAuth = await supabaseService.testAuthentication()
+        // For real Supabase integration, we can check if we have a valid session
+        let isAuth = supabaseService.isAuthenticated
         
-        print("🔐 [AuthenticationManager] 🧪 Connection: \(isConnected ? "✅" : "❌")")
         print("🔐 [AuthenticationManager] 🧪 Authentication: \(isAuth ? "✅" : "❌")")
         
-        return isConnected && isAuth
+        return isAuth
+    }
+    
+    // MARK: - Push Notifications
+    
+    private func requestPushNotificationPermission() async {
+        print("🔐 [AuthenticationManager] 🔔 Requesting push notification permission...")
+        
+        let pushNotificationService = PushNotificationService.shared
+        let granted = await pushNotificationService.requestPermission()
+        
+        if granted {
+            print("🔐 [AuthenticationManager] ✅ Push notification permission granted")
+        } else {
+            print("🔐 [AuthenticationManager] ❌ Push notification permission denied")
+        }
     }
     
     // MARK: - Private Properties

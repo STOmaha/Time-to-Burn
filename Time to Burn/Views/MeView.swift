@@ -8,9 +8,12 @@ struct MeView: View {
     @EnvironmentObject private var notificationManager: NotificationManager
     @EnvironmentObject private var timerViewModel: TimerViewModel
     @EnvironmentObject private var settingsManager: SettingsManager
+    @EnvironmentObject private var authenticationManager: AuthenticationManager
+    @EnvironmentObject private var pushNotificationService: PushNotificationService
     @StateObject private var onboardingManager = OnboardingManager.shared
     @State private var showingDailySummaryAlert = false
     @State private var showingResetOnboardingAlert = false
+    @State private var showingSignOutAlert = false
     
     // MARK: - Homogeneous Background
     var homogeneousBackground: Color {
@@ -81,7 +84,7 @@ struct MeView: View {
                             .foregroundColor(notificationManager.isAuthorized ? .green : .red)
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(notificationManager.isAuthorized ? "Notifications Enabled" : "Notifications Disabled")
+                            Text(notificationManager.isAuthorized ? "Local Notifications" : "Local Notifications Disabled")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                             Text(notificationManager.isAuthorized ? "You'll receive UV alerts and reminders" : "Enable to get UV alerts and reminders")
@@ -99,6 +102,50 @@ struct MeView: View {
                             }
                             .font(.caption)
                             .foregroundColor(.blue)
+                        }
+                    }
+                    
+                    HStack {
+                        Image(systemName: pushNotificationService.isRegistered ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash")
+                            .foregroundColor(pushNotificationService.isRegistered ? .green : .orange)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(pushNotificationService.isRegistered ? "Push Notifications" : "Push Notifications")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text(pushNotificationService.isRegistered ? "Server can send you real-time alerts" : "Enable for real-time server notifications")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        if !pushNotificationService.isRegistered {
+                            Button("Enable") {
+                                Task {
+                                    await pushNotificationService.requestPermission()
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                        }
+                    }
+                    
+                    if let deviceToken = pushNotificationService.deviceToken {
+                        HStack {
+                            Image(systemName: "key.fill")
+                                .foregroundColor(.blue)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Device Token")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                Text(String(deviceToken.prefix(20)) + "...")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
                         }
                     }
                     
@@ -193,6 +240,24 @@ struct MeView: View {
                     }
                 }
                 
+                // Account Section
+                Section("Account") {
+                    if let userEmail = authenticationManager.userEmail {
+                        HStack {
+                            Image(systemName: "envelope.fill")
+                                .foregroundColor(.blue)
+                            Text(userEmail)
+                                .font(.subheadline)
+                            Spacer()
+                        }
+                    }
+                    
+                    Button("Sign Out") {
+                        showingSignOutAlert = true
+                    }
+                    .foregroundColor(.red)
+                }
+                
                 // Developer Tools Section
                 Section("Developer Tools") {
                     Button("Reset Onboarding") {
@@ -230,6 +295,16 @@ struct MeView: View {
                 }
             } message: {
                 Text("This will show the onboarding flow again. This is useful for testing.")
+            }
+            .alert("Sign Out", isPresented: $showingSignOutAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Sign Out", role: .destructive) {
+                    Task {
+                        await authenticationManager.signOut()
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to sign out? You'll need to sign in again to access your account.")
             }
         }
         .overlay(
