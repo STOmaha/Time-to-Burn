@@ -11,7 +11,6 @@ class OnboardingManager: ObservableObject {
     @Published var dataLoadProgress = 0.0
     
     private let locationManager: LocationManager
-    private let weatherViewModel: WeatherViewModel
     private let notificationManager: NotificationManager
     
     private init() {
@@ -19,7 +18,6 @@ class OnboardingManager: ObservableObject {
         
         // Use shared instances to avoid duplicates
         self.locationManager = LocationManager.shared
-        self.weatherViewModel = WeatherViewModel(locationManager: locationManager)
         self.notificationManager = NotificationManager.shared
         loadOnboardingState()
         
@@ -184,7 +182,7 @@ class OnboardingManager: ObservableObject {
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
         
         await updateProgress(0.4, "Loading weather data...")
-        await weatherViewModel.refreshData()
+        // Weather data will be loaded by the main app's WeatherViewModel
         try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
         
         await updateProgress(0.6, "Setting up notifications...")

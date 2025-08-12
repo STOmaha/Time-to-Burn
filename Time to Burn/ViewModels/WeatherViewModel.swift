@@ -2,14 +2,14 @@ import Foundation
 import WeatherKit
 import CoreLocation
 import SwiftUI
-import UserNotifications
+// import UserNotifications
 import WidgetKit
 
 @MainActor
 class WeatherViewModel: ObservableObject {
     private let weatherService = WeatherService.shared
     private let locationManager: LocationManager
-    private let notificationManager = NotificationManager.shared
+    // private let notificationManager = NotificationManager.shared
     private let userDefaults = UserDefaults.standard
     
     // Published properties for UI updates
@@ -27,7 +27,7 @@ class WeatherViewModel: ObservableObject {
     @Published var dataFlowState: DataFlowState = .initializing
     
     // UV threshold monitoring
-    private var lastUVThresholdAlert: Int = 0
+    // private var lastUVThresholdAlert: Int = 0
     
     // Background refresh timer
     private var backgroundRefreshTimer: Timer?
@@ -73,11 +73,11 @@ class WeatherViewModel: ObservableObject {
         print("🌤️ [WeatherViewModel] 🚀 Initializing...")
         
         // Setup daily weather refresh notification listener
-        setupDailyWeatherRefreshListener()
+        // setupDailyWeatherRefreshListener()
         
         // Only initialize once
         Task {
-            await requestAuthorizations()
+            // await requestAuthorizations()
             await initializeDataFlow()
         }
     }
@@ -87,6 +87,13 @@ class WeatherViewModel: ObservableObject {
     /// Main entry point for data refresh - follows proper sequential flow
     func refreshData() async {
         print("🌤️ [WeatherViewModel] 🔄 Starting data refresh sequence")
+        
+        // Force a fresh location update first
+        locationManager.forceRefreshLocation()
+        
+        // Wait a moment for location to update, then proceed with data flow
+        try? await Task.sleep(nanoseconds: 2_000_000_000) // Wait 2 seconds
+        
         await initializeDataFlow()
     }
     
@@ -120,11 +127,26 @@ class WeatherViewModel: ObservableObject {
             return
         }
         
-        // Step 2: Check if we have location data
+        // Step 2: Check if we have location data and wait for fresh location if needed
         guard let location = locationManager.location else {
             print("🌤️ [WeatherViewModel] 📍 Step 2: No location data, waiting...")
             dataFlowState = .waitingForLocation
-            locationManager.requestLocation()
+            locationManager.forceRefreshLocation()
+            
+            // Wait for location update with timeout
+            for i in 0..<10 { // Wait up to 10 seconds
+                if locationManager.location != nil {
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // Wait 1 second
+                print("🌤️ [WeatherViewModel] 📍 Waiting for location... (\(i + 1)/10)")
+            }
+            
+            // If still no location, proceed with whatever we have
+            if locationManager.location == nil {
+                print("🌤️ [WeatherViewModel] ⚠️ No location received after timeout, proceeding with cached data")
+            }
+            
             return
         }
         
@@ -134,19 +156,19 @@ class WeatherViewModel: ObservableObject {
         await fetchUVData(for: location)
     }
     
-    private func requestAuthorizations() async {
-        // Request notification permissions
-        let notificationGranted = await notificationManager.requestNotificationPermission()
-        print("🌤️ [WeatherViewModel] 🔔 Notifications: \(notificationGranted ? "✅ Authorized" : "❌ Denied")")
-        
-        // Setup notification categories
-        notificationManager.setupNotificationCategories()
-        
-        // Schedule daily weather refresh if notifications are authorized
-        if notificationGranted {
-            scheduleDailyWeatherRefresh()
-        }
-    }
+    // private func requestAuthorizations() async {
+    //     // Request notification permissions
+    //     let notificationGranted = await notificationManager.requestNotificationPermission()
+    //     print("🌤️ [WeatherViewModel] 🔔 Notifications: \(notificationGranted ? "✅ Authorized" : "❌ Denied")")
+    //     
+    //     // Setup notification categories
+    //     notificationManager.setupNotificationCategories()
+    //     
+    //     // Schedule daily weather refresh if notifications are authorized
+    //     if notificationGranted {
+    //         scheduleDailyWeatherRefresh()
+    //     }
+    // }
     
     private func startOfDay() -> Date {
         Calendar.current.startOfDay(for: Date())
@@ -212,7 +234,7 @@ class WeatherViewModel: ObservableObject {
                 print("   ──────────────────────────────────────")
                 
                 // Check for UV threshold alerts
-                self.checkUVThresholdAlert()
+                // self.checkUVThresholdAlert()
                 
                 // Start background refresh timer after successful load
                 self.startBackgroundRefresh()
@@ -239,34 +261,34 @@ class WeatherViewModel: ObservableObject {
     }
     
     // MARK: - UV Threshold Monitoring
-    private func checkUVThresholdAlert() {
-        guard let currentUV = currentUVData?.uvIndex else { return }
-        
-        let threshold = notificationManager.notificationSettings.uvThreshold
-        
-        // Only send alert if UV is above threshold and we haven't already alerted for this UV level
-        if currentUV >= threshold && lastUVThresholdAlert != currentUV {
-            notificationManager.scheduleUVThresholdAlert(uvIndex: currentUV, threshold: threshold)
-            lastUVThresholdAlert = currentUV
-        }
-        
-        // Trigger smart notification assessment
-        notificationManager.triggerSmartNotificationAssessment(baseUVIndex: currentUV)
-        
-        // Log the alert if it was scheduled
-        if currentUV >= threshold && lastUVThresholdAlert == currentUV {
-            let uvEmoji = getUVEmoji(currentUV)
-            print("🌤️ [WeatherViewModel] 🔔 UV Threshold Alert:")
-            print("   📊 UV Index: \(uvEmoji) \(currentUV) (Threshold: \(threshold))")
-            print("   📱 Alert scheduled")
-            print("   ──────────────────────────────────────")
-        }
-        
-        // Reset alert tracking if UV drops below threshold
-        if currentUV < threshold {
-            lastUVThresholdAlert = 0
-        }
-    }
+    // private func checkUVThresholdAlert() {
+    //     guard let currentUV = currentUVData?.uvIndex else { return }
+    //     
+    //     let threshold = notificationManager.notificationSettings.uvThreshold
+    //     
+    //     // Only send alert if UV is above threshold and we haven't already alerted for this UV level
+    //     if currentUV >= threshold && lastUVThresholdAlert != currentUV {
+    //         notificationManager.scheduleUVThresholdAlert(uvIndex: currentUV, threshold: threshold)
+    //         lastUVThresholdAlert = currentUV
+    //     }
+    //     
+    //     // Trigger smart notification assessment
+    //     notificationManager.triggerSmartNotificationAssessment(baseUVIndex: currentUV)
+    //     
+    //     // Log the alert if it was scheduled
+    //     if currentUV >= threshold && lastUVThresholdAlert == currentUV {
+    //         let uvEmoji = getUVEmoji(currentUV)
+    //         print("🌤️ [WeatherViewModel] 🔔 UV Threshold Alert:")
+    //         print("   📊 UV Index: \(uvEmoji) \(currentUV) (Threshold: \(threshold))")
+    //         print("   📱 Alert scheduled")
+    //         print("   ──────────────────────────────────────")
+    //     }
+    //     
+    //     // Reset alert tracking if UV drops below threshold
+    //     if currentUV < threshold {
+    //         lastUVThresholdAlert = 0
+    //     }
+    // }
     
     // Add method to test WeatherKit connectivity
     func testWeatherKitConnectivity() async -> Bool {
@@ -297,9 +319,9 @@ class WeatherViewModel: ObservableObject {
             "lastUpdated": lastUpdated?.description ?? "Never",
             "hasError": error != nil,
             "errorDescription": error?.localizedDescription ?? "None",
-            "notificationsAuthorized": notificationManager.isAuthorized,
+            // "notificationsAuthorized": notificationManager.isAuthorized,
             "currentUVIndex": currentUVData?.uvIndex ?? 0,
-            "uvThreshold": notificationManager.notificationSettings.uvThreshold,
+            // "uvThreshold": notificationManager.notificationSettings.uvThreshold,
             "dataFlowState": dataFlowState.description
         ]
     }
@@ -314,41 +336,53 @@ class WeatherViewModel: ObservableObject {
     }
     
     // MARK: - Daily Weather Refresh
-    private func setupDailyWeatherRefreshListener() {
-        NotificationCenter.default.addObserver(
-            forName: Notification.Name("dailyWeatherRefresh"),
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            print("🌤️ [WeatherViewModel] 🌤️ Daily weather refresh notification received")
-            Task {
-                await self?.refreshData()
-            }
-        }
-    }
+    // private func setupDailyWeatherRefreshListener() {
+    //     NotificationCenter.default.addObserver(
+    //         forName: Notification.Name("dailyWeatherRefresh"),
+    //         object: nil,
+    //         queue: .main
+    //     ) { [weak self] _ in
+    //         print("🌤️ [WeatherViewModel] 🔔 Daily weather refresh notification received")
+    //         Task {
+    //             await self?.refreshData()
+    //         }
+    //     }
+    //     
+    //     // Add listener for weather update notifications from push notifications
+    //     NotificationCenter.default.addObserver(
+    //         forName: Notification.Name("refreshWeatherData"),
+    //         object: nil,
+    //         queue: .main
+    //     ) { [weak self] _ in
+    //         print("🌤️ [WeatherViewModel] 🔔 Weather update notification received")
+    //         Task {
+    //             await self?.refreshData()
+    //         }
+    //     }
+    // }
     
-    func scheduleDailyWeatherRefresh() {
-        print("🌤️ [WeatherViewModel] ⏰ Scheduling daily 8am weather refresh...")
-        notificationManager.scheduleDailyWeatherRefresh()
-    }
-    
-    func cancelDailyWeatherRefresh() {
-        print("🌤️ [WeatherViewModel] ⏰ Cancelling daily weather refresh...")
-        notificationManager.cancelDailyWeatherRefresh()
-    }
-    
-    func isDailyWeatherRefreshScheduled() async -> Bool {
-        let center = UNUserNotificationCenter.current()
-        let requests = await center.pendingNotificationRequests()
-        return requests.contains { $0.identifier == "daily_weather_refresh" }
-    }
-    
-    // MARK: - Testing Methods
-    func testDailyWeatherRefresh() {
-        print("🌤️ [WeatherViewModel] 🧪 Testing daily weather refresh...")
-        // Simulate the daily weather refresh notification
-        NotificationCenter.default.post(name: Notification.Name("dailyWeatherRefresh"), object: nil)
-    }
+    // func scheduleDailyWeatherRefresh() {
+    //     print("🌤️ [WeatherViewModel] ⏰ Scheduling daily 8am weather refresh...")
+    //     notificationManager.scheduleDailyWeatherRefresh()
+    // }
+    // 
+    // func cancelDailyWeatherRefresh() {
+    //     print("🌤️ [WeatherViewModel] ⏰ Cancelling daily weather refresh...")
+    //     notificationManager.cancelDailyWeatherRefresh()
+    // }
+    // 
+    // func isDailyWeatherRefreshScheduled() async -> Bool {
+    //     let center = UNUserNotificationCenter.current()
+    //     let requests = await center.pendingNotificationRequests()
+    //     return requests.contains { $0.identifier == "daily_weather_refresh" }
+    // }
+    // 
+    // // MARK: - Testing Methods
+    // func testDailyWeatherRefresh() {
+    //     print("🌤️ [WeatherViewModel] 🧪 Testing daily weather refresh...")
+    //     // Simulate the daily weather refresh notification
+    //     NotificationCenter.default.post(name: Notification.Name("dailyWeatherRefresh"), object: nil)
+    // }
     
     // MARK: - Background Refresh
     private func startBackgroundRefresh() {
@@ -376,8 +410,9 @@ class WeatherViewModel: ObservableObject {
         backgroundRefreshTimer?.invalidate()
         backgroundRefreshTimer = nil
         
-        // Remove notification observer
-        NotificationCenter.default.removeObserver(self, name: Notification.Name("dailyWeatherRefresh"), object: nil)
+        // Remove notification observers
+        // NotificationCenter.default.removeObserver(self, name: Notification.Name("dailyWeatherRefresh"), object: nil)
+        // NotificationCenter.default.removeObserver(self, name: Notification.Name("refreshWeatherData"), object: nil)
     }
     
     // MARK: - Helper Methods for Beautiful Logging
@@ -403,9 +438,13 @@ class WeatherViewModel: ObservableObject {
     private func saveWeatherDataToSharedStorage() {
         // Prepare shared data
         guard let currentUVData = self.currentUVData else { return }
+        
+        // Calculate time to burn based on current UV index
+        let calculatedTimeToBurn = UVColorUtils.calculateTimeToBurn(uvIndex: currentUVData.uvIndex)
+        
         let sharedData = SharedUVData(
             currentUVIndex: currentUVData.uvIndex,
-            timeToBurn: 0, // You may want to calculate this or pass from TimerViewModel
+            timeToBurn: calculatedTimeToBurn,
             elapsedTime: 0,
             totalExposureTime: 0,
             isTimerRunning: false,
@@ -424,7 +463,7 @@ class WeatherViewModel: ObservableObject {
             if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
                 userDefaults.set(encoded, forKey: "sharedUVData")
                 userDefaults.synchronize()
-                print("🌤️ [WeatherViewModel] ✅ Saved weather data to shared storage for widget")
+                print("🌤️ [WeatherViewModel] ✅ Saved weather data to shared storage for widget - UV: \(currentUVData.uvIndex), Time to Burn: \(calculatedTimeToBurn/60)min")
             }
         }
         // Request widget reload

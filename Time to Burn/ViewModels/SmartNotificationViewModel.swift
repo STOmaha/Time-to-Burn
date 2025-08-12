@@ -44,61 +44,53 @@ class SmartNotificationViewModel: ObservableObject {
             return
         }
         
-        do {
-            // Fetch environmental data
-            let environmentalFactors = await environmentalDataService.fetchEnvironmentalData(for: location)
-            
-            guard let factors = environmentalFactors else {
-                print("🧠 [SmartNotificationViewModel] ❌ Failed to fetch environmental data")
-                await MainActor.run { isProcessing = false }
-                return
-            }
-            
-            // Generate risk factors and recommendations
-            let riskFactors = UVRiskCalculator.generateRiskFactors(
-                assessment: UVRiskAssessment(
-                    baseUVIndex: baseUVIndex,
-                    environmentalFactors: factors
-                )
-            )
-            
-            let recommendations = UVRiskCalculator.generateRecommendations(
-                assessment: UVRiskAssessment(
-                    baseUVIndex: baseUVIndex,
-                    environmentalFactors: factors
-                )
-            )
-            
-            // Create comprehensive risk assessment
-            let assessment = UVRiskAssessment(
-                baseUVIndex: baseUVIndex,
-                environmentalFactors: factors,
-                riskFactors: riskFactors,
-                recommendations: recommendations
-            )
-            
-            await MainActor.run {
-                self.currentRiskAssessment = assessment
-                self.lastAssessmentTime = Date()
-                self.isProcessing = false
-                
-                print("🧠 [SmartNotificationViewModel] ✅ Risk assessment completed!")
-                print("   📊 Base UV: \(baseUVIndex)")
-                print("   🔄 Adjusted UV: \(assessment.adjustedUVIndex)")
-                print("   ⚠️ Risk Level: \(assessment.riskLevel.rawValue)")
-                print("   📈 Risk Score: \(String(format: "%.2f", assessment.riskScore))")
-                print("   ──────────────────────────────────────")
-            }
-            
-            // Process smart notifications
-            await processSmartNotifications(assessment: assessment)
-            
-        } catch {
-            await MainActor.run {
-                isProcessing = false
-                print("🧠 [SmartNotificationViewModel] ❌ Error during risk assessment: \(error.localizedDescription)")
-            }
+        // Fetch environmental data
+        let environmentalFactors = await environmentalDataService.fetchEnvironmentalData(for: location)
+        
+        guard let factors = environmentalFactors else {
+            print("🧠 [SmartNotificationViewModel] ❌ Failed to fetch environmental data")
+            await MainActor.run { isProcessing = false }
+            return
         }
+        
+        // Generate risk factors and recommendations
+        let riskFactors = UVRiskCalculator.generateRiskFactors(
+            assessment: UVRiskAssessment(
+                baseUVIndex: baseUVIndex,
+                environmentalFactors: factors
+            )
+        )
+        
+        let recommendations = UVRiskCalculator.generateRecommendations(
+            assessment: UVRiskAssessment(
+                baseUVIndex: baseUVIndex,
+                environmentalFactors: factors
+            )
+        )
+        
+        // Create comprehensive risk assessment
+        let assessment = UVRiskAssessment(
+            baseUVIndex: baseUVIndex,
+            environmentalFactors: factors,
+            riskFactors: riskFactors,
+            recommendations: recommendations
+        )
+        
+        await MainActor.run {
+            self.currentRiskAssessment = assessment
+            self.lastAssessmentTime = Date()
+            self.isProcessing = false
+            
+            print("🧠 [SmartNotificationViewModel] ✅ Risk assessment completed!")
+            print("   📊 Base UV: \(baseUVIndex)")
+            print("   🔄 Adjusted UV: \(assessment.adjustedUVIndex)")
+            print("   ⚠️ Risk Level: \(assessment.riskLevel.rawValue)")
+            print("   📈 Risk Score: \(String(format: "%.2f", assessment.riskScore))")
+            print("   ──────────────────────────────────────")
+        }
+        
+        // Process smart notifications
+        await processSmartNotifications(assessment: assessment)
     }
     
     // MARK: - Smart Notification Processing

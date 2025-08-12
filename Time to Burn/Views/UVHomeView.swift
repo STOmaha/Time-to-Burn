@@ -31,6 +31,18 @@ struct UVHomeView: View {
         .background(homogeneousBackground)
         .navigationTitle("UV Index")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    Task {
+                        await weatherViewModel.refreshData()
+                    }
+                }) {
+                    Image(systemName: "arrow.clockwise")
+                        .foregroundColor(.primary)
+                }
+            }
+        }
         .onAppear {
             locationManager.weatherViewModel = weatherViewModel
             print("🏠 [UVHomeView] 📍 Connected to location manager")

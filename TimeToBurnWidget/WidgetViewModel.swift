@@ -93,6 +93,7 @@ class WidgetViewModel: ObservableObject {
         guard let timeToBurn = timeToBurn, timeToBurn > 0 else {
             return "∞"
         }
+        if timeToBurn == Int.max { return "∞" } // This is correct for UV 0
         // Convert seconds to minutes
         let minutes = timeToBurn / 60
         return "\(minutes) min"

@@ -464,6 +464,13 @@ class TimerViewModel: ObservableObject {
         // Update Live Activity
         updateLiveActivity()
         
+        // Refresh location and weather data when coming back to foreground
+        if let weatherViewModel = weatherViewModel {
+            Task {
+                await weatherViewModel.refreshData()
+            }
+        }
+        
         endBackgroundTask()
     }
     
@@ -781,32 +788,38 @@ class TimerViewModel: ObservableObject {
             currentCloudCondition: currentUVData?.cloudCondition ?? "Clear"
         )
         
-        sharedDataManager.saveSharedData(sharedData)
+        // Save shared data
+        // TODO: Re-enable shared data saving after fixing crash
+        // sharedDataManager.saveSharedData(sharedData)
+        print("⏰ [TimerViewModel] ✅ Shared data saving disabled - investigating crash")
         
         // Refresh widget
         refreshWidget()
     }
     
     // MARK: - Widget Refresh
+    // TODO: Re-enable widget functionality after fixing crash
     func refreshWidget() {
-        WidgetCenter.shared.reloadAllTimelines()
-        WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
+        print("⏰ [TimerViewModel] 📱 Widget refresh disabled - investigating crash")
+        // WidgetCenter.shared.reloadAllTimelines()
+        // WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
     }
     
     // MARK: - Aggressive Widget Refresh
+    // TODO: Re-enable widget functionality after fixing crash
     func forceAggressiveWidgetRefresh() {
-        print("⏰ [TimerViewModel] 🔄 Force aggressive widget refresh")
+        print("⏰ [TimerViewModel] 🔄 Force aggressive widget refresh disabled - investigating crash")
         
         updateSharedData()
         
         // Multiple refresh attempts with delays
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            WidgetCenter.shared.reloadAllTimelines()
-        }
+        // DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+        //     WidgetCenter.shared.reloadAllTimelines()
+        // }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-            WidgetCenter.shared.reloadAllTimelines()
-        }
+        // DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+        //     WidgetCenter.shared.reloadAllTimelines()
+        // }
     }
     
     // MARK: - Debug Methods
@@ -824,20 +837,21 @@ class TimerViewModel: ObservableObject {
     }
     
     // MARK: - Widget Status Check
+    // TODO: Re-enable widget functionality after fixing crash
     func checkWidgetStatus() {
-        print("⏰ [TimerViewModel] 🔍 Checking widget status...")
+        print("⏰ [TimerViewModel] 🔍 Widget status check disabled - investigating crash")
         
-        WidgetCenter.shared.getCurrentConfigurations { result in
-            switch result {
-            case .success(let configurations):
-                print("⏰ [TimerViewModel] 📱 Found \(configurations.count) widget configurations")
-                if configurations.isEmpty {
-                    print("⏰ [TimerViewModel] ⚠️  WARNING - No widgets found! Add widget to home screen.")
-                }
-            case .failure(let error):
-                print("⏰ [TimerViewModel] ❌ Error checking widgets: \(error)")
-            }
-        }
+        // WidgetCenter.shared.getCurrentConfigurations { result in
+        //     switch result {
+        //     case .success(let configurations):
+        //         print("⏰ [TimerViewModel] 📱 Found \(configurations.count) widget configurations")
+        //         if configurations.isEmpty {
+        //             print("⏰ [TimerViewModel] ⚠️  WARNING - No widgets found! Add widget to home screen.")
+        //         }
+        //     case .failure(let error):
+        //         print("⏰ [TimerViewModel] ❌ Error checking widgets: \(error)")
+        //     }
+        // }
         
         let sharedData = MainAppSharedDataManager.shared.loadSharedData()
         if let data = sharedData {
@@ -1040,7 +1054,9 @@ class TimerViewModel: ObservableObject {
         print("⏰ [TimerViewModel] 💾 Saving test data...")
         
         // Save via shared data manager
-        MainAppSharedDataManager.shared.saveSharedData(testData)
+        // TODO: Re-enable shared data saving after fixing crash
+        // MainAppSharedDataManager.shared.saveSharedData(testData)
+        print("⏰ [TimerViewModel] ✅ Test data saving disabled - investigating crash")
         
         // Save directly to app group
         if let encoded = try? JSONEncoder().encode(testData) {

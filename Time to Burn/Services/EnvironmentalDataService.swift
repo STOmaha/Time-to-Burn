@@ -29,62 +29,51 @@ class EnvironmentalDataService: ObservableObject {
             error = nil
         }
         
-        do {
-            // Fetch all environmental data concurrently
-            async let altitude = fetchAltitude(for: location)
-            async let snowConditions = fetchSnowConditions(for: location)
-            async let waterProximity = fetchWaterProximity(for: location)
-            async let seasonalFactors = calculateSeasonalFactors()
+        // Fetch all environmental data concurrently
+        async let altitude = fetchAltitude(for: location)
+        async let snowConditions = fetchSnowConditions(for: location)
+        async let waterProximity = fetchWaterProximity(for: location)
+        async let seasonalFactors = calculateSeasonalFactors()
+        
+        // Wait for all data to be fetched
+        let (alt, snow, water, seasonal) = await (altitude, snowConditions, waterProximity, seasonalFactors)
+        
+        // Analyze terrain type
+        let terrainType = TerrainAnalysisUtils.analyzeTerrainType(
+            location: location,
+            altitude: alt,
+            waterProximity: water
+        )
+        
+        // Create environmental factors
+        let environmentalFactors = EnvironmentalFactors(
+            location: location.coordinate,
+            altitude: alt,
+            snowConditions: snow,
+            waterProximity: water,
+            terrainType: terrainType,
+            seasonalFactors: seasonal
+        )
+        
+        await MainActor.run {
+            self.currentEnvironmentalFactors = environmentalFactors
+            self.lastUpdated = Date()
+            self.isLoading = false
             
-            // Wait for all data to be fetched
-            let (alt, snow, water, seasonal) = await (altitude, snowConditions, waterProximity, seasonalFactors)
-            
-            // Analyze terrain type
-            let terrainType = TerrainAnalysisUtils.analyzeTerrainType(
-                location: location,
-                altitude: alt,
-                waterProximity: water
-            )
-            
-            // Create environmental factors
-            let environmentalFactors = EnvironmentalFactors(
-                location: location.coordinate,
-                altitude: alt,
-                snowConditions: snow,
-                waterProximity: water,
-                terrainType: terrainType,
-                seasonalFactors: seasonal
-            )
-            
-            await MainActor.run {
-                self.currentEnvironmentalFactors = environmentalFactors
-                self.lastUpdated = Date()
-                self.isLoading = false
-                
-                print("🌍 [EnvironmentalDataService] ✅ Environmental data loaded successfully!")
-                print("   📍 Location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
-                let altitudeText = alt.isFinite ? "\(Int(alt))m" : "Unknown"
-                let snowCoverageText = snow.snowCoverage.isFinite ? "\(Int(snow.snowCoverage))% coverage" : "Unknown coverage"
-                print("   ⛰️ Altitude: \(altitudeText)")
-                print("   ❄️ Snow: \(snow.snowType.rawValue) (\(snowCoverageText))")
-                let distanceText = water.distanceToWater.isFinite ? "\(Int(water.distanceToWater))m away" : "No water nearby"
-                print("   💧 Water: \(water.waterBodyType.rawValue) (\(distanceText))")
-                print("   🏔️ Terrain: \(terrainType.rawValue)")
-                print("   🍂 Season: \(seasonal.season.rawValue)")
-                print("   ──────────────────────────────────────")
-            }
-            
-            return environmentalFactors
-            
-        } catch {
-            await MainActor.run {
-                self.error = error
-                self.isLoading = false
-                
-                print("🌍 [EnvironmentalDataService] ❌ Error fetching environmental data: \(error.localizedDescription)")
-            }
-            return nil
+            print("🌍 [EnvironmentalDataService] ✅ Environmental data loaded successfully!")
+            print("   📍 Location: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+            let altitudeText = alt.isFinite ? "\(Int(alt))m" : "Unknown"
+            let snowCoverageText = snow.snowCoverage.isFinite ? "\(Int(snow.snowCoverage))% coverage" : "Unknown coverage"
+            print("   ⛰️ Altitude: \(altitudeText)")
+            print("   ❄️ Snow: \(snow.snowType.rawValue) (\(snowCoverageText))")
+            let distanceText = water.distanceToWater.isFinite ? "\(Int(water.distanceToWater))m away" : "No water nearby"
+            print("   💧 Water: \(water.waterBodyType.rawValue) (\(distanceText))")
+            print("   🏔️ Terrain: \(terrainType.rawValue)")
+            print("   🍂 Season: \(seasonal.season.rawValue)")
+            print("   ──────────────────────────────────────")
         }
+        
+        return environmentalFactors
     }
     
     /// Refresh environmental data for current location
