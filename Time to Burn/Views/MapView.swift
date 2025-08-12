@@ -9,7 +9,9 @@ struct MapView: View {
     
     // MARK: - Homogeneous Background
     var homogeneousBackground: Color {
-        let uvIndex = weatherViewModel.currentUVData?.uvIndex ?? 0
+        let selectedUV = searchViewModel.selectedLocationUVData?.uvIndex
+        let currentUV = weatherViewModel.currentUVData?.uvIndex
+        let uvIndex = selectedUV ?? currentUV ?? 0
         return UVColorUtils.getHomogeneousBackgroundColor(uvIndex)
     }
     
@@ -22,13 +24,13 @@ struct MapView: View {
                 // Show search UI only when no city is selected
                 if searchViewModel.selectedLocation == nil {
                     SearchBarView(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
-                        .background(Color(.systemBackground))
+                        .background(.ultraThinMaterial) // was Color(.systemBackground)
                         .zIndex(3)
                     
                     // Suggestions directly under the bar (for 1–2 letters)
                     if !searchViewModel.suggestions.isEmpty {
                         SuggestionsOverlay(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
-                            .background(Color(.systemBackground))
+                            .background(.regularMaterial) // was Color(.systemBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .padding(.horizontal)
                             .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
@@ -38,7 +40,7 @@ struct MapView: View {
                     // Full search results (3+ letters)
                     if !searchViewModel.searchResults.isEmpty {
                         SearchResultsOverlay(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
-                            .background(Color(.systemBackground))
+                            .background(.regularMaterial) // was Color(.systemBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .padding(.horizontal)
                             .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
@@ -139,7 +141,7 @@ struct SearchBarView: View {
                 .padding(.bottom, 8)
             }
         }
-        .background(Color(.systemBackground))
+        .background(.clear) // was Color(.systemBackground)
     }
 }
 

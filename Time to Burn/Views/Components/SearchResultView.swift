@@ -59,7 +59,7 @@ struct SearchResultView: View {
             }
             .padding(.bottom, 20)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color.clear)
         .alert("Error", isPresented: $searchViewModel.showError) {
             Button("OK") { }
         } message: {
