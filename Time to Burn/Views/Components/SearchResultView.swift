@@ -23,31 +23,37 @@ struct SearchResultView: View {
                 .padding(.horizontal)
                 
                 if let location = searchViewModel.selectedLocation {
-                    // Location Info Card
-                    LocationInfoCard(location: location)
-                    
                     if searchViewModel.isLoading {
-                        // Loading State
                         LoadingCard()
-                    } else if !searchViewModel.selectedLocationHourlyUVData.isEmpty {
-                        // Use the same chart as the UV Index tab with selected location's data
-                        VStack(spacing: 16) {
-                            UVChartView(data: searchViewModel.selectedLocationHourlyUVData)
-                                .padding(.horizontal)
+                    } else {
+                        // UV Summary (first, like the UV Index main tab)
+                        SelectedLocationUVSummaryCard(locationName: location.displayName,
+                                                      uvIndex: searchViewModel.getCurrentUVIndex(),
+                                                      timeToBurn: searchViewModel.getTimeToBurnString())
+                            .padding(.horizontal)
+                        
+                        // 24-hour chart using the same component as UV tab
+                        if !searchViewModel.selectedLocationHourlyUVData.isEmpty {
+                            VStack(spacing: 16) {
+                                UVChartView(data: searchViewModel.selectedLocationHourlyUVData)
+                                    .padding(.horizontal)
+                            }
                         }
                         
                         // 7-Day Forecast (vertically stacked like Forecast tab)
-                        VStack(spacing: 24) {
-                            ForEach(Array(searchViewModel.selectedLocationDailyUVData.enumerated()), id: \.offset) { index, dayData in
-                                DayForecastCard(
-                                    dayOffset: index,
-                                    uvData: dayData,
-                                    userThreshold: UserDefaults.standard.integer(forKey: "uvUserThreshold") == 0 ? 6 : UserDefaults.standard.integer(forKey: "uvUserThreshold"),
-                                    dayInfo: getDayNameAndDate(forDayOffset: index)
-                                )
+                        if !searchViewModel.selectedLocationDailyUVData.isEmpty {
+                            VStack(spacing: 24) {
+                                ForEach(Array(searchViewModel.selectedLocationDailyUVData.enumerated()), id: \.offset) { index, dayData in
+                                    DayForecastCard(
+                                        dayOffset: index,
+                                        uvData: dayData,
+                                        userThreshold: UserDefaults.standard.integer(forKey: "uvUserThreshold") == 0 ? 6 : UserDefaults.standard.integer(forKey: "uvUserThreshold"),
+                                        dayInfo: getDayNameAndDate(forDayOffset: index)
+                                    )
+                                }
                             }
+                            .padding(.horizontal)
                         }
-                        .padding(.horizontal)
                     }
                 }
             }
@@ -79,163 +85,75 @@ struct SearchResultView: View {
     }
 }
 
-// MARK: - Location Info Card
-
-struct LocationInfoCard: View {
-    let location: LocationSearchResult
+// MARK: - Selected Location UV Summary (matches main UV tab styling)
+struct SelectedLocationUVSummaryCard: View {
+    let locationName: String
+    let uvIndex: Int
+    let timeToBurn: String
+    
+    private var uvColor: Color { UVColorUtils.getUVColor(uvIndex) }
+    private var level: String { UVColorUtils.getUVCategory(for: uvIndex) }
+    private var advice: String { UVColorUtils.getUVAdvice(uvIndex: uvIndex) }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "location.fill")
-                    .foregroundColor(.blue)
-                    .font(.title2)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(location.displayName)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text(location.fullDisplayName)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("UV Index Forecast")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    HStack(spacing: 6) {
+                        Image(systemName: "location.fill")
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                        Text(locationName)
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                    }
                 }
-                
                 Spacer()
             }
-            
-            Divider()
-            
-            HStack {
-                Image(systemName: "globe")
-                    .foregroundColor(.secondary)
-                    .font(.caption)
-                
-                Text("Lat: \(location.coordinate.latitude, specifier: "%.4f")")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text("Lon: \(location.coordinate.longitude, specifier: "%.4f")")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        .padding(.horizontal)
-    }
-}
-
-// MARK: - UV Graph Card
-
-struct UVGraphCard: View {
-    let uvData: [UVData]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .foregroundColor(.blue)
-                    .font(.title2)
-                
-                Text("24-Hour UV Forecast")
-                    .font(.headline)
-                    .fontWeight(.medium)
-                
-                Spacer()
-            }
-            
-            if uvData.isEmpty {
-                Text("No UV data available")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
-            } else {
-                UVChartView(data: uvData)
-                    .frame(height: 200)
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        .padding(.horizontal)
-    }
-}
-
-// MARK: - UV Forecast Card
-
-struct UVForecastCard: View {
-    let uvData: [UVData]
-    
-    private var maxUV: Int {
-        uvData.map { $0.uvIndex }.max() ?? 0
-    }
-    
-    private var peakTime: String {
-        guard let peakData = uvData.max(by: { $0.uvIndex < $1.uvIndex }) else {
-            return "N/A"
-        }
-        
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: peakData.date)
-    }
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "clock.fill")
-                    .foregroundColor(.orange)
-                    .font(.title2)
-                
-                Text("Today's UV Summary")
-                    .font(.headline)
-                    .fontWeight(.medium)
-                
-                Spacer()
-            }
-            
-            HStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Peak UV")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Text("\(maxUV)")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(UVColorUtils.getUVColor(maxUV))
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Peak Time")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Text(peakTime)
-                        .font(.title2)
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .center, spacing: 2) {
+                    Text("\(uvIndex)")
+                        .font(.system(size: 56, weight: .bold, design: .rounded))
+                        .foregroundColor(uvColor.opacity(0.85))
+                    Text(level)
+                        .font(.title3)
                         .fontWeight(.semibold)
+                        .foregroundColor(uvColor.opacity(0.85))
                 }
-                
+                .offset(x: 20)
+                Spacer()
+                VStack(alignment: .center, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "hourglass")
+                            .foregroundColor(.primary)
+                        Text("Time to Burn:")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                    }
+                    Text("~\(timeToBurn)")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                }
                 Spacer()
             }
+            Text(advice)
+                .font(.body)
+                .foregroundColor(.primary)
+                .padding(.top, 2)
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        .padding(.horizontal)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(uvColor.opacity(0.18))
+                .shadow(color: uvColor.opacity(0.18), radius: 16, x: 0, y: 8)
+        )
     }
 }
 
 // MARK: - Loading Card
-
 struct LoadingCard: View {
     var body: some View {
         VStack(spacing: 16) {

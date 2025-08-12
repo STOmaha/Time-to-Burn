@@ -5,6 +5,7 @@ struct MapView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @StateObject private var searchViewModel = SearchViewModel()
+    @FocusState private var isSearchFocused: Bool
     
     // MARK: - Homogeneous Background
     var homogeneousBackground: Color {
@@ -14,25 +15,45 @@ struct MapView: View {
     
     var body: some View {
         ZStack(alignment: .top) {
-            // Homogeneous UV background
             homogeneousBackground
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Search bar with autocomplete
-                SearchBarView(searchViewModel: searchViewModel)
-                    .background(Color(.systemBackground))
-                    .zIndex(2)
+                // Show search UI only when no city is selected
+                if searchViewModel.selectedLocation == nil {
+                    SearchBarView(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
+                        .background(Color(.systemBackground))
+                        .zIndex(3)
+                    
+                    // Suggestions directly under the bar (for 1–2 letters)
+                    if !searchViewModel.suggestions.isEmpty {
+                        SuggestionsOverlay(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
+                            .background(Color(.systemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal)
+                            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                            .zIndex(2)
+                    }
+                    
+                    // Full search results (3+ letters)
+                    if !searchViewModel.searchResults.isEmpty {
+                        SearchResultsOverlay(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
+                            .background(Color(.systemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal)
+                            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                            .zIndex(2)
+                    }
+                }
                 
-                // Content area
                 if let _ = searchViewModel.selectedLocation {
-                    // Show search result detail (scrollable)
                     SearchResultView(searchViewModel: searchViewModel) {
                         searchViewModel.clearSelection()
+                        // Search bar will reappear; keep keyboard hidden until tapped
+                        isSearchFocused = false
                     }
                     .transition(.move(edge: .trailing))
                 } else {
-                    // Empty guidance view matching app style
                     ScrollView {
                         VStack(spacing: 16) {
                             Spacer(minLength: 24)
@@ -47,37 +68,19 @@ struct MapView: View {
                                 .foregroundColor(.secondary)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.top, 48)
+                        .padding(.top, 24)
                     }
                     .background(Color.clear)
                 }
-            }
-            .zIndex(1)
-            
-            // Search Results Overlay anchored under the search bar
-            if !searchViewModel.searchResults.isEmpty && searchViewModel.selectedLocation == nil {
-                VStack(spacing: 0) {
-                    // Spacer to push results below the search bar height
-                    Spacer().frame(height: 64) // approximate bar + padding
-                    SearchResultsOverlay(searchViewModel: searchViewModel)
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal)
-                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
-                    Spacer()
-                }
-                .allowsHitTesting(true)
-                .zIndex(3)
             }
         }
     }
 }
 
 // MARK: - Search Bar View
-
 struct SearchBarView: View {
     @ObservedObject var searchViewModel: SearchViewModel
-    @FocusState private var isSearchFocused: Bool
+    var isSearchFocused: FocusState<Bool>.Binding
     
     var body: some View {
         VStack(spacing: 0) {
@@ -89,13 +92,14 @@ struct SearchBarView: View {
                     
                     TextField("Search cities, areas...", text: $searchViewModel.searchText)
                         .textFieldStyle(PlainTextFieldStyle())
-                        .focused($isSearchFocused)
+                        .focused(isSearchFocused)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                     
                     if !searchViewModel.searchText.isEmpty {
                         Button(action: {
                             searchViewModel.searchText = ""
+                            searchViewModel.suggestions = []
                             searchViewModel.searchResults = []
                         }) {
                             Image(systemName: "xmark.circle.fill")
@@ -109,10 +113,11 @@ struct SearchBarView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
                 
-                if isSearchFocused {
+                if isSearchFocused.wrappedValue {
                     Button("Cancel") {
-                        isSearchFocused = false
+                        isSearchFocused.wrappedValue = false
                         searchViewModel.searchText = ""
+                        searchViewModel.suggestions = []
                         searchViewModel.searchResults = []
                     }
                     .foregroundColor(.blue)
@@ -122,11 +127,9 @@ struct SearchBarView: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
             
-            // Search indicator
             if searchViewModel.isSearching {
                 HStack {
-                    ProgressView()
-                        .scaleEffect(0.8)
+                    ProgressView().scaleEffect(0.8)
                     Text("Searching...")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -140,18 +143,63 @@ struct SearchBarView: View {
     }
 }
 
-// MARK: - Search Results Overlay
-
-struct SearchResultsOverlay: View {
+// MARK: - Suggestions Overlay
+struct SuggestionsOverlay: View {
     @ObservedObject var searchViewModel: SearchViewModel
+    var isSearchFocused: FocusState<Bool>.Binding
     
     var body: some View {
-        // Results list only; no dim background so it won't cover the text field
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(searchViewModel.suggestions, id: \.self) { s in
+                    Button(action: {
+                        searchViewModel.selectSuggestion(s)
+                        isSearchFocused.wrappedValue = false
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "location.fill")
+                                .foregroundColor(.blue)
+                                .font(.system(size: 16))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(s.title)
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.primary)
+                                    .lineLimit(1)
+                                if !s.subtitle.isEmpty {
+                                    Text(s.subtitle)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    Divider()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Search Results Overlay
+struct SearchResultsOverlay: View {
+    @ObservedObject var searchViewModel: SearchViewModel
+    var isSearchFocused: FocusState<Bool>.Binding
+    
+    var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(searchViewModel.searchResults) { result in
                     SearchResultRow(result: result) {
                         searchViewModel.selectLocation(result)
+                        isSearchFocused.wrappedValue = false
                     }
                     Divider()
                 }
@@ -160,8 +208,7 @@ struct SearchResultsOverlay: View {
     }
 }
 
-// MARK: - Search Result Row
-
+// MARK: - Search Result Row (unchanged)
 struct SearchResultRow: View {
     let result: LocationSearchResult
     let onTap: () -> Void
