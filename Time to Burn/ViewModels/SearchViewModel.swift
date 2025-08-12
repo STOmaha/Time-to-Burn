@@ -126,7 +126,7 @@ class SearchViewModel: NSObject, ObservableObject {
         
         let normalizedQuery = normalize(query)
         cityItems.sort { a, b in
-            score(item: a, query: normalizedQuery) > score(item: b, query: normalizedQuery)
+            rankedScore(item: a, query: normalizedQuery) > rankedScore(item: b, query: normalizedQuery)
         }
         
         return cityItems.map { item in
@@ -141,6 +141,33 @@ class SearchViewModel: NSObject, ObservableObject {
         }
     }
     
+    /// Composite score combining textual relevance and population weight.
+    /// For short queries (1-2 chars), population weight is stronger.
+    /// As query length grows, textual relevance dominates.
+    private func rankedScore(item: MKMapItem, query: String) -> Int {
+        let text = score(item: item, query: query)
+        let pm = item.placemark
+        let city = pm.locality ?? item.name ?? ""
+        let country = pm.country
+        let population = CityPopulationIndex.shared.population(for: city, country: country)
+
+        // Weight scale: stronger when query is very short
+        let qlen = max(1, min(query.count, 6))
+        // qlen 1 -> 30, 2 -> 24, 3 -> 18, 4 -> 12, 5 -> 8, 6+ -> 6
+        let populationScale: Int
+        switch qlen {
+        case 1: populationScale = 30
+        case 2: populationScale = 24
+        case 3: populationScale = 18
+        case 4: populationScale = 12
+        case 5: populationScale = 8
+        default: populationScale = 6
+        }
+
+        let popScore = CityPopulationIndex.shared.populationScore(population: population, scale: populationScale)
+        return text + popScore
+    }
+
     private func score(item: MKMapItem, query: String) -> Int {
         let pm = item.placemark
         let title = normalize(item.name ?? pm.locality ?? "")
@@ -167,6 +194,18 @@ class SearchViewModel: NSObject, ObservableObject {
         if majorCities.contains(title) { s += 20 }
         if subtitle.contains(query) { s += 5 }
         s -= min(title.count / 10, 3)
+
+        // Add population weight to suggestions when query is very short
+        // Attempt to parse city and country hints from title/subtitle
+        let components = title.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
+        let city = components.first ?? title
+        // Country often present in subtitle after comma
+        let countryFromSubtitle = subtitle.split(separator: ",").last.map { String($0).trimmingCharacters(in: .whitespaces) }
+        let pop = CityPopulationIndex.shared.population(for: city, country: countryFromSubtitle)
+        let qlen = max(1, min(query.count, 6))
+        let scale: Int = (qlen <= 2) ? 24 : (qlen == 3 ? 16 : 8)
+        s += CityPopulationIndex.shared.populationScore(population: pop, scale: scale)
+
         return s
     }
     
