@@ -12,6 +12,7 @@ class SearchViewModel: ObservableObject {
     @Published var selectedLocation: LocationSearchResult?
     @Published var selectedLocationUVData: UVData?
     @Published var selectedLocationHourlyUVData: [UVData] = []
+    @Published var selectedLocationDailyUVData: [[UVData]] = [] // 7-day hourly buckets
     @Published var isLoading = false
     @Published var isSearching = false
     @Published var errorMessage: String?
@@ -22,6 +23,13 @@ class SearchViewModel: ObservableObject {
     private var searchTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     
+    // Simple priority list to boost common major cities (US-focused; extend as needed)
+    private let majorCities: Set<String> = [
+        "new york", "los angeles", "chicago", "houston", "phoenix", "philadelphia", "san antonio", "san diego", "dallas", "san jose",
+        "austin", "jacksonville", "fort worth", "columbus", "san francisco", "charlotte", "indianapolis", "seattle", "denver", "washington",
+        "boston", "el paso", "nashville", "detroit", "oklahoma city", "portland", "las vegas", "memphis", "louisville", "baltimore"
+    ]
+    
     init() {
         setupSearchDebouncing()
     }
@@ -30,7 +38,7 @@ class SearchViewModel: ObservableObject {
     
     private func setupSearchDebouncing() {
         $searchText
-            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
+            .debounce(for: .milliseconds(250), scheduler: DispatchQueue.main)
             .removeDuplicates()
             .sink { [weak self] searchText in
                 self?.performSearch(searchText: searchText)
@@ -39,7 +47,8 @@ class SearchViewModel: ObservableObject {
     }
     
     private func performSearch(searchText: String) {
-        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
             searchResults = []
             isSearching = false
             return
@@ -50,10 +59,10 @@ class SearchViewModel: ObservableObject {
         // Cancel previous search task
         searchTask?.cancel()
         
-        searchTask = Task {
+        searchTask = Task { [weak self] in
+            guard let self else { return }
             do {
-                let results = try await searchLocations(query: searchText)
-                
+                let results = try await searchLocations(query: trimmed)
                 if !Task.isCancelled {
                     await MainActor.run {
                         self.searchResults = results
@@ -73,22 +82,65 @@ class SearchViewModel: ObservableObject {
     }
     
     private func searchLocations(query: String) async throws -> [LocationSearchResult] {
-        let searchRequest = MKLocalSearch.Request()
-        searchRequest.naturalLanguageQuery = query
-        searchRequest.resultTypes = [.address, .pointOfInterest]
+        // Use MapKit search, but restrict to addresses and prefer city-level results
+        let req = MKLocalSearch.Request()
+        req.naturalLanguageQuery = query
+        req.resultTypes = [.address] // avoid generic queries and POIs
+        let search = MKLocalSearch(request: req)
+        let resp = try await search.start()
         
-        let search = MKLocalSearch(request: searchRequest)
-        let response = try await search.start()
+        // Transform to city-level results only (must have a locality/city)
+        var cityItems: [MKMapItem] = resp.mapItems.filter { item in
+            let pm = item.placemark
+            let hasCity = !(pm.locality ?? "").isEmpty
+            // Exclude pure country-level results (no city, no admin area)
+            return hasCity
+        }
         
-        return response.mapItems.map { item in
-            LocationSearchResult(
-                name: item.name ?? "Unknown Location",
-                locality: item.placemark.locality ?? "",
-                administrativeArea: item.placemark.administrativeArea ?? "",
-                country: item.placemark.country ?? "",
-                coordinate: item.placemark.coordinate
+        // Rank results: prefix matches first, then major cities boost, then shorter title/locality
+        let normalizedQuery = normalize(query)
+        cityItems.sort { a, b in
+            score(item: a, query: normalizedQuery) > score(item: b, query: normalizedQuery)
+        }
+        
+        return cityItems.map { item in
+            let pm = item.placemark
+            return LocationSearchResult(
+                name: item.name ?? pm.locality ?? "Unknown Location",
+                locality: pm.locality ?? "",
+                administrativeArea: pm.administrativeArea ?? "",
+                country: pm.country ?? "",
+                coordinate: pm.coordinate
             )
         }
+    }
+    
+    private func score(item: MKMapItem, query: String) -> Int {
+        let pm = item.placemark
+        let title = normalize(item.name ?? pm.locality ?? "")
+        let locality = normalize(pm.locality ?? "")
+        let admin = normalize(pm.administrativeArea ?? "")
+        
+        var s = 0
+        // Strongly prefer prefix matches on title or city name
+        if title.hasPrefix(query) { s += 40 }
+        if locality.hasPrefix(query) { s += 40 }
+        // Secondary: contains match
+        if title.contains(query) { s += 10 }
+        if locality.contains(query) { s += 10 }
+        // Boost for major cities
+        if majorCities.contains(locality) || majorCities.contains(title) { s += 20 }
+        // Small boost if same admin contains query (e.g., typing "phx az")
+        if admin.contains(query) { s += 4 }
+        // Slight penalty for very long titles
+        s -= min(title.count / 10, 3)
+        return s
+    }
+    
+    private func normalize(_ s: String) -> String {
+        s.folding(options: .diacriticInsensitive, locale: .current)
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     // MARK: - Location Selection
@@ -104,6 +156,7 @@ class SearchViewModel: ObservableObject {
         selectedLocation = nil
         selectedLocationUVData = nil
         selectedLocationHourlyUVData = []
+        selectedLocationDailyUVData = []
         searchText = ""
         searchResults = []
     }
@@ -125,9 +178,19 @@ class SearchViewModel: ObservableObject {
                     .daily
                 )
                 
+                // Build 7-day hourly buckets from hourlyForecast
+                let calendar = Calendar.current
+                var dailyBuckets: [[UVData]] = []
+                for dayOffset in 0..<7 {
+                    guard let day = calendar.date(byAdding: .day, value: dayOffset, to: calendar.startOfDay(for: Date())) else { continue }
+                    let hoursForDay = hourlyForecast.filter { calendar.isDate($0.date, inSameDayAs: day) }
+                    dailyBuckets.append(hoursForDay.map { UVData(from: $0) })
+                }
+                
                 await MainActor.run {
                     self.selectedLocationUVData = UVData(from: currentWeather)
                     self.selectedLocationHourlyUVData = hourlyForecast.prefix(24).map { UVData(from: $0) }
+                    self.selectedLocationDailyUVData = dailyBuckets
                     self.isLoading = false
                 }
                 

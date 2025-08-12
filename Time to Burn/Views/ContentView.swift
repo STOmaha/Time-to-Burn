@@ -4,7 +4,7 @@ struct ContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     // @EnvironmentObject private var timerViewModel: TimerViewModel
-    // @State private var selectedTab = 0
+    @State private var selectedTab = 0
     
     // MARK: - Homogeneous Background System
     var homogeneousBackground: Color {
@@ -18,59 +18,50 @@ struct ContentView: View {
     // }
     
     var body: some View {
-        // TabView(selection: $selectedTab) {
-            // UV Tab - Home page with UV chart and data
-            UVHomeView()
-                .environmentObject(locationManager)
-                .environmentObject(weatherViewModel)
-                // .tabItem {
-                //     Image(systemName: "sun.max.fill")
-                //     Text("UV")
-                // }
-                // .tag(0)
+        ZStack {
+            homogeneousBackground
+                .ignoresSafeArea()
             
-            // Forecast Tab - Today's UV chart and tomorrow's estimate
-            // ForecastView()
-            //     .environmentObject(locationManager)
-            //     .environmentObject(weatherViewModel)
-            //     .tabItem {
-            //         Image(systemName: "chart.line.uptrend.xyaxis")
-            //         Text("Forecast")
-            //     }
-            //     .tag(1)
-            
-            // Timer Tab - Dynamic sun exposure timer
-            // DynamicTimerView()
-            //     .environmentObject(locationManager)
-            //     .environmentObject(weatherViewModel)
-            //     .environmentObject(timerViewModel)
-            //     .tabItem {
-            //         Image(systemName: "timer")
-            //         Text("Timer")
-            //     }
-            //     .tag(2)
-            
-            // Map Tab - Location search
-            // MapView()
-            //     .environmentObject(locationManager)
-            //     .environmentObject(weatherViewModel)
-            //     .tabItem {
-            //         Image(systemName: "map.fill")
-            //         Text("Map")
-            //     }
-            //     .tag(3)
-            
-            // Me Tab - User settings
-            // MeView()
-            //     .environmentObject(locationManager)
-            //     .environmentObject(weatherViewModel)
-            //     .tabItem {
-            //         Image(systemName: "person.circle.fill")
-            //         Text("Me")
-            //     }
-            //     .tag(4)
-            // }
-            .background(homogeneousBackground)
+            TabView(selection: $selectedTab) {
+                // UV Tab - Home page with UV chart and data
+                UVHomeView()
+                    .environmentObject(locationManager)
+                    .environmentObject(weatherViewModel)
+                    .tabItem {
+                        Image(systemName: "sun.max.fill")
+                        Text("UV")
+                    }
+                    .tag(0)
+                
+                // Forecast Tab - Today's UV chart and tomorrow's estimate
+                ForecastView()
+                    .environmentObject(locationManager)
+                    .environmentObject(weatherViewModel)
+                    .tabItem {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                        Text("Forecast")
+                    }
+                    .tag(1)
+                
+                // Map Tab - Location search
+                MapView()
+                    .environmentObject(locationManager)
+                    .environmentObject(weatherViewModel)
+                    .tabItem {
+                        Image(systemName: "magnifyingglass")
+                        Text("Search")
+                    }
+                    .tag(2)
+                
+                // Me Tab - Placeholder for now (Option A)
+                MePlaceholderView()
+                    .tabItem {
+                        Image(systemName: "person.circle.fill")
+                        Text("Me")
+                    }
+                    .tag(3)
+            }
+        }
         // .accentColor(.orange) // UV-themed accent color
         .onAppear {
             // Configure TabBar with UV-themed background
@@ -103,13 +94,13 @@ struct ContentView: View {
             // UITabBar.appearance().standardAppearance = appearance
             // UITabBar.appearance().scrollEdgeAppearance = appearance
         }
-        // .onChange(of: selectedTab) { _, newTab in
-        //     // Refresh location and weather data when switching tabs
-        //     print("🔄 [ContentView] Tab changed to \(newTab), refreshing location and weather data...")
-        //     Task {
-        //         await weatherViewModel.refreshData()
-        //     }
-        // }
+        .onChange(of: selectedTab) { _, _ in
+            // Refresh location and weather data when switching tabs
+            // print("🔄 [ContentView] Tab changed to \(newTab), refreshing location and weather data...")
+            // Task {
+            //     await weatherViewModel.refreshData()
+            // }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             // Refresh widget when app becomes active
             // timerViewModel.refreshWidget()
@@ -144,4 +135,18 @@ struct ContentView: View {
     //         break
     //     }
     // }
+}
+
+private struct MePlaceholderView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "person.circle")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("Me")
+                .font(.headline)
+                .foregroundStyle(.primary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 } 

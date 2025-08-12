@@ -29,7 +29,7 @@ struct UVChartView: View {
     
     @State private var userThreshold: Int = UserDefaults.standard.integer(forKey: "uvUserThreshold") == 0 ? 6 : UserDefaults.standard.integer(forKey: "uvUserThreshold")
     
-    private let chartHeight: CGFloat = 180
+    private let chartHeight: CGFloat = 200
     private let chartPadding: CGFloat = 12
     private let yAxisMargin: CGFloat = 40 // Space for Y-axis labels on the right
     private let yMax: CGFloat = 12
@@ -58,7 +58,7 @@ struct UVChartView: View {
                     }
                 }
                 
-
+                
                 if let uv = displayUV {
                     Text("Time to Burn: \(getTimeToBurnString(for: uv))")
                         .font(.subheadline)
@@ -122,7 +122,7 @@ struct UVChartView: View {
                             let label = Text(hourLabel).font(.caption2).foregroundColor(.secondary)
                             let resolved = context.resolve(label)
                             let textSize = resolved.measure(in: CGSize(width: 32, height: 12))
-                            let textPoint = CGPoint(x: x - textSize.width/2, y: chartRect.maxY + 12)
+                            let textPoint = CGPoint(x: x - textSize.width/2, y: chartRect.maxY + 14)
                             context.draw(resolved, at: textPoint)
                         }
                         // Draw grid lines
@@ -200,22 +200,22 @@ struct UVChartView: View {
                         }
                         context.stroke(nowLine, with: .color(.blue), lineWidth: 2)
                     }
-                    .frame(height: chartHeight + 2*chartPadding + 12)
-                            .gesture(
+                    .frame(height: chartHeight + 2*chartPadding + 24)
+                    .gesture(
                         DragGesture(minimumDistance: 0)
                             .updating($dragOffset) { value, state, _ in
                                 let geoWidth = geo.size.width - 2*chartPadding
                                 let x = min(max(value.location.x - chartPadding, 0), geoWidth)
                                 state = x / geoWidth
                             }
-                                    .onChanged { value in
-                                        isDragging = true
+                            .onChanged { value in
+                                isDragging = true
                                 let geoWidth = geo.size.width - 2*chartPadding
                                 let x = min(max(value.location.x - chartPadding, 0), geoWidth)
                                 selectedFraction = x / geoWidth
-                                    }
-                                    .onEnded { _ in
-                                        isDragging = false
+                            }
+                            .onEnded { _ in
+                                isDragging = false
                                 let nowFraction = getNowFraction()
                                 guard let start = selectedFraction else {
                                     selectedFraction = nil
@@ -240,7 +240,7 @@ struct UVChartView: View {
                     )
                 }
             }
-            .frame(height: chartHeight + 2*chartPadding - 8)
+            .frame(height: chartHeight + 2*chartPadding + 24)
             // Notification threshold and slider
             VStack(spacing: 8) {
                 HStack {
@@ -296,13 +296,9 @@ struct UVChartView: View {
             let today = Date()
             let todayHourlyData = weatherViewModel.hourlyUVData.filter { calendar.isDate($0.date, inSameDayAs: today) }
             usedData = todayHourlyData
-    
         }
         
-
-        
         guard let first = usedData.first, let last = usedData.last else { 
-    
             return [] 
         }
         
@@ -312,7 +308,6 @@ struct UVChartView: View {
             return (fraction, d.uvIndex, d.date)
         }
         
-
         return result
     }
     private func getNowFraction() -> CGFloat {
@@ -326,7 +321,6 @@ struct UVChartView: View {
         let uvData = getChartUVData()
 
         guard uvData.count > 1 else { 
-
             return ("--", nil, .gray) 
         }
         

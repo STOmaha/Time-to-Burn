@@ -5,10 +5,6 @@ struct MapView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @StateObject private var searchViewModel = SearchViewModel()
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-    )
     
     // MARK: - Homogeneous Background
     var homogeneousBackground: Color {
@@ -17,99 +13,61 @@ struct MapView: View {
     }
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Homogeneous UV background
-                homogeneousBackground
-                    .ignoresSafeArea()
+        ZStack(alignment: .top) {
+            // Homogeneous UV background
+            homogeneousBackground
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                // Search bar with autocomplete
+                SearchBarView(searchViewModel: searchViewModel)
+                    .background(Color(.systemBackground))
+                    .zIndex(2)
                 
-                // Main Map View
-                VStack(spacing: 0) {
-                    // Search bar with autocomplete
-                    SearchBarView(searchViewModel: searchViewModel)
-                    
-                    // Map placeholder
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemGray5))
-                            .overlay(
-                                VStack {
-                                    Image(systemName: "map.fill")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.secondary)
-                                    Text("Interactive map will appear here")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                        .multilineTextAlignment(.center)
-                                }
-                            )
-                        
-                        // Current location indicator
-                        VStack {
-                            Spacer()
-                            HStack {
-                                Spacer()
-                                Button(action: {
-                                    // TODO: Center map on current location
-                                }) {
-                                    Image(systemName: "location.fill")
-                                        .font(.title2)
-                                        .foregroundColor(.white)
-                                        .padding()
-                                        .background(Color.blue)
-                                        .clipShape(Circle())
-                                }
-                                .padding()
-                            }
-                        }
-                    }
-                    .padding()
-                    
-                    // Location info
-                    if let location = locationManager.location {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Current Location")
-                                .font(.headline)
-                                .fontWeight(.medium)
-                            
-                            Text(locationManager.locationName)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            Text("Lat: \(location.coordinate.latitude, specifier: "%.4f"), Lon: \(location.coordinate.longitude, specifier: "%.4f")")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
-                        .padding(.horizontal)
-                    }
-                    
-                    Spacer()
-                }
-                
-                // Search Results Overlay
-                if !searchViewModel.searchResults.isEmpty && searchViewModel.selectedLocation == nil {
-                    SearchResultsOverlay(searchViewModel: searchViewModel)
-                }
-                
-                // Search Result View (Full Screen)
-                if searchViewModel.selectedLocation != nil {
+                // Content area
+                if let _ = searchViewModel.selectedLocation {
+                    // Show search result detail (scrollable)
                     SearchResultView(searchViewModel: searchViewModel) {
                         searchViewModel.clearSelection()
                     }
                     .transition(.move(edge: .trailing))
+                } else {
+                    // Empty guidance view matching app style
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            Spacer(minLength: 24)
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 40, weight: .semibold))
+                                .foregroundColor(.secondary)
+                            Text("Search for a city or area")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            Text("Get current UV and a 7-day forecast for any place")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 48)
+                    }
+                    .background(Color.clear)
                 }
             }
-            .navigationTitle("Map")
-            .navigationBarTitleDisplayMode(.large)
-        }
-        .onAppear {
-            // Update region to current location
-            if let location = locationManager.location {
-                region.center = location.coordinate
+            .zIndex(1)
+            
+            // Search Results Overlay anchored under the search bar
+            if !searchViewModel.searchResults.isEmpty && searchViewModel.selectedLocation == nil {
+                VStack(spacing: 0) {
+                    // Spacer to push results below the search bar height
+                    Spacer().frame(height: 64) // approximate bar + padding
+                    SearchResultsOverlay(searchViewModel: searchViewModel)
+                        .background(Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal)
+                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                    Spacer()
+                }
+                .allowsHitTesting(true)
+                .zIndex(3)
             }
         }
     }
@@ -188,31 +146,17 @@ struct SearchResultsOverlay: View {
     @ObservedObject var searchViewModel: SearchViewModel
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Results list
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(searchViewModel.searchResults) { result in
-                        SearchResultRow(result: result) {
-                            searchViewModel.selectLocation(result)
-                        }
+        // Results list only; no dim background so it won't cover the text field
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(searchViewModel.searchResults) { result in
+                    SearchResultRow(result: result) {
+                        searchViewModel.selectLocation(result)
                     }
+                    Divider()
                 }
             }
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
-            .padding(.horizontal)
-            
-            Spacer()
         }
-        .background(
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    searchViewModel.searchResults = []
-                }
-        )
     }
 }
 
@@ -251,7 +195,5 @@ struct SearchResultRow: View {
             .padding(.vertical, 12)
         }
         .buttonStyle(PlainButtonStyle())
-        
-        // Note: Divider will be handled by the parent view
     }
 } 

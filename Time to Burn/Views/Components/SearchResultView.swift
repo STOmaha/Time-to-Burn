@@ -12,7 +12,7 @@ struct SearchResultView: View {
                     Button(action: onExit) {
                         HStack(spacing: 8) {
                             Image(systemName: "chevron.left")
-                            Text("Back to Map")
+                            Text("Back")
                         }
                         .font(.headline)
                         .foregroundColor(.blue)
@@ -29,19 +29,25 @@ struct SearchResultView: View {
                     if searchViewModel.isLoading {
                         // Loading State
                         LoadingCard()
-                    } else if let uvData = searchViewModel.selectedLocationUVData {
-                        // Current UV Info Card
-                        CurrentUVCard(
-                            uvData: uvData,
-                            timeToBurn: searchViewModel.getTimeToBurnString(),
-                            uvColor: searchViewModel.getUVColor()
-                        )
+                    } else if !searchViewModel.selectedLocationHourlyUVData.isEmpty {
+                        // Use the same chart as the UV Index tab with selected location's data
+                        VStack(spacing: 16) {
+                            UVChartView(data: searchViewModel.selectedLocationHourlyUVData)
+                                .padding(.horizontal)
+                        }
                         
-                        // UV Graph Card
-                        UVGraphCard(uvData: searchViewModel.selectedLocationHourlyUVData)
-                        
-                        // UV Forecast Card
-                        UVForecastCard(uvData: searchViewModel.selectedLocationHourlyUVData)
+                        // 7-Day Forecast (vertically stacked like Forecast tab)
+                        VStack(spacing: 24) {
+                            ForEach(Array(searchViewModel.selectedLocationDailyUVData.enumerated()), id: \.offset) { index, dayData in
+                                DayForecastCard(
+                                    dayOffset: index,
+                                    uvData: dayData,
+                                    userThreshold: UserDefaults.standard.integer(forKey: "uvUserThreshold") == 0 ? 6 : UserDefaults.standard.integer(forKey: "uvUserThreshold"),
+                                    dayInfo: getDayNameAndDate(forDayOffset: index)
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
                     }
                 }
             }
@@ -53,6 +59,23 @@ struct SearchResultView: View {
         } message: {
             Text(searchViewModel.errorMessage ?? "An unknown error occurred")
         }
+    }
+    
+    private func getDayNameAndDate(forDayOffset offset: Int) -> (dayName: String, date: String) {
+        let calendar = Calendar.current
+        guard let day = calendar.date(byAdding: .day, value: offset, to: Date()) else {
+            return ("", "")
+        }
+        
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "EEEE"
+        let dayName = calendar.isDateInToday(day) ? "Today" : dayFormatter.string(from: day)
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMM d"
+        let date = dateFormatter.string(from: day)
+        
+        return (dayName, date)
     }
 }
 
@@ -104,90 +127,6 @@ struct LocationInfoCard: View {
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
         .padding(.horizontal)
-    }
-}
-
-// MARK: - Current UV Card
-
-struct CurrentUVCard: View {
-    let uvData: UVData
-    let timeToBurn: String
-    let uvColor: Color
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Image(systemName: "sun.max.fill")
-                    .foregroundColor(uvColor)
-                    .font(.title)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Current UV Index")
-                        .font(.headline)
-                        .fontWeight(.medium)
-                    
-                    Text("Updated \(uvData.date, style: .time)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(uvData.uvIndex)")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(uvColor)
-                    
-                    Text("UV Index")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Divider()
-            
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Time to Burn")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Text(timeToBurn)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(uvColor)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Risk Level")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Text(getRiskLevelText(uvData.uvIndex))
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(uvColor)
-                }
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-        .padding(.horizontal)
-    }
-    
-    private func getRiskLevelText(_ uvIndex: Int) -> String {
-        switch uvIndex {
-        case 0...2: return "Low"
-        case 3...5: return "Moderate"
-        case 6...7: return "High"
-        case 8...10: return "Very High"
-        default: return "Extreme"
-        }
     }
 }
 
