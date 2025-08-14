@@ -771,7 +771,7 @@ class TimerViewModel: ObservableObject {
             }
         }
         
-        let sharedData = SharedUVData(
+        let _ = SharedUVData(
             currentUVIndex: currentUVFromWeather,
             timeToBurn: calculatedTimeToBurn,
             elapsedTime: elapsedTime,
@@ -1223,4 +1223,6 @@ extension Notification.Name {
     static let exposureExceeded = Notification.Name("exposureExceeded")
     static let sunscreenExpired = Notification.Name("sunscreenExpired")
     static let showSunscreenAlarm = Notification.Name("showSunscreenAlarm")
+    static let chartTimeSelected = Notification.Name("chartTimeSelected")
+    static let chartTimeDeselected = Notification.Name("chartTimeDeselected")
 } 

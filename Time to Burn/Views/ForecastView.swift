@@ -89,7 +89,8 @@ struct ForecastView: View {
                                 dayOffset: dayOffset,
                                 uvData: getUVData(forDayOffset: dayOffset),
                                 userThreshold: userThreshold,
-                                dayInfo: getDayNameAndDate(forDayOffset: dayOffset)
+                                dayInfo: getDayNameAndDate(forDayOffset: dayOffset),
+                                timeZone: nil
                             )
                         }
                     }
@@ -112,19 +113,57 @@ struct DayForecastCard: View {
     let uvData: [UVData]
     let userThreshold: Int
     let dayInfo: (dayName: String, date: String)
+    let timeZone: TimeZone?
     
     private func getMaxUV() -> Int {
-        return uvData.map { $0.uvIndex }.max() ?? 0
+        // Filter UV data for the specific day we're showing (dayOffset)
+        let calendar = Calendar.current
+        var targetCalendar = calendar
+        if let tz = timeZone {
+            targetCalendar.timeZone = tz
+        }
+        
+        // Get the target day in the selected time zone
+        guard let targetDay = targetCalendar.date(byAdding: .day, value: dayOffset, to: targetCalendar.startOfDay(for: Date())) else {
+            return 0
+        }
+        
+        // Filter UV data to only include data for this specific day in the target time zone
+        let dayUVData = uvData.filter { uvDataPoint in
+            targetCalendar.isDate(uvDataPoint.date, inSameDayAs: targetDay)
+        }
+        
+        return dayUVData.map { $0.uvIndex }.max() ?? 0
     }
     
     private func getUVAboveThresholdRanges() -> [(String, String)] {
         guard uvData.count > 1 else { return [] }
+        
+        // Filter UV data for the specific day we're showing (dayOffset)
+        let calendar = Calendar.current
+        var targetCalendar = calendar
+        if let tz = timeZone {
+            targetCalendar.timeZone = tz
+        }
+        
+        // Get the target day in the selected time zone
+        guard let targetDay = targetCalendar.date(byAdding: .day, value: dayOffset, to: targetCalendar.startOfDay(for: Date())) else {
+            return []
+        }
+        
+        // Filter UV data to only include data for this specific day in the target time zone
+        let dayUVData = uvData.filter { uvDataPoint in
+            targetCalendar.isDate(uvDataPoint.date, inSameDayAs: targetDay)
+        }
+        
+        guard dayUVData.count > 1 else { return [] }
+        
         var ranges: [(Date, Date)] = []
         var currentStart: Date? = nil
         
-        for i in 0..<uvData.count {
-            let uv = uvData[i].uvIndex
-            let date = uvData[i].date
+        for i in 0..<dayUVData.count {
+            let uv = dayUVData[i].uvIndex
+            let date = dayUVData[i].date
             if uv > userThreshold {
                 if currentStart == nil { currentStart = date }
             } else {
@@ -135,21 +174,47 @@ struct DayForecastCard: View {
             }
         }
         
+        // Handle case where threshold is exceeded until end of day
         if let start = currentStart {
-            ranges.append((start, uvData.last!.date))
+            ranges.append((start, dayUVData.last!.date))
         }
         
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
+        if let tz = timeZone {
+            formatter.timeZone = tz
+        }
+        
         return ranges.map { (start, end) in
             (formatter.string(from: start), formatter.string(from: end))
         }
     }
     
     private func getPeakUVTime() -> String {
-        guard let maxUVData = uvData.max(by: { $0.uvIndex < $1.uvIndex }) else { return "N/A" }
+        // Filter UV data for the specific day we're showing (dayOffset) 
+        let calendar = Calendar.current
+        var targetCalendar = calendar
+        if let tz = timeZone {
+            targetCalendar.timeZone = tz
+        }
+        
+        // Get the target day in the selected time zone
+        guard let targetDay = targetCalendar.date(byAdding: .day, value: dayOffset, to: targetCalendar.startOfDay(for: Date())) else {
+            return "N/A"
+        }
+        
+        // Filter UV data to only include data for this specific day in the target time zone
+        let dayUVData = uvData.filter { uvDataPoint in
+            targetCalendar.isDate(uvDataPoint.date, inSameDayAs: targetDay)
+        }
+        
+        guard let maxUVData = dayUVData.max(by: { $0.uvIndex < $1.uvIndex }) else { return "N/A" }
+        
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
+        if let tz = timeZone {
+            formatter.timeZone = tz
+        }
         return formatter.string(from: maxUVData.date)
     }
     

@@ -21,6 +21,7 @@ struct CustomSliderThumb: View {
 struct UVChartView: View {
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     var data: [UVData]? = nil
+    var timeZone: TimeZone? = nil
     @GestureState private var dragOffset: CGFloat? = nil
     @State private var selectedFraction: CGFloat? = nil // 0...1, nil = current time
     @State private var isDragging = false
@@ -42,14 +43,20 @@ struct UVChartView: View {
             VStack(alignment: .leading, spacing: 4) {
                 let (displayTime, displayUV, displayColor) = getDisplayTimeUV()
                 HStack(spacing: 8) {
-                Text(isDragging ? "Selected:" : "Now:")
-                    .font(.headline)
-                    .fontWeight(.medium)
+                    Text(getTimeLabel())
+                        .font(.headline)
+                        .fontWeight(.medium)
                         .foregroundColor(displayColor)
                     Text(displayTime)
                         .font(.headline)
                         .fontWeight(.bold)
                         .foregroundColor(displayColor)
+                    if let tz = timeZone {
+                        Text("(\(getTimeZoneDifferenceText(tz)))")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(displayColor.opacity(0.8))
+                    }
                     if let uv = displayUV {
                         Text("• UV \(uv)")
                         .font(.headline)
@@ -93,10 +100,14 @@ struct UVChartView: View {
                             let textPoint = CGPoint(x: chartRect.maxX + 2, y: yPos - textSize.height/2)
                             context.draw(resolved, at: textPoint)
                         }
-                        // Draw X-axis ticks and labels (every 3 hours)
-                        let calendar = Calendar.current
+                        // Draw X-axis ticks and labels (exclude 12am; show 6am, 12pm, 6pm)
+                        var calendar = Calendar.current
+                        // Align axis labels with the selected location's timezone if provided
+                        if let tz = timeZone {
+                            calendar.timeZone = tz
+                        }
                         let startOfDay = calendar.startOfDay(for: uvData.first!.date)
-                        for hour in stride(from: 0, through: 24, by: 6) {
+                        for hour in stride(from: 6, through: 18, by: 6) {
                             guard let tickDate = calendar.date(byAdding: .hour, value: hour, to: startOfDay) else { continue }
                             let totalSeconds = uvData.last!.date.timeIntervalSince(uvData.first!.date)
                             let tickSeconds = tickDate.timeIntervalSince(uvData.first!.date)
@@ -110,9 +121,7 @@ struct UVChartView: View {
                             context.stroke(tick, with: .color(.gray), lineWidth: 1)
                             // Label
                             let hourLabel: String
-                            if hour == 0 || hour == 24 {
-                                hourLabel = "12am"
-                            } else if hour == 12 {
+                            if hour == 12 {
                                 hourLabel = "12pm"
                             } else if hour < 12 {
                                 hourLabel = "\(hour)am"
@@ -213,12 +222,29 @@ struct UVChartView: View {
                                 let geoWidth = geo.size.width - 2*chartPadding
                                 let x = min(max(value.location.x - chartPadding, 0), geoWidth)
                                 selectedFraction = x / geoWidth
+                                
+                                // Send notification with selected time for time zone display
+                                let uvData = getChartUVData()
+                                if uvData.count > 1 {
+                                    let fraction = selectedFraction ?? getNowFraction()
+                                    let idx = fraction * CGFloat(uvData.count - 1)
+                                    let lowerIdx = Int(floor(idx))
+                                    let upperIdx = min(lowerIdx + 1, uvData.count - 1)
+                                    let interpolationFactor = idx - CGFloat(lowerIdx)
+                                    let lowerDate = uvData[lowerIdx].date
+                                    let upperDate = uvData[upperIdx].date
+                                    let interpolatedTime = lowerDate.addingTimeInterval(
+                                        (upperDate.timeIntervalSince(lowerDate)) * Double(interpolationFactor)
+                                    )
+                                    NotificationCenter.default.post(name: .chartTimeSelected, object: interpolatedTime)
+                                }
                             }
                             .onEnded { _ in
                                 isDragging = false
                                 let nowFraction = getNowFraction()
                                 guard let start = selectedFraction else {
                                     selectedFraction = nil
+                                    NotificationCenter.default.post(name: .chartTimeDeselected, object: nil)
                                     return
                                 }
                                 let animationDuration = 0.1
@@ -233,6 +259,7 @@ struct UVChartView: View {
                                         }
                                         if step == animationSteps {
                                             selectedFraction = nil
+                                            NotificationCenter.default.post(name: .chartTimeDeselected, object: nil)
                                         }
                                     }
                                 }
@@ -298,12 +325,14 @@ struct UVChartView: View {
             usedData = todayHourlyData
         }
         
-        guard let first = usedData.first, let last = usedData.last else { 
+        // Remove 12am point to avoid edge cut-off
+        let filtered = usedData.filter { calendar.component(.hour, from: $0.date) != 0 }
+        guard let first = filtered.first, let last = filtered.last else {
             return [] 
         }
         
         let totalSeconds = last.date.timeIntervalSince(first.date)
-        let result = usedData.map { d in
+        let result = filtered.map { d in
             let fraction = CGFloat(d.date.timeIntervalSince(first.date) / totalSeconds)
             return (fraction, d.uvIndex, d.date)
         }
@@ -362,7 +391,18 @@ struct UVChartView: View {
         UVColorUtils.getUVColor(uvIndex)
     }
     private func formatHour(_ date: Date) -> String {
-        UVColorUtils.formatHour(date)
+        let formatter = DateFormatter()
+        if UnitConverter.shared.settingsManager?.is24HourClock == true {
+            formatter.dateFormat = "HH:mm"
+        } else {
+            formatter.dateFormat = "h:mm a"
+        }
+        
+        if let tz = timeZone {
+            formatter.timeZone = tz
+        }
+        
+        return formatter.string(from: date)
     }
     private func getTimeToBurnString(for uv: Int) -> String {
         return UnitConverter.shared.formatTimeToBurn(uv)
@@ -451,6 +491,29 @@ struct UVChartView: View {
         formatter.dateFormat = "h:mm a"
         return ranges.map { (start, end) in
             (formatter.string(from: start), formatter.string(from: end))
+        }
+    }
+    
+    // MARK: - Time Zone Helper Functions
+    private func getTimeLabel() -> String {
+        if isDragging {
+            return timeZone != nil ? "Selected:" : "Selected:"
+        } else {
+            return timeZone != nil ? "Current:" : "Now:"
+        }
+    }
+    
+    private func getTimeZoneDifferenceText(_ selectedTimeZone: TimeZone) -> String {
+        let userTZ = TimeZone.current
+        let now = Date()
+        let hourDiff = (selectedTimeZone.secondsFromGMT(for: now) - userTZ.secondsFromGMT(for: now)) / 3600
+        
+        if hourDiff == 0 {
+            return "Same time"
+        } else if hourDiff > 0 {
+            return "+\(hourDiff)h"
+        } else {
+            return "\(hourDiff)h"
         }
     }
 }

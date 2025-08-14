@@ -21,12 +21,26 @@ struct MapView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Show search UI only when no city is selected
-                if searchViewModel.selectedLocation == nil {
+                // Show search UI only when no city or celestial body is selected
+                if searchViewModel.selectedLocation == nil && searchViewModel.selectedCelestialBody == nil {
+                    // Concise Apple-like intro above search
+                    SearchIntroHeader()
+                        .padding(.horizontal)
+                        .padding(.top, 16)
+                        .padding(.bottom, 8)
+
                     SearchBarView(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
-                        .background(.ultraThinMaterial) // was Color(.systemBackground)
+                        .background(Color.clear)
                         .zIndex(3)
                     
+                    // Recent search history when idle (simple list on background)
+                    if searchViewModel.searchText.isEmpty && searchViewModel.suggestions.isEmpty && searchViewModel.searchResults.isEmpty && !searchViewModel.searchHistory.isEmpty {
+                        HistoryOverlay(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
+                            .listStyle(.plain)
+                            .scrollContentBackground(.hidden)
+                            .zIndex(2)
+                    }
+
                     // Suggestions directly under the bar (for 1–2 letters)
                     if !searchViewModel.suggestions.isEmpty {
                         SuggestionsOverlay(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
@@ -38,7 +52,7 @@ struct MapView: View {
                     }
                     
                     // Full search results (3+ letters)
-                    if !searchViewModel.searchResults.isEmpty {
+                    if !searchViewModel.searchResults.isEmpty || !searchViewModel.celestialSearchResults.isEmpty {
                         SearchResultsOverlay(searchViewModel: searchViewModel, isSearchFocused: $isSearchFocused)
                             .background(.regularMaterial) // was Color(.systemBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -48,7 +62,7 @@ struct MapView: View {
                     }
                 }
                 
-                if let _ = searchViewModel.selectedLocation {
+                if searchViewModel.selectedLocation != nil || searchViewModel.selectedCelestialBody != nil {
                     SearchResultView(searchViewModel: searchViewModel) {
                         searchViewModel.clearSelection()
                         // Search bar will reappear; keep keyboard hidden until tapped
@@ -56,23 +70,8 @@ struct MapView: View {
                     }
                     .transition(.move(edge: .trailing))
                 } else {
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            Spacer(minLength: 24)
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 40, weight: .semibold))
-                                .foregroundColor(.secondary)
-                            Text("Search for a city or area")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            Text("Get current UV and a 7-day forecast for any place")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 24)
-                    }
-                    .background(Color.clear)
+                    // No intro placeholder below when a city is not selected; we show only the search UI and results
+                    EmptyView()
                 }
             }
         }
@@ -110,10 +109,14 @@ struct SearchBarView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 8)
+                .background(Color.clear)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(Color.primary.opacity(0.25))
+                }
                 
                 if isSearchFocused.wrappedValue {
                     Button("Cancel") {
@@ -198,6 +201,16 @@ struct SearchResultsOverlay: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
+                // Celestial bodies first (more fun!)
+                ForEach(searchViewModel.celestialSearchResults) { celestialBody in
+                    CelestialBodyRow(celestialBody: celestialBody) {
+                        searchViewModel.selectCelestialBody(celestialBody)
+                        isSearchFocused.wrappedValue = false
+                    }
+                    Divider()
+                }
+                
+                // Regular location results
                 ForEach(searchViewModel.searchResults) { result in
                     SearchResultRow(result: result) {
                         searchViewModel.selectLocation(result)
@@ -207,6 +220,102 @@ struct SearchResultsOverlay: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - History Overlay
+struct HistoryOverlay: View {
+    @ObservedObject var searchViewModel: SearchViewModel
+    var isSearchFocused: FocusState<Bool>.Binding
+    
+    var body: some View {
+        // Plain list with thin separators, transparent background
+        List {
+            ForEach(searchViewModel.searchHistory) { result in
+                SearchResultRow(result: result) {
+                    searchViewModel.selectLocation(result)
+                    isSearchFocused.wrappedValue = false
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.visible)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        searchViewModel.removeFromHistory(id: result.id)
+                    } label: {
+                        Label("Remove", systemImage: "trash")
+                    }
+                }
+            }
+            .onDelete { offsets in
+                searchViewModel.removeFromHistory(at: offsets)
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+    }
+}
+
+// MARK: - Concise Intro Header
+struct SearchIntroHeader: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Find a city")
+                .font(.title2).fontWeight(.semibold)
+                .foregroundColor(.primary)
+            Text("Current UV and 7‑day forecast")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+// MARK: - Celestial Body Row
+struct CelestialBodyRow: View {
+    let celestialBody: CelestialBody
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Text(celestialBody.emoji)
+                    .font(.system(size: 20))
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(celestialBody.displayName)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                        
+                        Text("UV \(celestialBody.uvIndex)")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(UVColorUtils.getUVColor(celestialBody.uvIndex))
+                            .cornerRadius(4)
+                    }
+                    
+                    Text(celestialBody.fullDisplayName)
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle())
     }
 }
 
@@ -242,7 +351,10 @@ struct SearchResultRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle())
     }
 } 
