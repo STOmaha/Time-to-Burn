@@ -16,17 +16,19 @@ struct CelestialBody: Identifiable, Hashable {
     let name: String
     let type: CelestialBodyType
     let uvIndex: Int
+    let timeToBurn: String // Hard-coded burn time for Type I skin
     let distanceFromSun: Double? // AU (Astronomical Units)
     let description: String
     let yearLaunched: Int? // For satellites/stations
     let orbitType: String? // For satellites
     let funFact: String
     
-    init(name: String, type: CelestialBodyType, uvIndex: Int, distanceFromSun: Double? = nil, description: String, yearLaunched: Int? = nil, orbitType: String? = nil, funFact: String) {
+    init(name: String, type: CelestialBodyType, uvIndex: Int, timeToBurn: String, distanceFromSun: Double? = nil, description: String, yearLaunched: Int? = nil, orbitType: String? = nil, funFact: String) {
         self.id = UUID()
         self.name = name
         self.type = type
         self.uvIndex = uvIndex
+        self.timeToBurn = timeToBurn
         self.distanceFromSun = distanceFromSun
         self.description = description
         self.yearLaunched = yearLaunched
@@ -64,14 +66,16 @@ struct CelestialBody: Identifiable, Hashable {
         switch type {
         case .planet:
             switch name.lowercased() {
+            case "the sun", "sun": return "☀️"
             case "mercury": return "☿️"
             case "venus": return "♀️"
-            case "mars": return "🔴"
-            case "jupiter": return "🪐"
-            case "saturn": return "🪐"
-            case "uranus": return "🔵"
-            case "neptune": return "🔵"
-            default: return "🌍"
+            case "mars": return "♂️"
+            case "jupiter": return "♃"
+            case "saturn": return "♄"
+            case "uranus": return "♅"
+            case "neptune": return "♆"
+            case "pluto": return "♇"
+            default: return "☀️"
             }
         case .moon:
             return "🌙"
@@ -91,6 +95,8 @@ struct CelestialBody: Identifiable, Hashable {
     static func == (lhs: CelestialBody, rhs: CelestialBody) -> Bool {
         lhs.id == rhs.id
     }
+    
+
 }
 
 // MARK: - Celestial Body Service
@@ -100,68 +106,96 @@ class CelestialBodyService: ObservableObject {
     static let shared = CelestialBodyService()
     
     private let celestialBodies: [CelestialBody] = [
+        // MARK: - The Sun
+        CelestialBody(
+            name: "The Sun",
+            type: .planet, // Using planet type for solar objects
+            uvIndex: 999,
+            timeToBurn: "Instant Vaporization",
+            distanceFromSun: 0.0,
+            description: "Our star - the ultimate UV source",
+            funFact: "☀️ INFINITE UV! The source of all solar system UV! Getting close enough to measure would be... problematic. You'd be vaporized long before UV became your concern! ☀️🔥"
+        ),
+        
         // MARK: - Planets
         CelestialBody(
             name: "Mercury",
             type: .planet,
-            uvIndex: 330,
+            uvIndex: 334,
+            timeToBurn: "23 seconds",
             distanceFromSun: 0.387,
             description: "Closest planet to the Sun",
-            funFact: "No meaningful atmosphere means UV hits the surface at full vacuum intensity - you'd be instantly fried! ☿️🔥"
+            funFact: "☿️ Extreme. Essentially space-level UV at 0.39 AU. Full UV visor, space suit; SPF numbers don't mean much here. 🔥 And that's ignoring brutal heat, glare from bright regolith, and no shade. You'll be crispy in under 30 seconds! ☿️"
         ),
         
         CelestialBody(
             name: "Venus",
             type: .planet,
             uvIndex: 0,
+            timeToBurn: "Never (UV blocked)",
             distanceFromSun: 0.723,
             description: "Thick sulfuric acid clouds block all UV",
-            funFact: "The 20km-thick sulfuric acid cloud deck means UV never reaches the surface - but you'd melt from 462°C heat first! ♀️🌫️"
+            funFact: "♀️ 'UV? Sorry, we're closed.' ☁️ A crushing CO₂ atmosphere plus thick sulfuric-acid clouds snuff nearly all UV before it reaches the ground. Fun fact: strong UV exists high in the clouds, but ground-level is a UV desert. You have much bigger problems (460°C, 90 bar). Bring a submarine-for-air! 🧯"
         ),
         
         CelestialBody(
             name: "Mars",
             type: .planet,
-            uvIndex: 18,
+            uvIndex: 17,
+            timeToBurn: "4 minutes 20 seconds",
             distanceFromSun: 1.524,
             description: "Thin atmosphere offers little UV protection",
-            funFact: "NASA's Curiosity rover consistently measures 'extreme' UV levels - bring SPF 1000+ for your Mars vacation! 🔴🤖"
+            funFact: "♂️ The atmosphere filters some UV, but not much—dust can either block or boost via scattering. 🌬️ UPF hood/visor, gloves; sunscreen alone is not enough for long exposure. NASA's rovers are basically solar-powered sunscreen testers! 🤖"
         ),
         
         CelestialBody(
             name: "Jupiter",
             type: .planet,
-            uvIndex: 2,
+            uvIndex: 1,
+            timeToBurn: "1 hour 40 minutes",
             distanceFromSun: 5.20,
             description: "Gas giant with thick atmosphere",
-            funFact: "You'd float in the thick atmosphere at cloud level - UV is low but you'd be crushed by pressure! 🪐💨"
+            funFact: "♃ 'Ground level' doesn't exist—just hydrogen weather. 🌪️ UV is modest by Earth standards. If you could hover there: sunglasses, mild protection. Your bigger risk is...Jupiter. Fashion tip: wear rings! 💍"
         ),
         
         CelestialBody(
             name: "Saturn",
             type: .planet,
             uvIndex: 1,
+            timeToBurn: "3 hours 20 minutes",
             distanceFromSun: 9.54,
             description: "Ringed gas giant",
-            funFact: "Low UV at the cloud tops, but you'd need to worry more about the hexagonal storms and rings! 🪐💍"
+            funFact: "♄ Dim, far Sun; thick hazes. 🧊 Fashion tip: wear rings. Safety tip: also wear an imaginary floating platform. The UV is so low you could practically sunbathe...if you had a surface and didn't freeze! 🎭"
         ),
         
         CelestialBody(
             name: "Uranus",
             type: .planet,
             uvIndex: 0,
+            timeToBurn: "Forever (too cold anyway)",
             distanceFromSun: 19.2,
             description: "Ice giant tilted on its side",
-            funFact: "Practically no UV reaching the cloud tops - it's basically permanent winter in space! 🔵❄️"
+            funFact: "♅ Sun's a tiny disc; biologically weak UV. 💤 Lip balm and goggles for the winds—UV isn't the headline. It's basically permanent winter in space where even the Sun gave up trying! ❄️"
         ),
         
         CelestialBody(
             name: "Neptune",
             type: .planet,
             uvIndex: 0,
+            timeToBurn: "Never (winds will get you first)",
             distanceFromSun: 30.1,
             description: "Furthest gas giant with extreme winds",
-            funFact: "Almost no UV, but winds up to 2,100 km/h would be your bigger concern! 🔵💨"
+            funFact: "♆ Even dimmer; UV is negligible. 🧊 The hurricanes here aren't beach weather. 🌀 You're more likely to be blown away by 2,100 km/h winds than get a sunburn! The Sun is basically a bright star from here. ⭐"
+        ),
+        
+        CelestialBody(
+            name: "Pluto",
+            type: .planet,
+            uvIndex: 0,
+            timeToBurn: "Never (bring a parka)",
+            distanceFromSun: 39.0,
+            description: "Dwarf planet in the outer solar system",
+            funFact: "♇ UV is tiny at ~39 AU; the Sun is a bright star. ❄️ Sunscreen? Optional. Parka? Mandatory. 🧣 It's so cold and dark here that even the UV rays decided to stay home. The ultimate 'cool' destination! 🏔️"
         ),
         
         // MARK: - Moon
@@ -169,8 +203,9 @@ class CelestialBodyService: ObservableObject {
             name: "The Moon",
             type: .moon,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Earth's natural satellite",
-            funFact: "No atmosphere means full space UV hits the surface - lunar tourists need serious sunscreen! 🌙☀️"
+            funFact: "🌙 Extreme (space-level UV at noon). 🔥 Protection: visor + space suit; regolith is bright, so watch reflected UV. Neil Armstrong didn't just need courage—he needed SPF ∞! The ultimate space sunbathing destination! 🚀☀️"
         ),
         
         // MARK: - Space Stations
@@ -178,6 +213,7 @@ class CelestialBodyService: ObservableObject {
             name: "International Space Station (ISS)",
             type: .spaceStation,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Largest human-made object in space",
             yearLaunched: 1998,
             orbitType: "Low Earth Orbit (LEO)",
@@ -188,6 +224,7 @@ class CelestialBodyService: ObservableObject {
             name: "Tiangong Space Station",
             type: .spaceStation,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "China's permanent modular space station",
             yearLaunched: 2021,
             orbitType: "Low Earth Orbit (LEO)",
@@ -199,6 +236,7 @@ class CelestialBodyService: ObservableObject {
             name: "Hubble Space Telescope",
             type: .telescope,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Iconic space telescope in low Earth orbit",
             yearLaunched: 1990,
             orbitType: "LEO (~540 km)",
@@ -209,6 +247,7 @@ class CelestialBodyService: ObservableObject {
             name: "James Webb Space Telescope",
             type: .telescope,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Most powerful space telescope ever built",
             yearLaunched: 2021,
             orbitType: "Sun-Earth L2 Point",
@@ -219,6 +258,7 @@ class CelestialBodyService: ObservableObject {
             name: "GOES-16 (GOES-East)",
             type: .satellite,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Weather monitoring satellite for the Americas",
             yearLaunched: 2016,
             orbitType: "Geostationary",
@@ -229,6 +269,7 @@ class CelestialBodyService: ObservableObject {
             name: "GOES-18 (GOES-West)",
             type: .satellite,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Weather monitoring satellite for the Pacific",
             yearLaunched: 2022,
             orbitType: "Geostationary",
@@ -239,6 +280,7 @@ class CelestialBodyService: ObservableObject {
             name: "Terra Satellite",
             type: .satellite,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "NASA's flagship Earth observation satellite",
             yearLaunched: 1999,
             orbitType: "Sun-synchronous LEO",
@@ -249,6 +291,7 @@ class CelestialBodyService: ObservableObject {
             name: "Aqua Satellite",
             type: .satellite,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Water cycle monitoring satellite",
             yearLaunched: 2002,
             orbitType: "Sun-synchronous LEO",
@@ -259,6 +302,7 @@ class CelestialBodyService: ObservableObject {
             name: "Landsat 8",
             type: .satellite,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Long-running Earth imaging satellite",
             yearLaunched: 2013,
             orbitType: "Sun-synchronous LEO",
@@ -269,6 +313,7 @@ class CelestialBodyService: ObservableObject {
             name: "Sentinel-2A",
             type: .satellite,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "High-resolution Earth observation satellite",
             yearLaunched: 2015,
             orbitType: "Sun-synchronous LEO",
@@ -279,6 +324,7 @@ class CelestialBodyService: ObservableObject {
             name: "Sentinel-2B",
             type: .satellite,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Twin satellite for global Earth monitoring",
             yearLaunched: 2017,
             orbitType: "Sun-synchronous LEO",
@@ -289,6 +335,7 @@ class CelestialBodyService: ObservableObject {
             name: "Starlink-30000",
             type: .satellite,
             uvIndex: 50,
+            timeToBurn: "2 minutes 40 seconds",
             description: "Internet constellation satellite",
             yearLaunched: 2019,
             orbitType: "LEO (~550 km)",
@@ -318,13 +365,21 @@ class CelestialBodyService: ObservableObject {
             !exactMatches.contains(body) && !partialMatches.contains(body) && (
                 (normalizedQuery.contains("space") && (body.type == .spaceStation || body.type == .satellite || body.type == .telescope)) ||
                 (normalizedQuery.contains("planet") && body.type == .planet) ||
+                (normalizedQuery.contains("solar system") && body.type == .planet) ||
+                (normalizedQuery.contains("solar") && body.type == .planet) ||
+                (normalizedQuery.contains("system") && body.type == .planet) ||
+                (normalizedQuery.contains("sun") && body.name.lowercased().contains("sun")) ||
                 (normalizedQuery.contains("satellite") && body.type == .satellite) ||
                 (normalizedQuery.contains("telescope") && body.type == .telescope) ||
                 (normalizedQuery.contains("station") && body.type == .spaceStation) ||
                 (normalizedQuery.contains("iss") && body.name.contains("ISS")) ||
                 (normalizedQuery.contains("hubble") && body.name.contains("Hubble")) ||
                 (normalizedQuery.contains("webb") && body.name.contains("Webb")) ||
-                (normalizedQuery.contains("moon") && body.type == .moon)
+                (normalizedQuery.contains("moon") && body.type == .moon) ||
+                (normalizedQuery.contains("uv") && body.uvIndex > 50) || // High UV bodies
+                (normalizedQuery.contains("extreme") && body.uvIndex > 50) ||
+                (normalizedQuery.contains("burn") && body.uvIndex > 10) ||
+                (normalizedQuery.contains("dangerous") && body.uvIndex > 100)
             )
         }
         

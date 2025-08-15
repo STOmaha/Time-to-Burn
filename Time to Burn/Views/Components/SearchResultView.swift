@@ -379,7 +379,7 @@ struct CelestialBodyUVSummaryCard: View {
                                 .font(.headline)
                                 .foregroundColor(.primary)
                         }
-                        Text("~\(UnitConverter.shared.formatTimeToBurn(celestialBody.uvIndex))")
+                        Text("~\(celestialBody.timeToBurn)")
                             .font(.system(size: 20, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
                     } else {
