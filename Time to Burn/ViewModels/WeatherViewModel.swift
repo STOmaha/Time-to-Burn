@@ -5,6 +5,29 @@ import SwiftUI
 // import UserNotifications
 import WidgetKit
 
+// MARK: - Connection Status
+enum ConnectionStatus {
+    case connected
+    case reconnecting
+    case offline
+    
+    var displayText: String {
+        switch self {
+        case .connected: return "Connected"
+        case .reconnecting: return "Reconnecting..."
+        case .offline: return "Offline"
+        }
+    }
+    
+    var emoji: String {
+        switch self {
+        case .connected: return "🌐"
+        case .reconnecting: return "🔄"
+        case .offline: return "📡"
+        }
+    }
+}
+
 @MainActor
 class WeatherViewModel: ObservableObject {
     private let weatherService = WeatherService.shared
@@ -19,9 +42,20 @@ class WeatherViewModel: ObservableObject {
     @Published var showErrorAlert = false
     @Published var errorMessage = ""
     
+    // Retry logic properties
+    private var retryCount = 0
+    private let maxRetries = 3
+    private var isRetrying = false
+    @Published var connectionStatus: ConnectionStatus = .connected
+    
     // UV Data
     @Published var currentUVData: UVData?
     @Published var hourlyUVData: [UVData] = []
+    
+    // Additional Weather Data for Misery Index
+    @Published var currentTemperature: Double?
+    @Published var currentHumidity: Double?
+    @Published var currentWindSpeed: Double?
     
     // Data flow state
     @Published var dataFlowState: DataFlowState = .initializing
@@ -31,6 +65,11 @@ class WeatherViewModel: ObservableObject {
     
     // Background refresh timer
     private var backgroundRefreshTimer: Timer?
+
+    // Debouncing to prevent cascade loops
+    private var lastRefreshTime: Date?
+    private var isRefreshing = false
+    private let minRefreshInterval: TimeInterval = 5 // Minimum 5 seconds between refreshes
     
     enum DataFlowState: Equatable {
         case initializing
@@ -70,7 +109,7 @@ class WeatherViewModel: ObservableObject {
     init(locationManager: LocationManager) {
         self.locationManager = locationManager
         
-        print("🌤️ [WeatherViewModel] 🚀 Initializing...")
+        logInfo(.weather, "WeatherViewModel initializing")
         
         // Setup daily weather refresh notification listener
         // setupDailyWeatherRefreshListener()
@@ -84,16 +123,36 @@ class WeatherViewModel: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Main entry point for data refresh - follows proper sequential flow
+    /// Main entry point for data refresh - follows proper sequential flow with debouncing
     func refreshData() async {
-        print("🌤️ [WeatherViewModel] 🔄 Starting data refresh sequence")
-        
-        // Force a fresh location update first
-        locationManager.forceRefreshLocation()
-        
-        // Wait a moment for location to update, then proceed with data flow
-        try? await Task.sleep(nanoseconds: 2_000_000_000) // Wait 2 seconds
-        
+        // Debounce: prevent cascade loops and redundant refreshes
+        if isRefreshing {
+            logInfo(.weather, "Refresh already in progress, skipping")
+            return
+        }
+
+        if let lastRefresh = lastRefreshTime,
+           Date().timeIntervalSince(lastRefresh) < minRefreshInterval {
+            logInfo(.weather, "Refresh throttled (last refresh \(Int(Date().timeIntervalSince(lastRefresh)))s ago)")
+            return
+        }
+
+        isRefreshing = true
+        lastRefreshTime = Date()
+
+        defer {
+            Task { @MainActor in
+                self.isRefreshing = false
+            }
+        }
+
+        logInfo(.weather, "Starting data refresh sequence")
+
+        // Reset retry state for fresh start
+        resetRetryState()
+
+        // Use existing location instead of forcing refresh to prevent cascade loops
+        // The location should already be updated by LocationManager
         await initializeDataFlow()
     }
     
@@ -108,6 +167,76 @@ class WeatherViewModel: ObservableObject {
         // Keep background refresh running
     }
     
+    // MARK: - Retry Logic
+    private func shouldRetryError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        
+        // Check for network-related errors that are worth retrying
+        if nsError.domain == "WeatherDaemon.WDSClient-Errors" && nsError.code == 0 {
+            return true // Network timeout
+        }
+        
+        // Check for common network error codes
+        if nsError.code == NSURLErrorTimedOut ||
+           nsError.code == NSURLErrorCannotConnectToHost ||
+           nsError.code == NSURLErrorNetworkConnectionLost ||
+           nsError.code == NSURLErrorNotConnectedToInternet {
+            return true
+        }
+        
+        return false
+    }
+    
+    private func getRetryDelay() -> TimeInterval {
+        // Exponential backoff: 2^retryCount seconds (2, 4, 8 seconds)
+        let baseDelay: TimeInterval = 2.0
+        return baseDelay * pow(2.0, Double(retryCount))
+    }
+    
+    private func resetRetryState() {
+        retryCount = 0
+        isRetrying = false
+        connectionStatus = .connected
+    }
+    
+    private func handleRetryableError(_ error: Error, location: CLLocation) async {
+        guard retryCount < maxRetries && !isRetrying else {
+            // Max retries reached, set offline status but don't show alert
+            await MainActor.run {
+                self.connectionStatus = .offline
+                self.isLoading = false
+                self.dataFlowState = .error("Network temporarily unavailable")
+            }
+            
+            logWarning(.weather, "Max retries reached, going offline", data: [
+                "Retry Count": "\(retryCount)",
+                "Error": error.localizedDescription
+            ])
+            return
+        }
+        
+        isRetrying = true
+        retryCount += 1
+        
+        await MainActor.run {
+            self.connectionStatus = .reconnecting
+        }
+        
+        let retryDelay = getRetryDelay()
+        
+        logInfo(.weather, "Retrying WeatherKit request", data: [
+            "Attempt": "\(retryCount)/\(maxRetries)",
+            "Delay": "\(Int(retryDelay))s",
+            "Error": error.localizedDescription
+        ])
+        
+        // Wait before retrying
+        try? await Task.sleep(for: .seconds(retryDelay))
+        
+        // Retry the request
+        await fetchUVData(for: location)
+    }
+    
     func appDidEnterBackground() {
         // Keep background refresh running for Live Activity updates
     }
@@ -115,43 +244,56 @@ class WeatherViewModel: ObservableObject {
     // MARK: - Private Methods - Sequential Data Flow
     
     private func initializeDataFlow() async {
-        print("🌤️ [WeatherViewModel] 🔄 Step 1: Initializing data flow")
         dataFlowState = .initializing
         
+        let locationStatus = locationManager.authorizationStatus
+        let hasLocation = locationManager.location != nil
+        
+        logInfo(.weather, "Initializing data flow", data: [
+            "Permission": locationStatus.displayName,
+            "Has Location": hasLocation ? "✅" : "❌"
+        ])
+        
         // Step 1: Check if we have location permission
-        guard locationManager.authorizationStatus == .authorizedWhenInUse || 
-              locationManager.authorizationStatus == .authorizedAlways else {
-            print("🌤️ [WeatherViewModel] 📍 Step 2: No location permission, requesting...")
+        guard locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways else {
             dataFlowState = .waitingForLocation
+            logWarning(.location, "Location permission required", data: [
+                "Current Status": locationStatus.displayName
+            ])
             locationManager.requestLocation()
             return
         }
         
-        // Step 2: Check if we have location data and wait for fresh location if needed
+        // Step 2: Check if we have location data and wait for it if needed
         guard let location = locationManager.location else {
-            print("🌤️ [WeatherViewModel] 📍 Step 2: No location data, waiting...")
             dataFlowState = .waitingForLocation
-            locationManager.forceRefreshLocation()
-            
+            logInfo(.location, "Waiting for location data")
+            // Request location (don't force refresh to prevent cascade)
+            locationManager.requestLocation()
+
             // Wait for location update with timeout
             for i in 0..<10 { // Wait up to 10 seconds
-                if locationManager.location != nil {
-                    break
+                if let newLocation = locationManager.location {
+                    log.logLocation(newLocation, name: locationManager.locationName, context: "Fresh location acquired")
+                    dataFlowState = .locationReceived
+                    await fetchUVData(for: newLocation)
+                    return
                 }
                 try? await Task.sleep(nanoseconds: 1_000_000_000) // Wait 1 second
-                print("🌤️ [WeatherViewModel] 📍 Waiting for location... (\(i + 1)/10)")
+
+                if i == 4 { // Log at halfway point
+                    logInfo(.location, "Still waiting for location", data: ["Wait Time": "5 seconds"])
+                }
             }
-            
-            // If still no location, proceed with whatever we have
-            if locationManager.location == nil {
-                print("🌤️ [WeatherViewModel] ⚠️ No location received after timeout, proceeding with cached data")
-            }
-            
+
+            // If still no location, log error
+            logError(.location, "Location timeout after 10 seconds")
+            dataFlowState = .error("Location unavailable")
             return
         }
         
         // Step 3: We have location, fetch weather data
-        print("🌤️ [WeatherViewModel] ✅ Step 3: Location available, fetching weather...")
+        log.logLocation(location, name: locationManager.locationName, context: "Using existing location")
         dataFlowState = .locationReceived
         await fetchUVData(for: location)
     }
@@ -202,8 +344,9 @@ class WeatherViewModel: ObservableObject {
     }
     
     func fetchUVData(for location: CLLocation) async {
-        print("🌤️ [WeatherViewModel] 🌤️ Step 4: Fetching UV data for location...")
         dataFlowState = .fetchingWeather
+        
+        logInfo(.weather, "Fetching UV data from WeatherKit")
         
         await MainActor.run {
             isLoading = true
@@ -220,18 +363,27 @@ class WeatherViewModel: ObservableObject {
                 
                 self.currentUVData = newUVData
                 self.hourlyUVData = processedHourlyData
+                
+                // Store additional weather data for misery index
+                self.currentTemperature = currentWeather.temperature.value
+                self.currentHumidity = currentWeather.humidity
+                self.currentWindSpeed = currentWeather.wind.speed.value * 3.6 // Convert m/s to km/h
+                
                 self.lastUpdated = Date()
                 self.isLoading = false
                 self.dataFlowState = .weatherLoaded
                 
-                // Beautiful console logging
-                let uvEmoji = getUVEmoji(newUVData.uvIndex)
-                print("🌤️ [WeatherViewModel] ✅ Step 5: Weather data loaded successfully!")
-                print("   📊 Current UV: \(uvEmoji) \(newUVData.uvIndex)")
-                print("   📅 Hourly Data Points: \(processedHourlyData.count)")
-                print("   🕐 Updated: \(formatTime(Date()))")
-                print("   📍 Location: \(locationManager.locationName)")
-                print("   ──────────────────────────────────────")
+                // Reset retry state on successful fetch
+                self.resetRetryState()
+                
+                // Log comprehensive weather data
+                log.logUVData(newUVData, location: locationManager.locationName)
+                
+                logSuccess(.weather, "Weather data loaded successfully", data: [
+                    "Hourly Data Points": "\(processedHourlyData.count)",
+                    "Data Age": "Fresh",
+                    "Next Update": "30 minutes"
+                ])
                 
                 // Check for UV threshold alerts
                 // self.checkUVThresholdAlert()
@@ -241,21 +393,34 @@ class WeatherViewModel: ObservableObject {
                 
                 // Save weather data to shared storage for widget
                 self.saveWeatherDataToSharedStorage()
+                
+                // Sync UV data to Supabase for backend monitoring
+                Task {
+                    await self.syncUVDataToSupabase(location: location, uvData: newUVData)
+                }
             }
             
         } catch {
-            await MainActor.run {
-                self.error = error
-                self.isLoading = false
-                self.dataFlowState = .error(error.localizedDescription)
-                self.errorMessage = "WeatherKit Error: \(error.localizedDescription)\nDomain: \((error as NSError).domain)\nCode: \((error as NSError).code)"
-                self.showErrorAlert = true
+            // Check if this is a retryable error
+            if shouldRetryError(error) {
+                await handleRetryableError(error, location: location)
+            } else {
+                // Non-retryable error - handle gracefully without showing alert
+                await MainActor.run {
+                    self.error = error
+                    self.isLoading = false
+                    self.dataFlowState = .error("Weather data temporarily unavailable")
+                    self.connectionStatus = .offline
+                    // Removed: self.showErrorAlert = true - NO MORE USER ALERTS!
+                }
                 
-                print("🌤️ [WeatherViewModel] ❌ Step 5: Weather data fetch failed!")
-                print("   💥 Error: \(error.localizedDescription)")
-                print("   🔍 Domain: \((error as NSError).domain)")
-                print("   🔢 Code: \((error as NSError).code)")
-                print("   ──────────────────────────────────────")
+                logError(.weather, "WeatherKit API failed (non-retryable)", data: [
+                    "Error": error.localizedDescription,
+                    "Domain": (error as NSError).domain,
+                    "Code": "\((error as NSError).code)",
+                    "Location": locationManager.locationName,
+                    "Action": "Silent failure - no user alert"
+                ])
             }
         }
     }
@@ -293,20 +458,21 @@ class WeatherViewModel: ObservableObject {
     // Add method to test WeatherKit connectivity
     func testWeatherKitConnectivity() async -> Bool {
         guard let location = locationManager.location else {
-            print("🌤️ [WeatherViewModel] 📍 No location available for connectivity test")
+            logWarning(.weather, "No location available for connectivity test")
             return false
         }
         
         do {
             // Try a simple weather request
             _ = try await weatherService.weather(for: location)
+            logSuccess(.weather, "WeatherKit connectivity test passed")
             return true
         } catch {
-            print("🌤️ [WeatherViewModel] ❌ WeatherKit connectivity test failed:")
-            print("   💥 Error: \(error)")
-            print("   🔍 Domain: \((error as NSError).domain)")
-            print("   🔢 Code: \((error as NSError).code)")
-            print("   ──────────────────────────────────────")
+            logError(.weather, "WeatherKit connectivity test failed", data: [
+                "Error": error.localizedDescription,
+                "Domain": (error as NSError).domain,
+                "Code": "\((error as NSError).code)"
+            ])
             return false
         }
     }
@@ -386,14 +552,17 @@ class WeatherViewModel: ObservableObject {
     
     // MARK: - Background Refresh
     private func startBackgroundRefresh() {
-        print("🌤️ [WeatherViewModel] ⏰ Starting background refresh timer")
-        
         // Stop existing timer if running
         stopBackgroundRefresh()
         
+        logInfo(.weather, "Starting background refresh timer", data: [
+            "Interval": "30 minutes",
+            "Auto Refresh": "✅ Enabled"
+        ])
+        
         // Create timer that fires every 30 minutes (1800 seconds) for better UV monitoring
         backgroundRefreshTimer = Timer.scheduledTimer(withTimeInterval: 1800, repeats: true) { [weak self] _ in
-            print("🌤️ [WeatherViewModel] ⏰ Background refresh timer fired (30-minute interval)")
+            logInfo(.weather, "Background refresh triggered")
             Task {
                 await self?.refreshData()
             }
@@ -434,6 +603,65 @@ class WeatherViewModel: ObservableObject {
         return formatter.string(from: date)
     }
     
+    // MARK: - Supabase Sync
+    
+    /// Sync UV data to Supabase for backend monitoring
+    private func syncUVDataToSupabase(location: CLLocation, uvData: UVData) async {
+        // Only sync if user is authenticated
+        guard SupabaseService.shared.isAuthenticated else {
+            logInfo(.data, "Skipping Supabase sync - user not authenticated")
+            return
+        }
+        
+        logInfo(.data, "Syncing UV data to Supabase")
+        
+        // Fetch environmental factors
+        let environmentalDataService = EnvironmentalDataService.shared
+        guard let environmentalFactors = await environmentalDataService.fetchEnvironmentalData(for: location) else {
+            logWarning(.data, "Failed to fetch environmental factors for Supabase sync")
+            return
+        }
+        
+        // Calculate adjusted UV with environmental factors
+        let adjustedUV = calculateAdjustedUV(baseUV: uvData.uvIndex, factors: environmentalFactors)
+        
+        // Get user's UV threshold from settings (default: 6)
+        let uvThreshold = UserDefaults.standard.integer(forKey: "uvAlertThreshold")
+        let threshold = uvThreshold == 0 ? 6 : uvThreshold
+        
+        // Use BackgroundSyncService for smart syncing
+        await BackgroundSyncService.shared.syncUVData(
+            location: location,
+            locationName: locationManager.locationName,
+            currentUV: uvData.uvIndex,
+            adjustedUV: adjustedUV,
+            environmentalFactors: environmentalFactors,
+            threshold: threshold
+        )
+    }
+    
+    /// Calculate adjusted UV index with environmental factors
+    private func calculateAdjustedUV(baseUV: Int, factors: EnvironmentalFactors) -> Int {
+        var adjustedUV = Double(baseUV)
+        
+        // Altitude adjustment (10% increase per 1000m)
+        let altitudeMultiplier = 1.0 + (factors.altitude / 1000.0) * 0.10
+        adjustedUV *= altitudeMultiplier
+        
+        // Snow reflection (can add up to 80% more UV)
+        let snowReflection = factors.snowConditions.snowType.reflectionFactor
+        adjustedUV += Double(baseUV) * snowReflection * (factors.snowConditions.snowCoverage / 100.0)
+        
+        // Water reflection (can add up to 25% more UV if nearby)
+        if factors.waterProximity.distanceToWater < 1000 {
+            let waterReflection = factors.waterProximity.waterBodyType.reflectionFactor
+            let distanceFactor = max(0.1, 1.0 - (factors.waterProximity.distanceToWater / 1000.0))
+            adjustedUV += Double(baseUV) * waterReflection * distanceFactor
+        }
+        
+        return Int(round(adjustedUV))
+    }
+    
     // MARK: - Shared Data Write for Widget
     private func saveWeatherDataToSharedStorage() {
         // Prepare shared data
@@ -460,13 +688,21 @@ class WeatherViewModel: ObservableObject {
         )
         // Save to shared storage
         if let encoded = try? JSONEncoder().encode(sharedData) {
-            if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+            if let userDefaults = UserDefaults(suiteName: "group.com.anvilheadstudios.timetoburn") {
                 userDefaults.set(encoded, forKey: "sharedUVData")
                 userDefaults.synchronize()
-                print("🌤️ [WeatherViewModel] ✅ Saved weather data to shared storage for widget - UV: \(currentUVData.uvIndex), Time to Burn: \(calculatedTimeToBurn/60)min")
+                logSuccess(.data, "Widget data synchronized", data: [
+                    "UV Index": "\(currentUVData.uvIndex)",
+                    "Time to Burn": "\(calculatedTimeToBurn/60) minutes",
+                    "Cloud Cover": "\(Int(currentUVData.cloudCover * 100))%",
+                    "Cloud Condition": currentUVData.cloudCondition,
+                    "Location": locationManager.locationName
+                ])
             }
         }
         // Request widget reload
         WidgetCenter.shared.reloadAllTimelines()
     }
-} 
+}
+
+ 

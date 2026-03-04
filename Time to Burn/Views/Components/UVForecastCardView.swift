@@ -4,6 +4,14 @@ struct UVForecastCardView: View {
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
     @EnvironmentObject private var locationManager: LocationManager
     
+    // State for managing minimum refreshing display time
+    @State private var isShowingRefreshing = false
+    @State private var refreshingStartTime: Date?
+    @State private var pendingHideTask: Task<Void, Never>?
+
+    private let minimumRefreshingDuration: TimeInterval = 1.5 // 1.5 seconds minimum
+    private let debounceDelay: TimeInterval = 0.3 // Debounce to prevent flashing
+    
     var body: some View {
         let uv = weatherViewModel.currentUVData?.uvIndex ?? 0
         let uvColor = UVColorUtils.getUVColor(uv)
@@ -27,7 +35,12 @@ struct UVForecastCardView: View {
                     }
                 }
                 Spacer()
-                if let lastUpdated = weatherViewModel.lastUpdated {
+                if isShowingRefreshing {
+                    Text("Refreshing")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary.opacity(0.7))
+                } else if let lastUpdated = weatherViewModel.lastUpdated {
                     Text("Updated \(UVColorUtils.formatHour(lastUpdated))")
                         .font(.caption)
                         .foregroundColor(.primary.opacity(0.7))
@@ -59,6 +72,7 @@ struct UVForecastCardView: View {
                 }
                 Spacer()
             }
+            
             Text(advice)
                 .font(.body)
                 .foregroundColor(.primary)
@@ -70,6 +84,9 @@ struct UVForecastCardView: View {
                 .fill(uvColor.opacity(0.18))
                 .shadow(color: uvColor.opacity(0.18), radius: 16, x: 0, y: 8)
         )
+        .onChange(of: weatherViewModel.isLoading) { _, newValue in
+            handleLoadingStateChange(isLoading: newValue)
+        }
     }
     
     private func getTimeToBurnString() -> String {
@@ -77,6 +94,61 @@ struct UVForecastCardView: View {
         if uv == 0 { return "∞" }
         let minutes = UVColorUtils.calculateTimeToBurnMinutes(uvIndex: uv)
         return "\(minutes) minutes"
+    }
+    
+    private func handleLoadingStateChange(isLoading: Bool) {
+        if isLoading {
+            // Cancel any pending hide task - loading started again
+            pendingHideTask?.cancel()
+            pendingHideTask = nil
+
+            // Start showing refreshing immediately (only set start time if not already refreshing)
+            if !isShowingRefreshing {
+                refreshingStartTime = Date()
+            }
+            isShowingRefreshing = true
+        } else {
+            // Debounce the hide - wait briefly to see if loading starts again
+            pendingHideTask?.cancel()
+            pendingHideTask = Task {
+                // Wait for debounce delay first
+                try? await Task.sleep(nanoseconds: UInt64(debounceDelay * 1_000_000_000))
+
+                // Check if cancelled (loading started again)
+                if Task.isCancelled { return }
+
+                // Check if minimum time has passed
+                guard let startTime = refreshingStartTime else {
+                    await MainActor.run {
+                        isShowingRefreshing = false
+                    }
+                    return
+                }
+
+                let elapsedTime = Date().timeIntervalSince(startTime)
+                let totalMinimumTime = minimumRefreshingDuration
+
+                if elapsedTime >= totalMinimumTime {
+                    // Enough time has passed, stop showing refreshing
+                    await MainActor.run {
+                        isShowingRefreshing = false
+                        refreshingStartTime = nil
+                    }
+                } else {
+                    // Not enough time has passed, wait for the remaining duration
+                    let remainingTime = totalMinimumTime - elapsedTime
+                    try? await Task.sleep(nanoseconds: UInt64(remainingTime * 1_000_000_000))
+
+                    // Check if cancelled again
+                    if Task.isCancelled { return }
+
+                    await MainActor.run {
+                        isShowingRefreshing = false
+                        refreshingStartTime = nil
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -9,26 +9,29 @@ class LocationManager: NSObject, ObservableObject {
     @Published var location: CLLocation?
     @Published var locationName: String = "Loading..."
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
-    
-    // Add delegate for weather updates
-    weak var weatherViewModel: WeatherViewModel?
-    
+
     // Track if we're forcing a refresh
     private var isForceRefreshing = false
+    
+    // Track last synced location for significant change detection
+    private var lastSignificantLocation: CLLocation?
+    
+    // Significant location change threshold (5km)
+    private let significantDistanceThreshold: Double = 5000 // 5km in meters
     
     override init() {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 100 // Update if moved 100 meters
-        
-        // Check initial authorization status
+
+        // Check initial authorization status (don't request automatically - let onboarding handle it)
         authorizationStatus = locationManager.authorizationStatus
         if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
             locationManager.startUpdatingLocation()
-        } else {
-            locationManager.requestWhenInUseAuthorization()
         }
+        // Note: Don't request authorization here - it will be requested during onboarding
+        // when the user explicitly taps "Allow Location"
     }
     
     func requestLocation() {
@@ -83,6 +86,41 @@ class LocationManager: NSObject, ObservableObject {
         print("   📍 Distance Filter: \(locationManager.distanceFilter)")
         print("   ──────────────────────────────────────")
     }
+    
+    // MARK: - Significant Location Change Detection
+    
+    /// Check if user moved significantly from last tracked location (>5km)
+    func hasMovedSignificantly(from newLocation: CLLocation) -> Bool {
+        guard let lastLocation = lastSignificantLocation else {
+            // First location is always significant
+            lastSignificantLocation = newLocation
+            return true
+        }
+        
+        let distance = newLocation.distance(from: lastLocation)
+        let hasMoved = distance > significantDistanceThreshold
+        
+        if hasMoved {
+            print("📍 [LocationManager] 🚗 Significant movement detected: \(Int(distance/1000))km")
+            lastSignificantLocation = newLocation
+        }
+        
+        return hasMoved
+    }
+    
+    /// Get distance from last significant location
+    func distanceFromLastSignificantLocation(_ newLocation: CLLocation) -> Double? {
+        guard let lastLocation = lastSignificantLocation else {
+            return nil
+        }
+        return newLocation.distance(from: lastLocation)
+    }
+    
+    /// Update last significant location (call after successful sync)
+    func updateLastSignificantLocation(_ newLocation: CLLocation) {
+        lastSignificantLocation = newLocation
+        print("📍 [LocationManager] ✅ Updated last significant location")
+    }
 }
 
 extension LocationManager: CLLocationManagerDelegate {
@@ -103,7 +141,7 @@ extension LocationManager: CLLocationManagerDelegate {
             manager.distanceFilter = 100
             
             // Store location for widget in shared UserDefaults
-            let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared")
+            let userDefaults = UserDefaults(suiteName: "group.com.anvilheadstudios.timetoburn")
             let locationData: [String: Double] = [
                 "latitude": location.coordinate.latitude,
                 "longitude": location.coordinate.longitude
@@ -117,35 +155,29 @@ extension LocationManager: CLLocationManagerDelegate {
                     DispatchQueue.main.async {
                         self?.locationName = placemark.locality ?? placemark.name ?? "Unknown Location"
                         print("📍 [LocationManager] 📍 Location name resolved: \(self?.locationName ?? "Unknown")")
-                        
-                        // Notify WeatherViewModel of new location AFTER name is resolved
-                        if let weatherViewModel = self?.weatherViewModel {
-                            print("📍 [LocationManager] 🔄 Triggering weather data fetch...")
-                            Task {
-                                await weatherViewModel.refreshData()
-                            }
-                        }
+                        // NOTE: Weather refresh is now controlled by WeatherViewModel, not triggered automatically here
+                        // This prevents cascade loops where location→weather→location→weather...
                     }
                 }
             }
-            
+
             // Stop updating location after receiving it
             manager.stopUpdatingLocation()
             return
         }
-        
+
         // Only update if significant change or first update (normal behavior)
         if self.location == nil || self.location!.distance(from: location) > 100 {
             self.location = location
-            
+
             // Store location for widget in shared UserDefaults
-            let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared")
+            let userDefaults = UserDefaults(suiteName: "group.com.anvilheadstudios.timetoburn")
             let locationData: [String: Double] = [
                 "latitude": location.coordinate.latitude,
                 "longitude": location.coordinate.longitude
             ]
             userDefaults?.set(locationData, forKey: "widgetLastKnownLocation")
-            
+
             // Reverse geocode to get location name
             let geocoder = CLGeocoder()
             geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
@@ -153,18 +185,12 @@ extension LocationManager: CLLocationManagerDelegate {
                     DispatchQueue.main.async {
                         self?.locationName = placemark.locality ?? placemark.name ?? "Unknown Location"
                         print("📍 [LocationManager] 📍 Location name resolved: \(self?.locationName ?? "Unknown")")
-                        
-                        // Notify WeatherViewModel of new location AFTER name is resolved
-                        if let weatherViewModel = self?.weatherViewModel {
-                            print("📍 [LocationManager] 🔄 Triggering weather data fetch...")
-                            Task {
-                                await weatherViewModel.refreshData()
-                            }
-                        }
+                        // NOTE: Weather refresh is now controlled by WeatherViewModel, not triggered automatically here
+                        // This prevents cascade loops where location→weather→location→weather...
                     }
                 }
             }
-            
+
             // Stop updating location after receiving it
             manager.stopUpdatingLocation()
         } else {

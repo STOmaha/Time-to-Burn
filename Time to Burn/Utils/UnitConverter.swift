@@ -38,6 +38,15 @@ class UnitConverter: ObservableObject {
         return miles * 1.60934
     }
     
+    // Altitude Conversions
+    static func metersToFeet(_ meters: Double) -> Double {
+        return meters * 3.28084
+    }
+    
+    static func feetToMeters(_ feet: Double) -> Double {
+        return feet * 0.3048
+    }
+    
     // MARK: - Smart Conversion Methods (Auto-detect units)
     
     func convertTemperature(_ temperature: Double, from metric: Bool) -> Double {
@@ -60,6 +69,16 @@ class UnitConverter: ObservableObject {
         }
     }
     
+    func convertAltitude(_ altitude: Double, from metric: Bool) -> Double {
+        if metric {
+            // Input is meters, return as is
+            return altitude
+        } else {
+            // Input is meters, convert to feet
+            return UnitConverter.metersToFeet(altitude)
+        }
+    }
+    
     // MARK: - Unit Symbols
     
     func temperatureSymbol() -> String {
@@ -75,6 +94,11 @@ class UnitConverter: ObservableObject {
     func speedSymbol() -> String {
         guard let settingsManager = settingsManager else { return "km/h" }
         return settingsManager.isMetricUnits ? "km/h" : "mph"
+    }
+    
+    func altitudeSymbol() -> String {
+        guard let settingsManager = settingsManager else { return "m" }
+        return settingsManager.isMetricUnits ? "m" : "ft"
     }
     
     // MARK: - Formatted Display Methods
@@ -107,6 +131,61 @@ class UnitConverter: ObservableObject {
         let convertedSpeed = convertDistance(speed, from: settingsManager.isMetricUnits)
         let symbol = speedSymbol()
         return String(format: "%.1f %@", convertedSpeed, symbol)
+    }
+    
+    func formatAltitude(_ altitude: Double) -> String {
+        guard let settingsManager = settingsManager else {
+            if altitude >= 1000 {
+                return String(format: "%.1f km", altitude / 1000.0)
+            } else {
+                return "\(Int(altitude)) m"
+            }
+        }
+        
+        let convertedAltitude = convertAltitude(altitude, from: settingsManager.isMetricUnits)
+        
+        if settingsManager.isMetricUnits {
+            // Metric: use meters or kilometers
+            if convertedAltitude >= 1000 {
+                return String(format: "%.1f km", convertedAltitude / 1000.0)
+            } else {
+                return "\(Int(convertedAltitude)) m"
+            }
+        } else {
+            // Imperial: use feet
+            if convertedAltitude >= 5280 {
+                return String(format: "%.1f mi", convertedAltitude / 5280.0)
+            } else {
+                return "\(Int(convertedAltitude)) ft"
+            }
+        }
+    }
+    
+    func formatDistanceWithUnits(_ distance: Double) -> String {
+        guard let settingsManager = settingsManager else {
+            if distance >= 1000 {
+                return String(format: "%.1f km", distance / 1000.0)
+            } else {
+                return "\(Int(distance)) m"
+            }
+        }
+        
+        if settingsManager.isMetricUnits {
+            // Metric: meters or kilometers
+            if distance >= 1000 {
+                return String(format: "%.1f km", distance / 1000.0)
+            } else {
+                return "\(Int(distance)) m"
+            }
+        } else {
+            // Imperial: feet or miles
+            let distanceInFeet = UnitConverter.metersToFeet(distance)
+            if distanceInFeet >= 5280 {
+                return String(format: "%.1f mi", distanceInFeet / 5280.0)
+            } else {
+                return "\(Int(distanceInFeet)) ft"
+            }
+        }
     }
     
     // MARK: - Time Formatting (No unit conversion needed)

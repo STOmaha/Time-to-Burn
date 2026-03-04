@@ -1,270 +1,350 @@
-// import Foundation
-// import SwiftUI
-// import Combine
-// import AuthenticationServices
+import Foundation
+import SwiftUI
+import Combine
+import AuthenticationServices
+import Supabase
 
-// // Local User type (Supabase removed)
-// struct User {
-//     let id: UUID
-//     let email: String?
-//     let createdAt: Date
-//     let userMetadata: [String: Any]?
-// }
+@MainActor
+class AuthenticationManager: ObservableObject {
+    static let shared = AuthenticationManager()
+    
+    @Published var isAuthenticated = false
+    @Published var currentUser: User?
+    @Published var isLoading = false
+    @Published var showAuthentication = false
+    @Published var error: Error?
+    
+    private let supabaseService = SupabaseService.shared
+    private var cancellables = Set<AnyCancellable>()
+    
+    private init() {
+        print("🔐 [AuthenticationManager] 🚀 Initializing...")
+        
+        // Setup auth state listener
+        setupAuthenticationListener()
+        
+        // Check initial authentication status
+        Task {
+            await checkAuthenticationStatus()
+        }
+    }
+    
+    // MARK: - Authentication Status Management
+    
+    private func setupAuthenticationListener() {
+        print("🔐 [AuthenticationManager] Setting up authentication listener...")
 
-// @MainActor
-// class AuthenticationManager: ObservableObject {
-//     static let shared = AuthenticationManager()
+        // Listen for authentication state changes from SupabaseService via Combine
+        // NOTE: We only use ONE listener (Combine) to prevent duplicate state change handling
+        // The SupabaseService.setupAuthListener() is called separately for its internal state
+        supabaseService.$isAuthenticated
+            .removeDuplicates() // Prevent duplicate emissions
+            .sink { [weak self] isAuthenticated in
+                print("🔐 [AuthenticationManager] 🔔 Auth state changed: \(isAuthenticated)")
+                Task { @MainActor in
+                    guard let self = self else { return }
+
+                    // Only process if this is actually a change
+                    guard self.isAuthenticated != isAuthenticated else { return }
+
+                    self.isAuthenticated = isAuthenticated
+                    self.currentUser = self.supabaseService.currentUser
+
+                    if isAuthenticated {
+                        print("🔐 [AuthenticationManager] ✅ User authenticated via state listener")
+                        print("🔐 [AuthenticationManager] User: \(self.supabaseService.currentUser?.email ?? "unknown")")
+                        self.showAuthentication = false
+                        // NOTE: Push notification permission is requested during onboarding, not here
+                        // to avoid duplicate permission requests
+                    } else {
+                        print("🔐 [AuthenticationManager] ❌ User not authenticated (state listener)")
+                        self.showAuthentication = true
+                    }
+                }
+            }
+            .store(in: &cancellables)
+
+        // Setup internal auth state listener in SupabaseService (for its own @Published state)
+        supabaseService.setupAuthListener()
+    }
     
-//     @Published var isAuthenticated = false
-//     @Published var currentUser: User?
-//     @Published var isLoading = false
-//     @Published var showAuthentication = false
+    private func checkAuthenticationStatus() async {
+        print("🔐 [AuthenticationManager] 🔍 Checking authentication status...")
+        
+        await MainActor.run {
+            isLoading = true
+        }
+        
+        // Check session in SupabaseService
+        await supabaseService.checkSession()
+        
+        await MainActor.run {
+            isAuthenticated = supabaseService.isAuthenticated
+            currentUser = supabaseService.currentUser
+            showAuthentication = !isAuthenticated
+            isLoading = false
+        }
+        
+        if isAuthenticated {
+            print("🔐 [AuthenticationManager] ✅ Authentication status confirmed")
+        } else {
+            print("🔐 [AuthenticationManager] ℹ️ No active session")
+        }
+    }
     
-//     // SupabaseService removed - using local authentication only
+    // MARK: - Authentication Methods
+
+    /// Sign in with Apple
+    func signInWithApple(authorization: ASAuthorization) async throws {
+        print("🔐 [AuthenticationManager] ====================================")
+        print("🔐 [AuthenticationManager] 🍎 Sign In with Apple STARTED")
+        print("🔐 [AuthenticationManager] ====================================")
+
+        await MainActor.run {
+            isLoading = true
+            error = nil
+        }
+        
+        defer {
+            Task { @MainActor in
+                isLoading = false
+            }
+        }
+        
+        guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+            throw AuthenticationError.invalidCredentials
+        }
+        
+        guard let identityToken = appleIDCredential.identityToken,
+              let idTokenString = String(data: identityToken, encoding: .utf8) else {
+            throw AuthenticationError.invalidToken
+        }
+
+        // For native iOS Sign in with Apple, we don't pass a nonce
+        // Nonce is only used for web-based OAuth flows
+        do {
+            try await supabaseService.signInWithApple(idToken: idTokenString)
+
+            await MainActor.run {
+                isAuthenticated = true
+                currentUser = supabaseService.currentUser
+                showAuthentication = false
+            }
+
+            print("🔐 [AuthenticationManager] ✅ Apple Sign In successful")
+
+            // Run debug test to verify database connection and profile creation
+            print("🔐 [AuthenticationManager] 🔧 Running connection debug test...")
+            await supabaseService.debugConnectionTest()
+
+        } catch {
+            print("🔐 [AuthenticationManager] ❌ Apple Sign In failed: \(error.localizedDescription)")
+            await MainActor.run {
+                self.error = error
+            }
+            throw error
+        }
+    }
     
-//     private init() {
-//         print("🔐 [AuthenticationManager] 🚀 Initializing...")
+    /// Sign in with email and password
+    func signInWithEmail(email: String, password: String) async throws {
+        print("🔐 [AuthenticationManager] 📧 Email Sign In...")
         
-//         // For local-only mode, set authenticated to true by default
-//         isAuthenticated = true
-//         currentUser = User(
-//             id: UUID(),
-//             email: "local@user.com",
-//             createdAt: Date(),
-//             userMetadata: ["full_name": "Local User"]
-//         )
-//         showAuthentication = false
+        await MainActor.run {
+            isLoading = true
+            error = nil
+        }
         
-//         print("🔐 [AuthenticationManager] ✅ Local authentication mode - user authenticated")
+        defer {
+            Task { @MainActor in
+                isLoading = false
+            }
+        }
         
-//         // TODO: Re-enable Supabase authentication after fixing server issues
-//         /*
-//         // Listen for authentication changes
-//         setupAuthenticationListener()
-        
-//         // Check initial authentication status
-//         Task {
-//             await checkAuthenticationStatus()
-//         }
-//         */
-//     }
+        do {
+            try await supabaseService.signInWithEmail(email: email, password: password)
+            
+            await MainActor.run {
+                isAuthenticated = true
+                currentUser = supabaseService.currentUser
+                showAuthentication = false
+            }
+            
+            print("🔐 [AuthenticationManager] ✅ Email Sign In successful")
+            
+        } catch {
+            print("🔐 [AuthenticationManager] ❌ Email Sign In failed: \(error.localizedDescription)")
+            await MainActor.run {
+                self.error = error
+            }
+            throw error
+        }
+    }
     
-//     // MARK: - Authentication Status Management
+    /// Sign up with email and password
+    func signUp(email: String, password: String, name: String) async throws {
+        print("🔐 [AuthenticationManager] 📝 Email Sign Up...")
+        
+        await MainActor.run {
+            isLoading = true
+            error = nil
+        }
+        
+        defer {
+            Task { @MainActor in
+                isLoading = false
+            }
+        }
+        
+        do {
+            try await supabaseService.signUp(email: email, password: password, fullName: name)
+            
+            await MainActor.run {
+                isAuthenticated = true
+                currentUser = supabaseService.currentUser
+                showAuthentication = false
+            }
+            
+            print("🔐 [AuthenticationManager] ✅ Email Sign Up successful")
+            
+        } catch {
+            print("🔐 [AuthenticationManager] ❌ Email Sign Up failed: \(error.localizedDescription)")
+            await MainActor.run {
+                self.error = error
+            }
+            throw error
+        }
+    }
     
-//     private func setupAuthenticationListener() {
-//         // TODO: Re-enable after fixing server issues
-//         /*
-//         // Listen for authentication state changes
-//         supabaseService.$isAuthenticated
-//             .sink { [weak self] isAuthenticated in
-//                 Task { @MainActor in
-//                     self?.isAuthenticated = isAuthenticated
-//                     self?.currentUser = self?.supabaseService.currentUser
-                    
-//                     if isAuthenticated {
-//                         print("🔐 [AuthenticationManager] ✅ User authenticated")
-//                         self?.showAuthentication = false
-                        
-//                         // Create user profile if needed
-//                         await self?.createUserProfileIfNeeded()
-                        
-//                         // Request push notification permission after authentication
-//                         await self?.requestPushNotificationPermission()
-//                     } else {
-//                         print("🔐 [AuthenticationManager] ❌ User not authenticated")
-//                         self?.showAuthentication = true
-//                     }
-//                 }
-//             }
-//             .store(in: &cancellables)
-//         */
-//     }
+    /// Sign out
+    func signOut() async throws {
+        print("🔐 [AuthenticationManager] 👋 Signing out...")
+        
+        do {
+            try await supabaseService.signOut()
+            
+            await MainActor.run {
+                isAuthenticated = false
+                currentUser = nil
+                showAuthentication = true
+            }
+            
+            // Reset BackgroundSyncService state
+            BackgroundSyncService.shared.reset()
+            
+            print("🔐 [AuthenticationManager] ✅ Sign out successful")
+            
+        } catch {
+            print("🔐 [AuthenticationManager] ❌ Sign out failed: \(error.localizedDescription)")
+            await MainActor.run {
+                self.error = error
+            }
+            throw error
+        }
+    }
     
-//     private func checkAuthenticationStatus() async {
-//         print("🔐 [AuthenticationManager] 🔍 Checking authentication status...")
-        
-//         await MainActor.run {
-//             isLoading = true
-//         }
-        
-//         // Local-only mode - always authenticated
-//         isAuthenticated = true
-//         currentUser = User(
-//             id: UUID(),
-//             email: "local@user.com",
-//             createdAt: Date(),
-//             userMetadata: ["full_name": "Local User"]
-//         )
-//         showAuthentication = false
-        
-//         await MainActor.run {
-//             isLoading = false
-//         }
-        
-//         print("🔐 [AuthenticationManager] ✅ Local authentication status confirmed")
-//     }
+    // MARK: - Authentication Flow Control
     
-//     // MARK: - User Profile Management
+    func showAuthenticationView() {
+        showAuthentication = true
+    }
     
-//     private func createUserProfileIfNeeded() async {
-//         print("🔐 [AuthenticationManager] 👤 Creating user profile if needed...")
-        
-//         guard let user = currentUser else {
-//             print("🔐 [AuthenticationManager] ❌ No current user")
-//             return
-//         }
-        
-//         // TODO: Re-enable after fixing server issues
-//         /*
-//         do {
-//             try await supabaseService.createUserProfile(userId: user.id.uuidString)
-//             print("🔐 [AuthenticationManager] ✅ User profile created/verified")
-//         } catch {
-//             print("🔐 [AuthenticationManager] ❌ Failed to create user profile: \(error)")
-//         }
-//         */
-//     }
+    func hideAuthenticationView() {
+        showAuthentication = false
+    }
     
-//     // MARK: - Authentication Methods
+    // MARK: - User Data Access
     
-//     func signInWithApple() async throws {
-//         print("🔐 [AuthenticationManager] 🍎 Sign In with Apple...")
-        
-//         await MainActor.run {
-//             isLoading = true
-//         }
-        
-//         // Simulate network delay
-//         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
-        
-//         // Create local user
-//         let user = User(
-//             id: UUID(),
-//             email: "apple@user.com",
-//             createdAt: Date(),
-//             userMetadata: ["full_name": "Apple User"]
-//         )
-        
-//         await MainActor.run {
-//             isAuthenticated = true
-//             currentUser = user
-//             showAuthentication = false
-//             isLoading = false
-//         }
-        
-//         print("🔐 [AuthenticationManager] ✅ Local Apple Sign In successful")
-//     }
+    var userEmail: String? {
+        return currentUser?.email
+    }
     
-//     func signInWithEmail(email: String, password: String) async throws {
-//         print("🔐 [AuthenticationManager] 📧 Local Email Sign In...")
-        
-//         await MainActor.run {
-//             isLoading = true
-//         }
-        
-//         // Simulate network delay
-//         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
-        
-//         // Create local user
-//         let user = User(
-//             id: UUID(),
-//             email: email,
-//             createdAt: Date(),
-//             userMetadata: ["full_name": "Email User"]
-//         )
-        
-//         await MainActor.run {
-//             isAuthenticated = true
-//             currentUser = user
-//             showAuthentication = false
-//             isLoading = false
-//         }
-        
-//         print("🔐 [AuthenticationManager] ✅ Local Email Sign In successful")
-//     }
+    var userName: String? {
+        guard let metadata = currentUser?.userMetadata,
+              let fullName = metadata["full_name"] else {
+            return nil
+        }
+        // Handle AnyJSON type from Supabase
+        if case .string(let name) = fullName {
+            return name
+        }
+        return nil
+    }
     
-//     func signUp(email: String, password: String, name: String) async throws {
-//         print("🔐 [AuthenticationManager] 📝 Local Email Sign Up...")
+    var userId: UUID? {
+        return currentUser?.id
+    }
+    
+    // MARK: - Push Notifications
+    
+    private func requestPushNotificationPermission() async {
+        print("🔐 [AuthenticationManager] 🔔 Requesting push notification permission...")
         
-//         await MainActor.run {
-//             isLoading = true
-//         }
+        let granted = await NotificationManager.shared.requestNotificationPermission()
         
-//         // Simulate network delay
-//         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+        if granted {
+            print("🔐 [AuthenticationManager] ✅ Push notification permission granted")
+        } else {
+            print("🔐 [AuthenticationManager] ❌ Push notification permission denied")
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Generate a secure random nonce for Sign in with Apple
+    private func generateNonce(length: Int = 32) -> String {
+        precondition(length > 0)
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var result = ""
+        var remainingLength = length
         
-//         // Create local user
-//         let user = User(
-//             id: UUID(),
-//             email: email,
-//             createdAt: Date(),
-//             userMetadata: ["full_name": name]
-//         )
+        while remainingLength > 0 {
+            let randoms: [UInt8] = (0 ..< 16).map { _ in
+                var random: UInt8 = 0
+                let errorCode = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
+                if errorCode != errSecSuccess {
+                    fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+                }
+                return random
+            }
+            
+            randoms.forEach { random in
+                if remainingLength == 0 {
+                    return
+                }
+                
+                if random < charset.count {
+                    result.append(charset[Int(random)])
+                    remainingLength -= 1
+                }
+            }
+        }
         
-//         await MainActor.run {
-//             isAuthenticated = true
-//             currentUser = user
-//             showAuthentication = false
-//             isLoading = false
-//         }
-        
-//         print("🔐 [AuthenticationManager] ✅ Local Email Sign Up successful")
-//     }
+        return result
+    }
+}
+
+// MARK: - Error Types
+
+enum AuthenticationError: LocalizedError {
+    case invalidCredentials
+    case invalidToken
+    case networkError
+    case userNotFound
+    case emailAlreadyExists
     
-//     // MARK: - Authentication Flow Control
-    
-//     func showAuthenticationView() {
-//         showAuthentication = true
-//     }
-    
-//     func hideAuthenticationView() {
-//         showAuthentication = false
-//     }
-    
-//     // MARK: - User Data Access
-    
-//     var userEmail: String? {
-//         return currentUser?.email
-//     }
-    
-//     var userName: String? {
-//         return currentUser?.userMetadata?["full_name"] as? String
-//     }
-    
-//     var userId: UUID? {
-//         return currentUser?.id
-//     }
-    
-//     // MARK: - Testing Methods
-    
-//     func testAuthentication() async -> Bool {
-//         print("🔐 [AuthenticationManager] 🧪 Testing local authentication...")
-        
-//         // Local-only mode - always authenticated
-//         let isAuth = true
-        
-//         print("🔐 [AuthenticationManager] 🧪 Authentication: \(isAuth ? "✅" : "❌")")
-        
-//         return isAuth
-//     }
-    
-//     // MARK: - Push Notifications
-    
-//     private func requestPushNotificationPermission() async {
-//         print("🔐 [AuthenticationManager] 🔔 Requesting push notification permission...")
-        
-//         let pushNotificationService = PushNotificationService.shared
-//         let granted = await pushNotificationService.requestPermission()
-        
-//         if granted {
-//             print("🔐 [AuthenticationManager] ✅ Push notification permission granted")
-//         } else {
-//             print("🔐 [AuthenticationManager] ❌ Push notification permission denied")
-//         }
-//     }
-    
-//     // MARK: - Private Properties
-    
-//     // TODO: Re-enable after fixing server issues
-//     // private var cancellables = Set<AnyCancellable>()
-// } 
+    var errorDescription: String? {
+        switch self {
+        case .invalidCredentials:
+            return "Invalid credentials provided"
+        case .invalidToken:
+            return "Invalid authentication token"
+        case .networkError:
+            return "Network connection error"
+        case .userNotFound:
+            return "User not found"
+        case .emailAlreadyExists:
+            return "Email address already in use"
+        }
+    }
+}

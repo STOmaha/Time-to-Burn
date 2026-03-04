@@ -114,7 +114,7 @@ class CelestialBodyService: ObservableObject {
             timeToBurn: "Instant Vaporization",
             distanceFromSun: 0.0,
             description: "Our star - the ultimate UV source",
-            funFact: "☀️ INFINITE UV! The source of all solar system UV! Getting close enough to measure would be... problematic. You'd be vaporized long before UV became your concern! ☀️🔥"
+            funFact: "☀️ INFINITE UV! The source of all solar system UV! 🔥🔥🔥"
         ),
         
         // MARK: - Planets
@@ -122,10 +122,10 @@ class CelestialBodyService: ObservableObject {
             name: "Mercury",
             type: .planet,
             uvIndex: 334,
-            timeToBurn: "23 seconds",
+            timeToBurn: "10 seconds",
             distanceFromSun: 0.387,
             description: "Closest planet to the Sun",
-            funFact: "☿️ Extreme. Essentially space-level UV at 0.39 AU. Full UV visor, space suit; SPF numbers don't mean much here. 🔥 And that's ignoring brutal heat, glare from bright regolith, and no shade. You'll be crispy in under 30 seconds! ☿️"
+            funFact: "Extreme. SPF numbers don't mean much here, you'll be crispy in under 30 seconds!"
         ),
         
         CelestialBody(
@@ -135,57 +135,57 @@ class CelestialBodyService: ObservableObject {
             timeToBurn: "Never (UV blocked)",
             distanceFromSun: 0.723,
             description: "Thick sulfuric acid clouds block all UV",
-            funFact: "♀️ 'UV? Sorry, we're closed.' ☁️ A crushing CO₂ atmosphere plus thick sulfuric-acid clouds snuff nearly all UV before it reaches the ground. Fun fact: strong UV exists high in the clouds, but ground-level is a UV desert. You have much bigger problems (460°C, 90 bar). Bring a submarine-for-air! 🧯"
+            funFact: "'UV? Nope.' Thick atmosphere of clouds prevents UV from getting to the ground. But you can still get heat stroke as the surface is 867°F (464°C) - consistently toasty everywhere"
         ),
         
         CelestialBody(
             name: "Mars",
             type: .planet,
             uvIndex: 17,
-            timeToBurn: "4 minutes 20 seconds",
+            timeToBurn: "3 minutes",
             distanceFromSun: 1.524,
             description: "Thin atmosphere offers little UV protection",
-            funFact: "♂️ The atmosphere filters some UV, but not much—dust can either block or boost via scattering. 🌬️ UPF hood/visor, gloves; sunscreen alone is not enough for long exposure. NASA's rovers are basically solar-powered sunscreen testers! 🤖"
+            funFact: "At the equator it's surface temperature is 70ºF (20ºC), but only 6 feet (1.5m) off the ground and it's 32ºF (0ºC), bring flip flops, sunscreen, and a winter coat!"
         ),
         
         CelestialBody(
             name: "Jupiter",
             type: .planet,
             uvIndex: 1,
-            timeToBurn: "1 hour 40 minutes",
+            timeToBurn: "2 hours",
             distanceFromSun: 5.20,
             description: "Gas giant with thick atmosphere",
-            funFact: "♃ 'Ground level' doesn't exist—just hydrogen weather. 🌪️ UV is modest by Earth standards. If you could hover there: sunglasses, mild protection. Your bigger risk is...Jupiter. Fashion tip: wear rings! 💍"
+            funFact: "The largest planet, so big you could fit all the other planets inside it, just like your mom."
         ),
         
         CelestialBody(
             name: "Saturn",
             type: .planet,
             uvIndex: 1,
-            timeToBurn: "3 hours 20 minutes",
+            timeToBurn: "4 hours",
             distanceFromSun: 9.54,
             description: "Ringed gas giant",
-            funFact: "♄ Dim, far Sun; thick hazes. 🧊 Fashion tip: wear rings. Safety tip: also wear an imaginary floating platform. The UV is so low you could practically sunbathe...if you had a surface and didn't freeze! 🎭"
+            funFact: "Its famous rings are mostly ice and rock, but don't tell Saturn that, it thinks they're real."
         ),
         
         CelestialBody(
             name: "Uranus",
             type: .planet,
             uvIndex: 0,
-            timeToBurn: "Forever (too cold anyway)",
+            timeToBurn: "Where the Sun don't shine. 😉",
             distanceFromSun: 19.2,
             description: "Ice giant tilted on its side",
-            funFact: "♅ Sun's a tiny disc; biologically weak UV. 💤 Lip balm and goggles for the winds—UV isn't the headline. It's basically permanent winter in space where even the Sun gave up trying! ❄️"
+            funFact: "Rotating at a (98° tilt), likely due to a massive ancient collision. with your mom."
         ),
         
         CelestialBody(
             name: "Neptune",
             type: .planet,
             uvIndex: 0,
-            timeToBurn: "Never (winds will get you first)",
+            timeToBurn: "Wind-Burns will get you first.",
             distanceFromSun: 30.1,
             description: "Furthest gas giant with extreme winds",
-            funFact: "♆ Even dimmer; UV is negligible. 🧊 The hurricanes here aren't beach weather. 🌀 You're more likely to be blown away by 2,100 km/h winds than get a sunburn! The Sun is basically a bright star from here. ⭐"
+            funFact: "The hurricanes here aren't beach weather. 🌀 You're more likely to be blown away by 1,200 mph (2,000 km/h) winds than get a sunburn!"
         ),
         
         CelestialBody(
@@ -195,7 +195,7 @@ class CelestialBodyService: ObservableObject {
             timeToBurn: "Never (bring a parka)",
             distanceFromSun: 39.0,
             description: "Dwarf planet in the outer solar system",
-            funFact: "♇ UV is tiny at ~39 AU; the Sun is a bright star. ❄️ Sunscreen? Optional. Parka? Mandatory. 🧣 It's so cold and dark here that even the UV rays decided to stay home. The ultimate 'cool' destination! 🏔️"
+            funFact: "Though reclassified as a dwarf planet, it has five moons, and its largest, Charon, is so big that together they act like a double planet."
         ),
         
         // MARK: - Moon
@@ -203,9 +203,9 @@ class CelestialBodyService: ObservableObject {
             name: "The Moon",
             type: .moon,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "Earth's natural satellite",
-            funFact: "🌙 Extreme (space-level UV at noon). 🔥 Protection: visor + space suit; regolith is bright, so watch reflected UV. Neil Armstrong didn't just need courage—he needed SPF ∞! The ultimate space sunbathing destination! 🚀☀️"
+            funFact: "🌙 Extreme (space-level UV at noon). 🔥 Protection: visor + space suit. Neil Armstrong didn't just need courage—he needed SPF ∞! The ultimate space sunbathing destination! 🚀☀️"
         ),
         
         // MARK: - Space Stations
@@ -213,7 +213,7 @@ class CelestialBodyService: ObservableObject {
             name: "International Space Station (ISS)",
             type: .spaceStation,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "Largest human-made object in space",
             yearLaunched: 1998,
             orbitType: "Low Earth Orbit (LEO)",
@@ -224,7 +224,7 @@ class CelestialBodyService: ObservableObject {
             name: "Tiangong Space Station",
             type: .spaceStation,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "China's permanent modular space station",
             yearLaunched: 2021,
             orbitType: "Low Earth Orbit (LEO)",
@@ -236,7 +236,7 @@ class CelestialBodyService: ObservableObject {
             name: "Hubble Space Telescope",
             type: .telescope,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "Iconic space telescope in low Earth orbit",
             yearLaunched: 1990,
             orbitType: "LEO (~540 km)",
@@ -247,7 +247,7 @@ class CelestialBodyService: ObservableObject {
             name: "James Webb Space Telescope",
             type: .telescope,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "Most powerful space telescope ever built",
             yearLaunched: 2021,
             orbitType: "Sun-Earth L2 Point",
@@ -258,7 +258,7 @@ class CelestialBodyService: ObservableObject {
             name: "GOES-16 (GOES-East)",
             type: .satellite,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Secondss",
             description: "Weather monitoring satellite for the Americas",
             yearLaunched: 2016,
             orbitType: "Geostationary",
@@ -269,7 +269,7 @@ class CelestialBodyService: ObservableObject {
             name: "GOES-18 (GOES-West)",
             type: .satellite,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "Weather monitoring satellite for the Pacific",
             yearLaunched: 2022,
             orbitType: "Geostationary",
@@ -280,7 +280,7 @@ class CelestialBodyService: ObservableObject {
             name: "Terra Satellite",
             type: .satellite,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "NASA's flagship Earth observation satellite",
             yearLaunched: 1999,
             orbitType: "Sun-synchronous LEO",
@@ -291,7 +291,7 @@ class CelestialBodyService: ObservableObject {
             name: "Aqua Satellite",
             type: .satellite,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "Water cycle monitoring satellite",
             yearLaunched: 2002,
             orbitType: "Sun-synchronous LEO",
@@ -302,7 +302,7 @@ class CelestialBodyService: ObservableObject {
             name: "Landsat 8",
             type: .satellite,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "Long-running Earth imaging satellite",
             yearLaunched: 2013,
             orbitType: "Sun-synchronous LEO",
@@ -313,7 +313,7 @@ class CelestialBodyService: ObservableObject {
             name: "Sentinel-2A",
             type: .satellite,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "High-resolution Earth observation satellite",
             yearLaunched: 2015,
             orbitType: "Sun-synchronous LEO",
@@ -324,7 +324,7 @@ class CelestialBodyService: ObservableObject {
             name: "Sentinel-2B",
             type: .satellite,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "Twin satellite for global Earth monitoring",
             yearLaunched: 2017,
             orbitType: "Sun-synchronous LEO",
@@ -335,7 +335,7 @@ class CelestialBodyService: ObservableObject {
             name: "Starlink-30000",
             type: .satellite,
             uvIndex: 50,
-            timeToBurn: "2 minutes 40 seconds",
+            timeToBurn: "90 Seconds",
             description: "Internet constellation satellite",
             yearLaunched: 2019,
             orbitType: "LEO (~550 km)",

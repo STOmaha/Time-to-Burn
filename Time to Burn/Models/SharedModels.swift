@@ -155,7 +155,7 @@ class SharedDataManager: ObservableObject {
     
     private init() {
         // Initialize UserDefaults with proper error handling
-        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+        if let userDefaults = UserDefaults(suiteName: "group.com.anvilheadstudios.timetoburn") {
             self.userDefaults = userDefaults
             print("🌞 [SharedDataManager] ✅ App Group UserDefaults initialized successfully")
         } else {

@@ -1,237 +1,258 @@
 import Foundation
 import SwiftUI
+import CoreLocation
 
 @MainActor
 class OnboardingManager: ObservableObject {
     static let shared = OnboardingManager()
-    
+
     @Published var isOnboardingComplete = false
     @Published var currentStep = 0
-    @Published var isDataLoading = false
-    @Published var dataLoadProgress = 0.0
-    
+    @Published var isRequestingPermission = false
+    @Published var isSigningIn = false
+    @Published var signInError: Error?
+
     private let locationManager: LocationManager
     private let notificationManager: NotificationManager
-    
+
+    let totalSteps = 6  // Welcome, Location, Notifications, Sign In, Subscription, Ready
+
     private init() {
-        print("📚 [OnboardingManager] 🚀 Initializing...")
-        
-        // Use shared instances to avoid duplicates
         self.locationManager = LocationManager.shared
         self.notificationManager = NotificationManager.shared
         loadOnboardingState()
-        
-        print("📚 [OnboardingManager] ✅ Initialization complete")
+        logInfo(.onboarding, "OnboardingManager initialized", data: [
+            "isComplete": isOnboardingComplete,
+            "currentStep": currentStep,
+            "totalSteps": totalSteps
+        ])
     }
-    
-    // MARK: - Onboarding Steps
-    let onboardingSteps: [OnboardingStep] = [
-        OnboardingStep(
-            id: 0,
-            title: "Welcome to Time to Burn",
-            subtitle: "Your personal UV protection companion",
-            description: "Get real-time UV data, track sun exposure, and stay safe in the sun with personalized alerts.",
-            icon: "sun.max.fill",
-            iconColor: .orange,
-            actionTitle: "Get Started",
-            actionType: .next
-        ),
-        OnboardingStep(
-            id: 1,
-            title: "Location Access",
-            subtitle: "Get accurate UV data for your area",
-            description: "We need your location to provide real-time UV index data and personalized sun safety recommendations.",
-            icon: "location.fill",
-            iconColor: .blue,
-            actionTitle: "Allow Location",
-            actionType: .location
-        ),
-        OnboardingStep(
-            id: 2,
-            title: "Stay Protected",
-            subtitle: "Get notified about UV changes",
-            description: "Receive alerts when UV levels are high, when to reapply sunscreen, and daily sun exposure summaries.",
-            icon: "bell.fill",
-            iconColor: .green,
-            actionTitle: "Enable Notifications",
-            actionType: .notifications
-        ),
-        OnboardingStep(
-            id: 3,
-            title: "You're All Set!",
-            subtitle: "Ready to stay safe in the sun",
-            description: "Time to Burn is now configured with your preferences. Start tracking your sun exposure and stay protected!",
-            icon: "checkmark.circle.fill",
-            iconColor: .green,
-            actionTitle: "Start Using App",
-            actionType: .complete
-        )
-    ]
-    
-    // MARK: - Public Methods
-    func startOnboarding() {
-        isOnboardingComplete = false
-        currentStep = 0
-        saveOnboardingState()
-    }
-    
+
+    // MARK: - Navigation
+
     func nextStep() {
-        if currentStep < onboardingSteps.count - 1 {
+        guard currentStep < totalSteps - 1 else { return }
+        let previousStep = currentStep
+        withAnimation(.easeInOut(duration: 0.3)) {
             currentStep += 1
-            saveOnboardingState()
         }
+        saveOnboardingState()
+        logInfo(.onboarding, "Step advanced", data: [
+            "from": stepName(for: previousStep),
+            "to": stepName(for: currentStep),
+            "progress": "\(currentStep + 1)/\(totalSteps)"
+        ])
     }
-    
+
     func previousStep() {
-        if currentStep > 0 {
+        guard currentStep > 0 else { return }
+        let previousStep = currentStep
+        withAnimation(.easeInOut(duration: 0.3)) {
             currentStep -= 1
-            saveOnboardingState()
         }
+        saveOnboardingState()
+        logInfo(.onboarding, "Step back", data: [
+            "from": stepName(for: previousStep),
+            "to": stepName(for: currentStep)
+        ])
     }
-    
+
     func completeOnboarding() {
-        isOnboardingComplete = true
+        LogManager.shared.logFlowStart("Onboarding Complete", category: .onboarding)
+
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isOnboardingComplete = true
+        }
         currentStep = 0
         saveOnboardingState()
-    }
-    
-    func handleStepAction() async {
-        let step = onboardingSteps[currentStep]
-        
-        switch step.actionType {
-        case .next:
-            nextStep()
-            
-        case .location:
-            await requestLocationPermission()
-            
-        case .notifications:
-            await requestNotificationPermission()
-            
-        case .complete:
-            await loadBackgroundData()
-            completeOnboarding()
+
+        logSuccess(.onboarding, "Onboarding completed successfully", data: [
+            "locationAuthorized": isLocationAuthorized,
+            "notificationsAuthorized": isNotificationAuthorized,
+            "signedIn": isSignedIn
+        ])
+
+        // Trigger initial data fetch after onboarding
+        Task {
+            await performInitialDataFetch()
         }
+
+        LogManager.shared.logFlowEnd("Onboarding Complete", success: true, category: .onboarding)
     }
-    
-    // MARK: - Permission Requests
-    private func requestLocationPermission() async {
-        print("OnboardingManager: Requesting location permission...")
-        
-        // Check current status
-        let currentStatus = locationManager.authorizationStatus
-        print("OnboardingManager: Current location status: \(currentStatus.rawValue)")
-        
-        // Request location permission
+
+    /// Fetch location and UV data after onboarding completes
+    private func performInitialDataFetch() async {
+        logInfo(.onboarding, "Starting initial data fetch...")
+
+        // Request location update - weather refresh will happen via the onChange handler
+        // in Time_to_BurnApp when onboarding completes
         locationManager.requestLocation()
-        
-        // Wait for the permission dialog to be processed
-        // We'll wait up to 5 seconds for the user to respond
-        for i in 0..<10 {
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-            
-            let newStatus = locationManager.authorizationStatus
-            if newStatus != currentStatus {
-                print("OnboardingManager: Location status changed to: \(newStatus.rawValue)")
-                break
-            }
-            
-            print("OnboardingManager: Waiting for location permission response... (\(i + 1)/10)")
+        logInfo(.location, "Location update requested")
+
+        // NOTE: We don't need to trigger weather refresh here because:
+        // 1. Time_to_BurnApp has an onChange handler for onboardingComplete that triggers refresh
+        // 2. WeatherViewModel initializes with initializeDataFlow() which fetches data
+        // Posting refreshWeatherData notification here would cause duplicate refreshes
+
+        logSuccess(.onboarding, "Initial data fetch triggered", data: [
+            "locationRequested": "true"
+        ])
+    }
+
+    /// Get step name for logging
+    private func stepName(for step: Int) -> String {
+        switch step {
+        case 0: return "Welcome"
+        case 1: return "Location"
+        case 2: return "Notifications"
+        case 3: return "Sign In"
+        case 4: return "Subscription"
+        case 5: return "Ready"
+        default: return "Unknown"
         }
-        
-        // Check final status
-        let finalStatus = locationManager.authorizationStatus
-        print("OnboardingManager: Final location status: \(finalStatus.rawValue)")
-        
-        // If location is granted, start loading weather data
-        if finalStatus == .authorizedWhenInUse || finalStatus == .authorizedAlways {
-            print("OnboardingManager: Location granted, loading background data...")
-            await loadBackgroundData()
-        } else {
-            print("OnboardingManager: Location not granted")
+    }
+
+    // MARK: - Sign In Status
+
+    /// Check if user is authenticated (signed in with Apple)
+    var isSignedIn: Bool {
+        AuthenticationManager.shared.isAuthenticated
+    }
+
+    /// Called when sign in starts
+    func setSigningIn(_ value: Bool) {
+        isSigningIn = value
+        if value {
+            logInfo(.auth, "Sign in started from onboarding")
         }
-        
+    }
+
+    /// Called when sign in completes successfully
+    func signInCompleted() {
+        signInError = nil
+        logSuccess(.auth, "Sign in completed in onboarding", data: [
+            "userId": AuthenticationManager.shared.userId?.uuidString.prefix(8).description ?? "unknown"
+        ])
         nextStep()
     }
-    
-    private func requestNotificationPermission() async {
-        print("OnboardingManager: Requesting notification permission...")
-        
+
+    /// Called when sign in fails
+    func signInFailed(_ error: Error) {
+        signInError = error
+        logError(.auth, "Sign in failed in onboarding", data: [
+            "error": error.localizedDescription
+        ])
+    }
+
+    // MARK: - Permission Requests
+
+    /// Request location permission - returns true if granted
+    func requestLocationPermission() async -> Bool {
+        logInfo(.onboarding, "Requesting location permission...")
+        isRequestingPermission = true
+        defer { isRequestingPermission = false }
+
+        let currentStatus = locationManager.authorizationStatus
+
+        // If already authorized, just proceed
+        if currentStatus == .authorizedWhenInUse || currentStatus == .authorizedAlways {
+            logSuccess(.location, "Location already authorized", data: ["status": currentStatus.displayName])
+            return true
+        }
+
+        // Request permission
+        locationManager.requestLocation()
+        logInfo(.location, "Location permission dialog shown")
+
+        // Wait for user response (up to 30 seconds)
+        for _ in 0..<60 {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            let newStatus = locationManager.authorizationStatus
+            if newStatus != .notDetermined {
+                let granted = newStatus == .authorizedWhenInUse || newStatus == .authorizedAlways
+                LogManager.shared.logPermissionRequest("Location", granted: granted, context: "Onboarding")
+                return granted
+            }
+        }
+
+        logWarning(.location, "Location permission request timed out")
+        return false
+    }
+
+    /// Request notification permission - returns true if granted
+    func requestNotificationPermission() async -> Bool {
+        logInfo(.onboarding, "Requesting notification permission...")
+        isRequestingPermission = true
+        defer { isRequestingPermission = false }
+
         let granted = await notificationManager.requestNotificationPermission()
-        print("OnboardingManager: Notification permission result: \(granted)")
-        
+
         if granted {
-            print("OnboardingManager: Configuring default notification settings...")
             // Configure default notification settings
             notificationManager.notificationSettings.sunscreenRemindersEnabled = true
             notificationManager.notificationSettings.exposureWarningsEnabled = true
             notificationManager.notificationSettings.uvThresholdAlertsEnabled = true
             notificationManager.updateSettings(notificationManager.notificationSettings)
+            logSuccess(.notifications, "Notification permission granted, defaults configured")
+        } else {
+            logWarning(.notifications, "Notification permission denied or skipped")
         }
-        
-        nextStep()
+
+        LogManager.shared.logPermissionRequest("Notifications", granted: granted, context: "Onboarding")
+        return granted
     }
-    
-    // MARK: - Background Data Loading
-    private func loadBackgroundData() async {
-        isDataLoading = true
-        dataLoadProgress = 0.0
-        
-        // Simulate loading steps
-        await updateProgress(0.2, "Initializing...")
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        
-        await updateProgress(0.4, "Loading weather data...")
-        // Weather data will be loaded by the main app's WeatherViewModel
-        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
-        
-        await updateProgress(0.6, "Setting up notifications...")
-        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-        
-        await updateProgress(0.8, "Finalizing setup...")
-        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-        
-        await updateProgress(1.0, "Complete!")
-        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
-        
-        isDataLoading = false
+
+    // MARK: - Status Helpers
+
+    var isLocationAuthorized: Bool {
+        let status = locationManager.authorizationStatus
+        return status == .authorizedWhenInUse || status == .authorizedAlways
     }
-    
-    private func updateProgress(_ progress: Double, _ message: String) async {
-        await MainActor.run {
-            dataLoadProgress = progress
-        }
+
+    var isNotificationAuthorized: Bool {
+        notificationManager.isAuthorized
     }
-    
+
     // MARK: - Persistence
+
     private func loadOnboardingState() {
         let defaults = UserDefaults.standard
         isOnboardingComplete = defaults.bool(forKey: "onboardingComplete")
         currentStep = defaults.integer(forKey: "onboardingCurrentStep")
     }
-    
+
     private func saveOnboardingState() {
         let defaults = UserDefaults.standard
         defaults.set(isOnboardingComplete, forKey: "onboardingComplete")
         defaults.set(currentStep, forKey: "onboardingCurrentStep")
     }
+
+    // MARK: - Testing
+
+    func resetOnboardingForTesting() {
+        isOnboardingComplete = false
+        currentStep = 0
+        saveOnboardingState()
+    }
 }
 
-// MARK: - Supporting Types
-struct OnboardingStep {
-    let id: Int
-    let title: String
-    let subtitle: String
-    let description: String
-    let icon: String
-    let iconColor: Color
-    let actionTitle: String
-    let actionType: OnboardingActionType
-}
+// MARK: - CLAuthorizationStatus Extension
 
-enum OnboardingActionType {
-    case next
-    case location
-    case notifications
-    case complete
-} 
+extension CLAuthorizationStatus {
+    var displayName: String {
+        switch self {
+        case .notDetermined:
+            return "Not Determined"
+        case .restricted:
+            return "Restricted"
+        case .denied:
+            return "Denied"
+        case .authorizedAlways:
+            return "Authorized Always"
+        case .authorizedWhenInUse:
+            return "Authorized When In Use"
+        @unknown default:
+            return "Unknown"
+        }
+    }
+}

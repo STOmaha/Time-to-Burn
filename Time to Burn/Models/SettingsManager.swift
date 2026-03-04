@@ -10,25 +10,35 @@ class SettingsManager: ObservableObject {
     @Published var isMetricUnits: Bool {
         didSet {
             UserDefaults.standard.set(isMetricUnits, forKey: "isMetricUnits")
-            print("🌍 [SettingsManager] Units changed to: \(isMetricUnits ? "Metric" : "Imperial")")
+            logInfo(.settings, "Unit system changed", data: [
+                "New System": isMetricUnits ? "🌍 Metric (°C, km)" : "🇺🇸 Imperial (°F, miles)",
+                "Temperature": isMetricUnits ? "Celsius" : "Fahrenheit",
+                "Distance": isMetricUnits ? "Kilometers" : "Miles"
+            ])
         }
     }
     
     @Published var isDarkModeEnabled: Bool {
         didSet {
             UserDefaults.standard.set(isDarkModeEnabled, forKey: "isDarkModeEnabled")
-            print("🌙 [SettingsManager] Dark mode changed to: \(isDarkModeEnabled ? "Enabled" : "Disabled")")
+            logInfo(.settings, "Dark mode preference changed", data: [
+                "Mode": isDarkModeEnabled ? "🌙 Dark" : "☀️ Light",
+                "Applied": "System-wide"
+            ])
         }
     }
     
     @Published var is24HourClock: Bool {
         didSet {
             UserDefaults.standard.set(is24HourClock, forKey: "is24HourClock")
-            print("🕐 [SettingsManager] Clock format changed to: \(is24HourClock ? "24-hour" : "12-hour")")
             
             // Trigger widget refresh when clock format changes
             WidgetCenter.shared.reloadAllTimelines()
-            print("🕐 [SettingsManager] 🔄 Widget timelines reloaded due to clock format change")
+            
+            logInfo(.settings, "Clock format changed", data: [
+                "Format": is24HourClock ? "⏰ 24-hour (15:30)" : "🕐 12-hour (3:30 PM)",
+                "Widget Update": "✅ Refreshed"
+            ])
         }
     }
     
@@ -39,7 +49,11 @@ class SettingsManager: ObservableObject {
         self.isDarkModeEnabled = UserDefaults.standard.object(forKey: "isDarkModeEnabled") as? Bool ?? true
         self.is24HourClock = UserDefaults.standard.object(forKey: "is24HourClock") as? Bool ?? false
         
-        print("⚙️ [SettingsManager] Initialized with Metric: \(isMetricUnits), Dark Mode: \(isDarkModeEnabled), 24h Clock: \(is24HourClock)")
+        logInfo(.settings, "SettingsManager initialized", data: [
+            "Units": isMetricUnits ? "🌍 Metric" : "🇺🇸 Imperial",
+            "Dark Mode": isDarkModeEnabled ? "🌙 Enabled" : "☀️ Disabled",
+            "Clock": is24HourClock ? "⏰ 24-hour" : "🕐 12-hour"
+        ])
     }
     
     // MARK: - Public Methods
@@ -47,7 +61,12 @@ class SettingsManager: ObservableObject {
         isMetricUnits = true
         isDarkModeEnabled = true
         is24HourClock = false
-        print("🔄 [SettingsManager] Reset to default settings")
+        
+        logInfo(.settings, "Settings reset to defaults", data: [
+            "Units": "🌍 Metric",
+            "Dark Mode": "🌙 Enabled",
+            "Clock": "🕐 12-hour"
+        ])
     }
     
     func exportSettings() -> [String: Any] {
@@ -68,6 +87,6 @@ class SettingsManager: ObservableObject {
         if let clock24h = settings["is24HourClock"] as? Bool {
             is24HourClock = clock24h
         }
-        print("📥 [SettingsManager] Imported settings")
+        logSuccess(.settings, "Settings imported successfully")
     }
 } 

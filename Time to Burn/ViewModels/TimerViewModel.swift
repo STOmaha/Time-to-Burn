@@ -771,7 +771,7 @@ class TimerViewModel: ObservableObject {
             }
         }
         
-        let _ = SharedUVData(
+        let sharedData = SharedUVData(
             currentUVIndex: currentUVFromWeather,
             timeToBurn: calculatedTimeToBurn,
             elapsedTime: elapsedTime,
@@ -789,37 +789,34 @@ class TimerViewModel: ObservableObject {
         )
         
         // Save shared data
-        // TODO: Re-enable shared data saving after fixing crash
-        // sharedDataManager.saveSharedData(sharedData)
-        print("⏰ [TimerViewModel] ✅ Shared data saving disabled - investigating crash")
+        sharedDataManager.saveSharedData(sharedData)
+        print("⏰ [TimerViewModel] ✅ Shared data saved to app group")
         
         // Refresh widget
         refreshWidget()
     }
     
     // MARK: - Widget Refresh
-    // TODO: Re-enable widget functionality after fixing crash
     func refreshWidget() {
-        print("⏰ [TimerViewModel] 📱 Widget refresh disabled - investigating crash")
-        // WidgetCenter.shared.reloadAllTimelines()
-        // WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
+        print("⏰ [TimerViewModel] 📱 Refreshing widget timelines")
+        WidgetCenter.shared.reloadAllTimelines()
+        WidgetCenter.shared.reloadTimelines(ofKind: "TimeToBurnWidget")
     }
     
     // MARK: - Aggressive Widget Refresh
-    // TODO: Re-enable widget functionality after fixing crash
     func forceAggressiveWidgetRefresh() {
-        print("⏰ [TimerViewModel] 🔄 Force aggressive widget refresh disabled - investigating crash")
-        
+        print("⏰ [TimerViewModel] 🔄 Force aggressive widget refresh")
+
         updateSharedData()
-        
+
         // Multiple refresh attempts with delays
-        // DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-        //     WidgetCenter.shared.reloadAllTimelines()
-        // }
-        
-        // DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-        //     WidgetCenter.shared.reloadAllTimelines()
-        // }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
     
     // MARK: - Debug Methods
@@ -837,22 +834,21 @@ class TimerViewModel: ObservableObject {
     }
     
     // MARK: - Widget Status Check
-    // TODO: Re-enable widget functionality after fixing crash
     func checkWidgetStatus() {
-        print("⏰ [TimerViewModel] 🔍 Widget status check disabled - investigating crash")
-        
-        // WidgetCenter.shared.getCurrentConfigurations { result in
-        //     switch result {
-        //     case .success(let configurations):
-        //         print("⏰ [TimerViewModel] 📱 Found \(configurations.count) widget configurations")
-        //         if configurations.isEmpty {
-        //             print("⏰ [TimerViewModel] ⚠️  WARNING - No widgets found! Add widget to home screen.")
-        //         }
-        //     case .failure(let error):
-        //         print("⏰ [TimerViewModel] ❌ Error checking widgets: \(error)")
-        //     }
-        // }
-        
+        print("⏰ [TimerViewModel] 🔍 Checking widget status")
+
+        WidgetCenter.shared.getCurrentConfigurations { result in
+            switch result {
+            case .success(let configurations):
+                print("⏰ [TimerViewModel] 📱 Found \(configurations.count) widget configurations")
+                if configurations.isEmpty {
+                    print("⏰ [TimerViewModel] ⚠️  WARNING - No widgets found! Add widget to home screen.")
+                }
+            case .failure(let error):
+                print("⏰ [TimerViewModel] ❌ Error checking widgets: \(error)")
+            }
+        }
+
         let sharedData = MainAppSharedDataManager.shared.loadSharedData()
         if let data = sharedData {
             print("⏰ [TimerViewModel] ✅ Shared data accessible - UV: \(data.currentUVIndex)")
@@ -1054,13 +1050,12 @@ class TimerViewModel: ObservableObject {
         print("⏰ [TimerViewModel] 💾 Saving test data...")
         
         // Save via shared data manager
-        // TODO: Re-enable shared data saving after fixing crash
-        // MainAppSharedDataManager.shared.saveSharedData(testData)
-        print("⏰ [TimerViewModel] ✅ Test data saving disabled - investigating crash")
+        MainAppSharedDataManager.shared.saveSharedData(testData)
+        print("⏰ [TimerViewModel] ✅ Test data saved via shared data manager")
         
         // Save directly to app group
         if let encoded = try? JSONEncoder().encode(testData) {
-            if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+            if let userDefaults = UserDefaults(suiteName: "group.com.anvilheadstudios.timetoburn") {
                 userDefaults.set(encoded, forKey: "sharedUVData")
                 userDefaults.synchronize()
                 print("⏰ [TimerViewModel] ✅ Saved to app group UserDefaults")
@@ -1116,7 +1111,7 @@ class TimerViewModel: ObservableObject {
         
         // Save to app group
         if let encoded = try? JSONEncoder().encode(testData) {
-            if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+            if let userDefaults = UserDefaults(suiteName: "group.com.anvilheadstudios.timetoburn") {
                 userDefaults.set(encoded, forKey: "sharedUVData")
                 print("⏰ [TimerViewModel] ✅ Saved to app group UserDefaults")
             } else {
@@ -1128,7 +1123,7 @@ class TimerViewModel: ObservableObject {
             print("⏰ [TimerViewModel] ✅ Saved to standard UserDefaults")
             
             // Save to alternative app group
-            if let altUserDefaults = UserDefaults(suiteName: "group.Time-to-Burn.shared") {
+            if let altUserDefaults = UserDefaults(suiteName: "group.com.anvilheadstudios.timetoburn") {
                 altUserDefaults.set(encoded, forKey: "sharedUVData")
                 print("⏰ [TimerViewModel] ✅ Saved to alternative app group UserDefaults")
             } else {

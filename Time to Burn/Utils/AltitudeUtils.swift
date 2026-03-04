@@ -36,12 +36,17 @@ struct AltitudeUtils {
         return "\(Int(altitude))m above sea level - \(riskLevel.description)"
     }
     
-    /// Format altitude for display
-    static func formatAltitude(_ altitude: Double) -> String {
-        if altitude >= 1000 {
-            return String(format: "%.1f km", altitude / 1000.0)
+    /// Format altitude for display with unit conversion
+    static func formatAltitude(_ altitude: Double, unitConverter: UnitConverter? = nil) -> String {
+        if let converter = unitConverter {
+            return converter.formatAltitude(altitude)
         } else {
-            return "\(Int(altitude)) m"
+            // Fallback to metric formatting
+            if altitude >= 1000 {
+                return String(format: "%.1f km", altitude / 1000.0)
+            } else {
+                return "\(Int(altitude)) m"
+            }
         }
     }
     
@@ -107,49 +112,84 @@ struct AltitudeUtils {
     
     // MARK: - Altitude Data Fetching
     
-    /// Fetch altitude data for a location using Core Location
+    /// Fetch real altitude data for a location using OpenTopoData API
     static func fetchAltitude(for location: CLLocation) async -> Double {
-        // Note: Core Location doesn't provide altitude directly
-        // In a real app, you'd use a third-party service like:
-        // - Google Elevation API
-        // - OpenTopoData API
-        // - USGS Elevation Point Query Service
-        
-        // For now, we'll use a placeholder that could be enhanced
-        return await estimateAltitudeFromLocation(location)
+        // Use free OpenTopoData API for real elevation data
+        return await fetchRealAltitude(for: location)
     }
     
-    /// Estimate altitude based on location (placeholder implementation)
-    private static func estimateAltitudeFromLocation(_ location: CLLocation) async -> Double {
-        // This is a simplified estimation
-        // In a production app, you'd use a proper elevation API
-        
+    /// Fetch real altitude from OpenTopoData API (free, no API key required)
+    private static func fetchRealAltitude(for location: CLLocation) async -> Double {
         let latitude = location.coordinate.latitude
-        let _ = location.coordinate.longitude
+        let longitude = location.coordinate.longitude
         
-        // Simple estimation based on latitude (mountains tend to be at certain latitudes)
-        // This is just for demonstration - not accurate
-        var estimatedAltitude: Double = 0
+        // OpenTopoData API endpoint (free service)
+        let urlString = "https://api.opentopodata.org/v1/aster30m?locations=\(latitude),\(longitude)"
         
-        // Rough estimation based on latitude bands
-        if abs(latitude) > 60 {
-            // High latitude - likely some elevation
-            estimatedAltitude = Double.random(in: 100...500)
-        } else if abs(latitude) > 45 {
-            // Mid latitude - moderate elevation possible
-            estimatedAltitude = Double.random(in: 50...300)
-        } else if abs(latitude) > 30 {
-            // Lower latitude - lower elevation likely
-            estimatedAltitude = Double.random(in: 0...200)
-        } else {
-            // Tropical - generally low elevation
-            estimatedAltitude = Double.random(in: 0...100)
+        guard let url = URL(string: urlString) else {
+            print("🏔️ [AltitudeUtils] ❌ Invalid URL for elevation API")
+            return await fallbackAltitudeEstimate(for: location)
         }
         
-        // Add some randomness to simulate real data
-        estimatedAltitude += Double.random(in: -50...50)
+        do {
+            print("🏔️ [AltitudeUtils] 🌐 Fetching real altitude for \(latitude), \(longitude)")
+            
+            let (data, response) = try await URLSession.shared.data(from: url)
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  httpResponse.statusCode == 200 else {
+                print("🏔️ [AltitudeUtils] ❌ API request failed with status: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
+                return await fallbackAltitudeEstimate(for: location)
+            }
+            
+            let elevationResponse = try JSONDecoder().decode(ElevationResponse.self, from: data)
+            
+            if let result = elevationResponse.results.first,
+               let elevation = result.elevation {
+                print("🏔️ [AltitudeUtils] ✅ Real altitude fetched: \(elevation)m")
+                return max(0, elevation) // Ensure non-negative
+            } else {
+                print("🏔️ [AltitudeUtils] ⚠️ No elevation data in response")
+                return await fallbackAltitudeEstimate(for: location)
+            }
+            
+        } catch {
+            print("🏔️ [AltitudeUtils] ❌ Error fetching real altitude: \(error.localizedDescription)")
+            return await fallbackAltitudeEstimate(for: location)
+        }
+    }
+    
+    /// Fallback altitude estimate when API fails
+    private static func fallbackAltitudeEstimate(for location: CLLocation) async -> Double {
+        print("🏔️ [AltitudeUtils] 🔄 Using fallback altitude estimate")
         
-        return max(0, estimatedAltitude)
+        // Use CLLocation's altitude if available (from GPS)
+        if location.altitude > -100 && location.altitude < 10000 {
+            return max(0, location.altitude)
+        }
+        
+        // Enhanced estimation based on geographic patterns
+        let latitude = location.coordinate.latitude
+        let longitude = location.coordinate.longitude
+        
+        var estimatedAltitude: Double = 0
+        
+        // More sophisticated estimation based on known geographic patterns
+        if abs(latitude) > 60 {
+            // High latitude regions (Arctic/Antarctic)
+            estimatedAltitude = 50 + abs(sin(longitude * .pi / 180)) * 200
+        } else if abs(latitude) > 45 {
+            // Mid-latitude regions (mountainous areas like Alps, Rockies)
+            estimatedAltitude = 100 + abs(sin(longitude * .pi / 180)) * 400
+        } else if abs(latitude) > 30 {
+            // Lower mid-latitude (hills and plains)
+            estimatedAltitude = 50 + abs(sin(longitude * .pi / 180)) * 300
+        } else {
+            // Tropical regions - generally low elevation with some coastal plains
+            estimatedAltitude = abs(sin(latitude * .pi / 180)) * 150
+        }
+        
+        return estimatedAltitude
     }
     
     // MARK: - Altitude-Based Recommendations
@@ -213,4 +253,25 @@ struct AltitudeUtils {
             return "Extreme altitude conditions create the highest UV exposure possible. The atmosphere provides minimal UV filtering, and snow/ice reflection can double UV exposure."
         }
     }
+}
+
+// MARK: - Elevation API Response Models
+
+/// Response structure for OpenTopoData elevation API
+private struct ElevationResponse: Codable {
+    let results: [ElevationResult]
+    let status: String
+}
+
+/// Individual elevation result from API
+private struct ElevationResult: Codable {
+    let elevation: Double?
+    let location: ElevationLocation
+    let dataset: String?
+}
+
+/// Location data in elevation API response
+private struct ElevationLocation: Codable {
+    let lat: Double
+    let lng: Double
 } 

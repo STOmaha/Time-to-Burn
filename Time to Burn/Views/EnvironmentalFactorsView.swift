@@ -4,6 +4,9 @@ struct EnvironmentalFactorsView: View {
     @StateObject private var environmentalDataService = EnvironmentalDataService.shared
     @StateObject private var smartNotificationViewModel = SmartNotificationViewModel.shared
     @StateObject private var locationManager = LocationManager.shared
+    @StateObject private var unitConverter = UnitConverter.shared
+    @EnvironmentObject private var settingsManager: SettingsManager
+    @EnvironmentObject private var weatherViewModel: WeatherViewModel
     
     @State private var showingRiskAssessment = false
     @State private var isLoading = false
@@ -39,6 +42,9 @@ struct EnvironmentalFactorsView: View {
                 await refreshData()
             }
             .onAppear {
+                // Configure unit converter with settings manager
+                unitConverter.configure(with: settingsManager)
+                
                 Task {
                     await refreshData()
                 }
@@ -84,7 +90,7 @@ struct EnvironmentalFactorsView: View {
                 // Altitude
                 EnvironmentalFactorCard(
                     title: "Altitude",
-                    value: AltitudeUtils.formatAltitude(factors.altitude),
+                    value: AltitudeUtils.formatAltitude(factors.altitude, unitConverter: unitConverter),
                     emoji: AltitudeUtils.getAltitudeEmoji(altitude: factors.altitude),
                     description: AltitudeUtils.getAltitudeDescription(altitude: factors.altitude),
                     color: .blue
@@ -102,9 +108,9 @@ struct EnvironmentalFactorsView: View {
                 // Water Proximity
                 EnvironmentalFactorCard(
                     title: "Water",
-                    value: WaterReflectionUtils.formatDistance(factors.waterProximity.distanceToWater),
+                    value: WaterReflectionUtils.formatDistance(factors.waterProximity.distanceToWater, unitConverter: unitConverter),
                     emoji: WaterReflectionUtils.getWaterEmoji(waterProximity: factors.waterProximity),
-                    description: WaterReflectionUtils.getWaterDescription(waterProximity: factors.waterProximity),
+                    description: WaterReflectionUtils.getWaterDescription(waterProximity: factors.waterProximity, unitConverter: unitConverter),
                     color: .blue
                 )
                 
@@ -306,9 +312,8 @@ struct EnvironmentalFactorsView: View {
     }
     
     private func getCurrentUVIndex() -> Int? {
-        // This would integrate with your existing weather service
-        // For now, return a placeholder
-        return 5
+        // Get actual UV from WeatherViewModel
+        return weatherViewModel.currentUVData?.uvIndex
     }
 }
 

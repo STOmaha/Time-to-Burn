@@ -3,7 +3,10 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var weatherViewModel: WeatherViewModel
-    // @EnvironmentObject private var timerViewModel: TimerViewModel
+    @EnvironmentObject private var notificationManager: NotificationManager
+    @EnvironmentObject private var settingsManager: SettingsManager
+    @EnvironmentObject private var authenticationManager: AuthenticationManager
+    @EnvironmentObject private var timerViewModel: TimerViewModel
     @State private var selectedTab = 0
     
     // MARK: - Homogeneous Background System
@@ -11,7 +14,15 @@ struct ContentView: View {
         let uvIndex = weatherViewModel.currentUVData?.uvIndex ?? 0
         return UVColorUtils.getHomogeneousBackgroundColor(uvIndex)
     }
-    
+
+    // MARK: - Dynamic Color Scheme Based on UV
+    var preferredColorScheme: ColorScheme? {
+        let uvIndex = weatherViewModel.currentUVData?.uvIndex ?? 0
+        // Force dark mode when UV is 0 for better readability
+        // Allow system preference for UV > 0
+        return uvIndex == 0 ? .dark : nil
+    }
+
     // var tabBarBackground: Color {
     //     let uvIndex = weatherViewModel.currentUVData?.uvIndex ?? 0
     //     return UVColorUtils.getTabBarBackgroundColor(uvIndex)
@@ -43,7 +54,17 @@ struct ContentView: View {
                     }
                     .tag(1)
                 
-                // Map Tab - Location search
+                // Risk Tab - Comprehensive risk assessment (CENTER POSITION)
+                RiskView()
+                    .environmentObject(locationManager)
+                    .environmentObject(weatherViewModel)
+                    .tabItem {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text("Risk")
+                    }
+                    .tag(2)
+                
+                // Search Tab - Location search
                 MapView()
                     .environmentObject(locationManager)
                     .environmentObject(weatherViewModel)
@@ -51,17 +72,22 @@ struct ContentView: View {
                         Image(systemName: "magnifyingglass")
                         Text("Search")
                     }
-                    .tag(2)
+                    .tag(3)
                 
-                // Me Tab - Placeholder for now (Option A)
-                MePlaceholderView()
+                // Me Tab
+                MeView()
+                    .environmentObject(locationManager)
+                    .environmentObject(weatherViewModel)
+                    .environmentObject(notificationManager)
+                    .environmentObject(settingsManager)
                     .tabItem {
                         Image(systemName: "person.circle.fill")
                         Text("Me")
                     }
-                    .tag(3)
+                    .tag(4)
             }
         }
+        .preferredColorScheme(preferredColorScheme)
         // .accentColor(.orange) // UV-themed accent color
         .onAppear {
             // Configure TabBar with UV-themed background
@@ -76,15 +102,15 @@ struct ContentView: View {
             // UITabBar.appearance().scrollEdgeAppearance = appearance
             
             // Sync timer with current UV data when view appears
-            // if let currentUV = weatherViewModel.currentUVData?.uvIndex {
-            //     timerViewModel.syncWithCurrentUVData(uvIndex: currentUV)
-            // }
+            if let currentUV = weatherViewModel.currentUVData?.uvIndex {
+                timerViewModel.syncWithCurrentUVData(uvIndex: currentUV)
+            }
         }
         .onChange(of: weatherViewModel.currentUVData?.uvIndex) { _, newUVIndex in
             // Update timer when UV index changes
-            // if let uvIndex = newUVIndex {
-            //     timerViewModel.updateUVIndex(uvIndex)
-            // }
+            if let uvIndex = newUVIndex {
+                timerViewModel.updateUVIndex(uvIndex)
+            }
             
             // Update tab bar background when UV index changes
             // let appearance = UITabBarAppearance()
@@ -103,7 +129,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             // Refresh widget when app becomes active
-            // timerViewModel.refreshWidget()
+            timerViewModel.refreshWidget()
             weatherViewModel.appBecameActive()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
@@ -137,16 +163,3 @@ struct ContentView: View {
     // }
 }
 
-private struct MePlaceholderView: View {
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "person.circle")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text("Me")
-                .font(.headline)
-                .foregroundStyle(.primary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-} 

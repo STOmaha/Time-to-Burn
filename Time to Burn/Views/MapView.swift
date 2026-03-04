@@ -287,7 +287,7 @@ struct CelestialBodyRow: View {
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.primary)
                             .lineLimit(1)
-                        
+
                         Text("UV \(celestialBody.uvIndex)")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white)

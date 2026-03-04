@@ -64,9 +64,9 @@ struct SimpleUVIndexProvider: TimelineProvider {
         // Current entry
         entries.append(entry)
         
-        // Future entries every 30 minutes for the next 2 hours
+        // Future entries every 15 minutes for the next hour
         for i in 1...4 {
-            let futureDate = Date().addingTimeInterval(TimeInterval(i * 1800)) // 30 minutes * i
+            let futureDate = Date().addingTimeInterval(TimeInterval(i * 900)) // 15 minutes * i
             let futureEntry = UVIndexEntry(
                 date: futureDate,
                 uvIndex: entry.uvIndex,
@@ -78,65 +78,44 @@ struct SimpleUVIndexProvider: TimelineProvider {
             entries.append(futureEntry)
         }
         
-        // Set policy to refresh every 30 minutes
-        let nextUpdate = Date().addingTimeInterval(1800)
+        // Set policy to refresh every 15 minutes
+        let nextUpdate = Date().addingTimeInterval(900)
         let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
         completion(timeline)
     }
     
     // MARK: - Direct Data Loading
-    
+
     private func loadSharedDataDirectly() -> UVIndexEntry {
         print("🌞 [Widget] 🔍 Loading shared data directly...")
-        
+
         // Debug data sources for troubleshooting
         debugDataSources()
-        
+
         // Try to load from shared data manager first (most reliable)
         if let sharedData = WidgetSharedDataManager.shared.loadSharedData() {
             print("🌞 [Widget] ✅ Successfully loaded shared data: UV=\(sharedData.currentUVIndex)")
-            return UVIndexEntry(
-                date: Date(),
-                uvIndex: sharedData.currentUVIndex,
-                timeToBurn: sharedData.timeToBurn,
-                locationName: sharedData.locationName,
-                lastUpdated: sharedData.lastUpdated,
-                debugInfo: "Loaded from SharedDataManager"
-            )
+            return createValidatedEntry(from: sharedData, source: "SharedDataManager")
         }
-        
+
         // Fallback: Try direct UserDefaults access
         print("🌞 [Widget] 🔄 Trying direct UserDefaults access...")
-        
+
         // Try main app group
-        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared"),
+        if let userDefaults = UserDefaults(suiteName: "group.com.anvilheadstudios.timetoburn"),
            let data = userDefaults.data(forKey: "sharedUVData"),
            let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
             print("🌞 [Widget] ✅ Loaded from app group UserDefaults: UV=\(decoded.currentUVIndex)")
-            return UVIndexEntry(
-                date: Date(),
-                uvIndex: decoded.currentUVIndex,
-                timeToBurn: decoded.timeToBurn,
-                locationName: decoded.locationName,
-                lastUpdated: decoded.lastUpdated,
-                debugInfo: "Loaded from app group UserDefaults"
-            )
+            return createValidatedEntry(from: decoded, source: "app group UserDefaults")
         }
-        
+
         // Try standard UserDefaults
         if let data = UserDefaults.standard.data(forKey: "sharedUVData"),
            let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {
             print("🌞 [Widget] ✅ Loaded from standard UserDefaults: UV=\(decoded.currentUVIndex)")
-            return UVIndexEntry(
-                date: Date(),
-                uvIndex: decoded.currentUVIndex,
-                timeToBurn: decoded.timeToBurn,
-                locationName: decoded.locationName,
-                lastUpdated: decoded.lastUpdated,
-                debugInfo: "Loaded from standard UserDefaults"
-            )
+            return createValidatedEntry(from: decoded, source: "standard UserDefaults")
         }
-        
+
         // Default fallback with more informative debug info
         print("🌞 [Widget] ❌ No shared data found, using defaults")
         return UVIndexEntry(
@@ -148,13 +127,42 @@ struct SimpleUVIndexProvider: TimelineProvider {
             debugInfo: "No data available - check main app has run and saved data"
         )
     }
+
+    /// Create a validated entry from shared data, sanitizing any garbage values
+    private func createValidatedEntry(from sharedData: SharedUVData, source: String) -> UVIndexEntry {
+        var timeToBurn = sharedData.timeToBurn
+
+        // Validate timeToBurn - it should be between 0 and 24 hours (86400 seconds)
+        // If UV is 0, time to burn should be 0 (displayed as infinity)
+        // If value is garbage (negative, or impossibly large), reset to 0
+        let maxReasonableTime = 86400 // 24 hours in seconds
+
+        if sharedData.currentUVIndex == 0 {
+            // No UV = infinite time to burn
+            timeToBurn = 0
+        } else if timeToBurn < 0 || timeToBurn > maxReasonableTime {
+            // Garbage value detected - use a reasonable default based on UV
+            print("🌞 [Widget] ⚠️ Invalid timeToBurn value: \(timeToBurn), resetting to default")
+            // Default: roughly 30 min for moderate UV
+            timeToBurn = max(60, 3600 / max(1, sharedData.currentUVIndex))
+        }
+
+        return UVIndexEntry(
+            date: Date(),
+            uvIndex: sharedData.currentUVIndex,
+            timeToBurn: timeToBurn,
+            locationName: sharedData.locationName,
+            lastUpdated: sharedData.lastUpdated,
+            debugInfo: "Loaded from \(source)"
+        )
+    }
     
     // MARK: - Debug Helper
     private func debugDataSources() {
         print("🌞 [Widget] 🔍 Debugging data sources...")
         
         // Check app group UserDefaults
-        if let userDefaults = UserDefaults(suiteName: "group.com.timetoburn.shared") {
+        if let userDefaults = UserDefaults(suiteName: "group.com.anvilheadstudios.timetoburn") {
             if let data = userDefaults.data(forKey: "sharedUVData") {
                 print("🌞 [Widget] ✅ App group has data: \(data.count) bytes")
                 if let decoded = try? JSONDecoder().decode(SharedUVData.self, from: data) {

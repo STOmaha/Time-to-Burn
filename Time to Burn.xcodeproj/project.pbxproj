@@ -13,6 +13,7 @@
 		B058FFD62E2C3AE800F5C3BB /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD52E2C3AE800F5C3BB /* PostgREST */; };
 		B058FFD82E2C3AE800F5C3BB /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD72E2C3AE800F5C3BB /* Realtime */; };
 		B058FFDA2E2C3AE800F5C3BB /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = B058FFD92E2C3AE800F5C3BB /* Storage */; };
+		B07B56A12F3B5228000C5794 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B07B56A02F3B5228000C5794 /* StoreKit.framework */; };
 		B08275CA2E1160A100242AE1 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B08275C92E1160A100242AE1 /* WidgetKit.framework */; };
 		B08275CC2E1160A100242AE1 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B08275CB2E1160A100242AE1 /* SwiftUI.framework */; };
 		B08275DD2E1160A200242AE1 /* TimeToBurnWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B08275C72E1160A100242AE1 /* TimeToBurnWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -61,6 +62,7 @@
 		B074DC982DFB19A8009E1727 /* Time to Burn.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Time to Burn.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B074DCA52DFB19AA009E1727 /* Time to BurnTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Time to BurnTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B074DCAF2DFB19AA009E1727 /* Time to BurnUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Time to BurnUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B07B56A02F3B5228000C5794 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		B08275C72E1160A100242AE1 /* TimeToBurnWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimeToBurnWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B08275C92E1160A100242AE1 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		B08275CB2E1160A100242AE1 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -119,6 +121,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B058005C2E2E8FE800F5C3BB /* Supabase in Frameworks */,
+				B07B56A12F3B5228000C5794 /* StoreKit.framework in Frameworks */,
 				B058FFD62E2C3AE800F5C3BB /* PostgREST in Frameworks */,
 				B058FFD42E2C3AE800F5C3BB /* Functions in Frameworks */,
 				B058FFD22E2C3AE800F5C3BB /* Auth in Frameworks */,
@@ -180,6 +183,7 @@
 		B08275C82E1160A100242AE1 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B07B56A02F3B5228000C5794 /* StoreKit.framework */,
 				B08275C92E1160A100242AE1 /* WidgetKit.framework */,
 				B08275CB2E1160A100242AE1 /* SwiftUI.framework */,
 			);
@@ -295,7 +299,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1640;
-				LastUpgradeCheck = 1640;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					B074DC972DFB19A8009E1727 = {
 						CreatedOnToolsVersion = 16.4;
@@ -331,9 +335,9 @@
 			projectRoot = "";
 			targets = (
 				B074DC972DFB19A8009E1727 /* Time to Burn */,
+				B08275C62E1160A100242AE1 /* TimeToBurnWidgetExtension */,
 				B074DCA42DFB19AA009E1727 /* Time to BurnTests */,
 				B074DCAE2DFB19AA009E1727 /* Time to BurnUITests */,
-				B08275C62E1160A100242AE1 /* TimeToBurnWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -478,6 +482,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -535,6 +540,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -563,13 +569,14 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "Time-to-Burn.Time-to-Burn";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anvilheadstudios.timetoburn;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -605,13 +612,14 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "Time-to-Burn.Time-to-Burn";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anvilheadstudios.timetoburn;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -708,15 +716,17 @@
 				DEVELOPMENT_TEAM = 7E693E4L97;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TimeToBurnWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = TimeToBurnWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = "Time to Burn Widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "Time-to-Burn.Time-to-Burn.TimeToBurnWidget";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anvilheadstudios.timetoburn.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -737,15 +747,17 @@
 				DEVELOPMENT_TEAM = 7E693E4L97;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = TimeToBurnWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = TimeToBurnWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = "Time to Burn Widget";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "Time-to-Burn.Time-to-Burn.TimeToBurnWidget";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anvilheadstudios.timetoburn.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;

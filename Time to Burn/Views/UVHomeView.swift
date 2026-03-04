@@ -13,9 +13,27 @@ struct UVHomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
+                // Subtle connection status indicator (only shows when not connected)
+                if weatherViewModel.connectionStatus != .connected {
+                    HStack {
+                        Image(systemName: weatherViewModel.connectionStatus == .reconnecting ? "arrow.clockwise" : "wifi.slash")
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                        
+                        Text(weatherViewModel.connectionStatus.displayText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .transition(.opacity)
+                }
+                
                 UVForecastCardView()
                     .environmentObject(weatherViewModel)
-                    .padding(.top, 24)
+                    .padding(.top, weatherViewModel.connectionStatus == .connected ? 24 : 8)
                 
                 // CloudCoverageCardView removed as requested
                 
@@ -44,13 +62,10 @@ struct UVHomeView: View {
             }
         }
         .onAppear {
-            locationManager.weatherViewModel = weatherViewModel
-            print("🏠 [UVHomeView] 📍 Connected to location manager")
+            // NOTE: Weather refresh is now handled by WeatherViewModel directly with debouncing
+            // The old weatherViewModel delegate pattern was removed to prevent cascade loops
+            print("🏠 [UVHomeView] 📍 View appeared")
         }
-        .alert("WeatherKit Error", isPresented: $weatherViewModel.showErrorAlert) {
-            Button("OK") { }
-        } message: {
-            Text(weatherViewModel.errorMessage)
-        }
+        // Removed WeatherKit error alert - errors now handled gracefully without user interruption
     }
 } 
