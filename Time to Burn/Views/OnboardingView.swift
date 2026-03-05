@@ -1,5 +1,6 @@
 import SwiftUI
 import AuthenticationServices
+import WidgetKit
 
 struct OnboardingView: View {
     @StateObject private var onboardingManager = OnboardingManager.shared
@@ -29,11 +30,14 @@ struct OnboardingView: View {
                     SignInStep(onboardingManager: onboardingManager, authenticationManager: authenticationManager)
                         .tag(3)
 
-                    SubscriptionStep(onboardingManager: onboardingManager, subscriptionManager: subscriptionManager)
+                    WidgetStep()
                         .tag(4)
 
-                    ReadyStep()
+                    SubscriptionStep(onboardingManager: onboardingManager, subscriptionManager: subscriptionManager)
                         .tag(5)
+
+                    ReadyStep()
+                        .tag(6)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut(duration: 0.3), value: onboardingManager.currentStep)
@@ -58,8 +62,10 @@ struct OnboardingView: View {
             case 3:
                 return [Color.gray.opacity(0.12), Color.black.opacity(0.06)]
             case 4:
-                return [Color.purple.opacity(0.12), Color.indigo.opacity(0.06)]
+                return [Color.cyan.opacity(0.12), Color.teal.opacity(0.06)]
             case 5:
+                return [Color.purple.opacity(0.12), Color.indigo.opacity(0.06)]
+            case 6:
                 return [Color.orange.opacity(0.18), Color.red.opacity(0.08)]
             default:
                 return [Color.orange.opacity(0.15), Color.yellow.opacity(0.08)]
@@ -88,8 +94,8 @@ struct OnboardingView: View {
                 }
             }
 
-            // Primary action button (hidden on sign in and subscription steps)
-            if onboardingManager.currentStep != 3 && onboardingManager.currentStep != 4 {
+            // Primary action button (hidden on sign in, widget, and subscription steps)
+            if onboardingManager.currentStep != 3 && onboardingManager.currentStep != 4 && onboardingManager.currentStep != 5 {
                 primaryButton
             }
 
@@ -147,8 +153,9 @@ struct OnboardingView: View {
         case 1: return onboardingManager.isLocationAuthorized ? "Continue" : "Allow Location"
         case 2: return onboardingManager.isNotificationAuthorized ? "Continue" : "Enable Notifications"
         case 3: return "" // Sign in step uses its own button
-        case 4: return "" // Subscription step uses its own buttons
-        case 5: return "Start Using App"
+        case 4: return "" // Widget step uses its own buttons
+        case 5: return "" // Subscription step uses its own buttons
+        case 6: return "Start Using App"
         default: return "Continue"
         }
     }
@@ -159,8 +166,9 @@ struct OnboardingView: View {
         case 1: return .blue
         case 2: return .green
         case 3: return .black
-        case 4: return .purple
-        case 5: return .orange
+        case 4: return .cyan
+        case 5: return .purple
+        case 6: return .orange
         default: return .orange
         }
     }
@@ -174,6 +182,9 @@ struct OnboardingView: View {
             // Sign in step - handled by its own button
             return false
         case 4:
+            // Widget step - handled by its own buttons
+            return false
+        case 5:
             // Subscription step - handled by its own buttons
             return false
         default:
@@ -215,10 +226,14 @@ struct OnboardingView: View {
             break
 
         case 4:
-            // Subscription step - handled by SubscriptionStep view
+            // Widget step - handled by WidgetStep view
             break
 
         case 5:
+            // Subscription step - handled by SubscriptionStep view
+            break
+
+        case 6:
             // Ready step - complete onboarding
             onboardingManager.completeOnboarding()
 
@@ -710,50 +725,49 @@ private struct SubscriptionPlanButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack {
-                // Plan icon
-                Image(systemName: plan.icon)
-                    .font(.system(size: 24))
-                    .foregroundColor(plan == .annualFamily ? .purple : .blue)
-                    .frame(width: 40)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    // Plan icon
+                    Image(systemName: plan.icon)
+                        .font(.system(size: 24))
+                        .foregroundColor(plan == .annualFamily ? .purple : .blue)
+                        .frame(width: 40)
 
-                // Plan details
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text(plan.displayName)
-                            .font(.headline)
-                            .foregroundColor(.primary)
+                    // Plan name
+                    Text(plan.displayName)
+                        .font(.headline)
+                        .foregroundColor(.primary)
 
-                        if let savings = plan.savings {
-                            Text(savings)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(Color.green)
-                                .clipShape(Capsule())
-                        }
+                    // Savings badge
+                    if let savings = plan.savings {
+                        Text(savings)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.green)
+                            .clipShape(Capsule())
                     }
 
-                    Text(plan.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                    Spacer()
 
-                Spacer()
-
-                // Price or loading
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                } else {
-                    VStack(alignment: .trailing, spacing: 0) {
+                    // Price or loading
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle())
+                    } else {
                         Text(plan.priceString)
                             .font(.headline)
                             .foregroundColor(.primary)
                     }
                 }
+
+                // Description on its own line with full width
+                Text(plan.description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 40)  // Align with text after icon
             }
             .padding()
             .background(
@@ -792,6 +806,129 @@ private struct PremiumFeatureRow: View {
             Image(systemName: "checkmark")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.green)
+        }
+    }
+}
+
+// MARK: - Widget Step
+
+private struct WidgetStep: View {
+    @StateObject private var onboardingManager = OnboardingManager.shared
+    @State private var showingInstructions = false
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            // Widget preview illustration
+            ZStack {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.cyan.opacity(0.15))
+                    .frame(width: 160, height: 160)
+
+                // Mock widget preview
+                VStack(spacing: 4) {
+                    Text("5")
+                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .foregroundColor(.orange)
+                    Text("High")
+                        .font(.headline)
+                        .foregroundColor(.orange)
+                    Text("Time to Burn")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("25 min")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.orange)
+                }
+                .padding()
+                .background(Color(.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+            }
+
+            VStack(spacing: 12) {
+                Text("Stay Updated at a Glance")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.primary)
+
+                Text("Add a widget to your Home Screen for instant UV updates without opening the app.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 8)
+
+            // Widget benefits
+            VStack(spacing: 12) {
+                WidgetFeatureRow(icon: "eye", text: "See UV index instantly")
+                WidgetFeatureRow(icon: "clock", text: "Real-time burn countdown")
+                WidgetFeatureRow(icon: "location.fill", text: "Updates for your location")
+            }
+            .padding(.top, 8)
+
+            Spacer()
+
+            // Add Widget button
+            Button {
+                showingInstructions = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.app")
+                    Text("Add Widget")
+                        .fontWeight(.semibold)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(Color.cyan)
+                .foregroundColor(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .padding(.horizontal, 24)
+
+            // Skip option
+            Button {
+                onboardingManager.nextStep()
+            } label: {
+                Text("Skip for now")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 8)
+
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .alert("Add Widget", isPresented: $showingInstructions) {
+            Button("Got it!") {
+                // Reload widget timelines to ensure fresh data
+                WidgetCenter.shared.reloadAllTimelines()
+                onboardingManager.nextStep()
+            }
+        } message: {
+            Text("To add the widget:\n\n1. Go to your Home Screen\n2. Long press on empty space\n3. Tap the + button\n4. Search for \"Time to Burn\"\n5. Choose your widget size")
+        }
+    }
+}
+
+private struct WidgetFeatureRow: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundColor(.cyan)
+                .frame(width: 24)
+
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(.primary)
+
+            Spacer()
         }
     }
 }

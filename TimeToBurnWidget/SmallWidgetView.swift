@@ -35,9 +35,8 @@ struct SmallWidgetView: View {
     private var timeToBurnString: String {
         if entry.uvIndex == 0 { return "∞" }
         if entry.timeToBurn <= 0 { return "∞" }
-        if entry.timeToBurn == Int.max { return "∞" } // This is correct for UV 0
+        if entry.timeToBurn == Int.max { return "∞" }
         let minutes = entry.timeToBurn / 60
-        print("🌞 [SmallWidget] 📊 UV: \(entry.uvIndex), Time to Burn: \(minutes)min")
         return "\(minutes) min"
     }
 } 

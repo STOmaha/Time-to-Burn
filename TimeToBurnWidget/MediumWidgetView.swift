@@ -63,11 +63,9 @@ struct MediumWidgetView: View {
         if entry.uvIndex == 0 { return "∞" }
         if entry.timeToBurn <= 0 { return "∞" }
         if entry.timeToBurn == Int.max { return "∞" }
-        // Guard against garbage values (anything over 24 hours is unreasonable)
         if entry.timeToBurn > 86400 { return "∞" }
         let minutes = entry.timeToBurn / 60
         if minutes <= 0 { return "< 1 min" }
-        print("🌞 [MediumWidget] 📊 UV: \(entry.uvIndex), Time to Burn: \(minutes)min")
         return "\(minutes) min"
     }
     

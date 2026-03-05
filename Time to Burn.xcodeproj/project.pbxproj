@@ -73,13 +73,14 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				SharedDataManager.swift,
+				WidgetViewModel.swift,
 			);
 			target = B08275C62E1160A100242AE1 /* TimeToBurnWidgetExtension */;
 		};
 		B08275E62E11649100242AE1 /* Exceptions for "Time to Burn" folder in "TimeToBurnWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Models/SharedModels.swift,
 				Models/UVExposureAttributes.swift,
 			);
 			target = B08275C62E1160A100242AE1 /* TimeToBurnWidgetExtension */;

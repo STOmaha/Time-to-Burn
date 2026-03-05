@@ -15,7 +15,7 @@ class OnboardingManager: ObservableObject {
     private let locationManager: LocationManager
     private let notificationManager: NotificationManager
 
-    let totalSteps = 6  // Welcome, Location, Notifications, Sign In, Subscription, Ready
+    let totalSteps = 7  // Welcome, Location, Notifications, Sign In, Widget, Subscription, Ready
 
     private init() {
         self.locationManager = LocationManager.shared
@@ -106,8 +106,9 @@ class OnboardingManager: ObservableObject {
         case 1: return "Location"
         case 2: return "Notifications"
         case 3: return "Sign In"
-        case 4: return "Subscription"
-        case 5: return "Ready"
+        case 4: return "Widget"
+        case 5: return "Subscription"
+        case 6: return "Ready"
         default: return "Unknown"
         }
     }
