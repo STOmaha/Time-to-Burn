@@ -110,7 +110,12 @@ class SearchViewModel: NSObject, ObservableObject {
         setupSearchDebouncing()
         loadHistory()
     }
-    
+
+    deinit {
+        // Cancel all Combine subscriptions
+        cancellables.removeAll()
+    }
+
     // MARK: - Search Functionality
     
     private func setupSearchDebouncing() {

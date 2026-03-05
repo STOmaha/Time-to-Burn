@@ -71,7 +71,15 @@ class UVExposureTimer: ObservableObject {
     init() {
         calculateTimeToBurn()
     }
-    
+
+    deinit {
+        // Ensure all timers are cleaned up to prevent memory leaks
+        timer?.invalidate()
+        timer = nil
+        sunscreenTimer?.invalidate()
+        sunscreenTimer = nil
+    }
+
     // MARK: - Timer Control
     func startTimer() {
         guard currentUVIndex > 0 else {

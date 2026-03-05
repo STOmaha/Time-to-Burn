@@ -56,7 +56,18 @@ class TimerViewModel: ObservableObject {
         
         print("⏰ [TimerViewModel] ✅ Initialization complete")
     }
-    
+
+    deinit {
+        // Remove all NotificationCenter observers to prevent memory leaks
+        NotificationCenter.default.removeObserver(self)
+        // Invalidate any timers
+        liveActivityUpdateTimer?.invalidate()
+        liveActivityUpdateTimer = nil
+        // Cancel all Combine subscriptions
+        cancellables.removeAll()
+        print("⏰ [TimerViewModel] 🗑️ Deinitialized")
+    }
+
     // MARK: - Dependency Injection
     func setDependencies(locationManager: LocationManager, weatherViewModel: WeatherViewModel) {
         self.locationManager = locationManager

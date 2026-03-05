@@ -70,7 +70,11 @@ class WeatherViewModel: ObservableObject {
     private var lastRefreshTime: Date?
     private var isRefreshing = false
     private let minRefreshInterval: TimeInterval = 5 // Minimum 5 seconds between refreshes
-    
+
+    // Weekly forecast caching - only fetch 7-day forecast once per day
+    private let weeklyForecastDateKey = "lastWeeklyForecastDate"
+    private let weeklyForecastCacheKey = "weeklyForecastCache"
+
     enum DataFlowState: Equatable {
         case initializing
         case waitingForLocation
@@ -333,67 +337,134 @@ class WeatherViewModel: ObservableObject {
         components.second = -1
         return Calendar.current.date(byAdding: components, to: startOfWeek()) ?? Date()
     }
-    
-    private func processHourlyData(from forecast: Forecast<HourWeather>) -> [UVData] {
-        let startTime = startOfWeek()
-        let endTime = endOfWeek()
+
+    // MARK: - Weekly Forecast Caching
+
+    /// Check if we need to refresh the 7-day forecast (only once per day)
+    private func needsWeeklyForecastRefresh() -> Bool {
+        guard let lastFetchDate = UserDefaults.standard.object(forKey: weeklyForecastDateKey) as? Date else {
+            return true // Never fetched
+        }
+        return !Calendar.current.isDateInToday(lastFetchDate)
+    }
+
+    /// Save the weekly forecast to UserDefaults cache
+    private func saveWeeklyForecastCache(_ data: [UVData]) {
+        if let encoded = try? JSONEncoder().encode(data) {
+            UserDefaults.standard.set(encoded, forKey: weeklyForecastCacheKey)
+            UserDefaults.standard.set(Date(), forKey: weeklyForecastDateKey)
+        }
+    }
+
+    /// Load cached weekly forecast from UserDefaults
+    private func loadWeeklyForecastCache() -> [UVData]? {
+        guard let data = UserDefaults.standard.data(forKey: weeklyForecastCacheKey),
+              let decoded = try? JSONDecoder().decode([UVData].self, from: data) else {
+            return nil
+        }
+        return decoded
+    }
+
+    /// Process full 7-day forecast (called once per day)
+    private func processFullWeekForecast(from forecast: Forecast<HourWeather>) -> [UVData] {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let endOfWeek = calendar.date(byAdding: .day, value: 7, to: startOfToday) ?? Date()
 
         return forecast
-            .filter { startTime...endTime ~= $0.date }
+            .filter { $0.date >= startOfToday && $0.date < endOfWeek }
             .map { UVData(from: $0) }
+    }
+
+    /// Process today's hourly data only (for intra-day refreshes)
+    private func processTodayHourlyData(from forecast: Forecast<HourWeather>) -> [UVData] {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? Date()
+
+        return forecast
+            .filter { $0.date >= startOfToday && $0.date < endOfToday }
+            .map { UVData(from: $0) }
+    }
+
+    /// Merge today's fresh data with cached future days
+    private func mergeTodayWithCachedForecast(todayData: [UVData], cachedData: [UVData]) -> [UVData] {
+        let calendar = Calendar.current
+        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? Date()
+
+        // Keep future days from cache (tomorrow onwards)
+        let futureDays = cachedData.filter { $0.date >= startOfTomorrow }
+
+        // Combine today's fresh data with cached future days
+        return todayData + futureDays
     }
     
     func fetchUVData(for location: CLLocation) async {
         dataFlowState = .fetchingWeather
-        
-        logInfo(.weather, "Fetching UV data from WeatherKit")
-        
+
+        // Check if we need a full 7-day refresh or just today's data
+        let needsFullWeekRefresh = needsWeeklyForecastRefresh()
+        logInfo(.weather, needsFullWeekRefresh ? "Fetching full 7-day forecast" : "Refreshing today's UV data only")
+
         await MainActor.run {
             isLoading = true
             error = nil
         }
-        
+
         do {
             let (currentWeather, hourlyForecast, _) = try await weatherService.weather(for: location, including: .current, .hourly, .daily)
-            
-            let processedHourlyData = processHourlyData(from: hourlyForecast)
-            
+
+            // Process hourly data based on whether we need full week or just today
+            let processedHourlyData: [UVData]
+            if needsFullWeekRefresh {
+                // First fetch of the day: get full 7-day forecast and cache it
+                processedHourlyData = processFullWeekForecast(from: hourlyForecast)
+                saveWeeklyForecastCache(processedHourlyData)
+            } else {
+                // Subsequent fetches: only refresh today, merge with cached future days
+                let todayData = processTodayHourlyData(from: hourlyForecast)
+                if let cachedData = loadWeeklyForecastCache() {
+                    processedHourlyData = mergeTodayWithCachedForecast(todayData: todayData, cachedData: cachedData)
+                } else {
+                    // Fallback: if cache is missing, do a full refresh
+                    processedHourlyData = processFullWeekForecast(from: hourlyForecast)
+                    saveWeeklyForecastCache(processedHourlyData)
+                }
+            }
+
             await MainActor.run {
                 let newUVData = UVData(from: currentWeather)
-                
+
                 self.currentUVData = newUVData
                 self.hourlyUVData = processedHourlyData
-                
+
                 // Store additional weather data for misery index
                 self.currentTemperature = currentWeather.temperature.value
                 self.currentHumidity = currentWeather.humidity
                 self.currentWindSpeed = currentWeather.wind.speed.value * 3.6 // Convert m/s to km/h
-                
+
                 self.lastUpdated = Date()
                 self.isLoading = false
                 self.dataFlowState = .weatherLoaded
-                
+
                 // Reset retry state on successful fetch
                 self.resetRetryState()
-                
+
                 // Log comprehensive weather data
                 log.logUVData(newUVData, location: locationManager.locationName)
-                
+
                 logSuccess(.weather, "Weather data loaded successfully", data: [
                     "Hourly Data Points": "\(processedHourlyData.count)",
-                    "Data Age": "Fresh",
+                    "Fetch Type": needsFullWeekRefresh ? "Full 7-day" : "Today only + cached",
                     "Next Update": "30 minutes"
                 ])
-                
-                // Check for UV threshold alerts
-                // self.checkUVThresholdAlert()
-                
+
                 // Start background refresh timer after successful load
                 self.startBackgroundRefresh()
-                
+
                 // Save weather data to shared storage for widget
                 self.saveWeatherDataToSharedStorage()
-                
+
                 // Sync UV data to Supabase for backend monitoring
                 Task {
                     await self.syncUVDataToSupabase(location: location, uvData: newUVData)

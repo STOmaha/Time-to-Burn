@@ -23,7 +23,12 @@ class UVRiskViewModel: ObservableObject {
     init() {
         print("🎯 [UVRiskViewModel] Initializing risk assessment system")
     }
-    
+
+    deinit {
+        // Cancel all Combine subscriptions to prevent memory leaks
+        cancellables.removeAll()
+    }
+
     // MARK: - Setup
     func configure(with weatherViewModel: WeatherViewModel) {
         self.weatherViewModel = weatherViewModel
