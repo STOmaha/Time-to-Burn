@@ -30,10 +30,10 @@ interface APNsConfig {
 export async function sendAPNsNotification(
   notification: APNsNotification,
   config: APNsConfig
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   try {
     console.log(`📱 [APNs] Sending notification to device: ${notification.deviceToken.substring(0, 8)}...`);
-    
+
     // Construct APNs payload
     const payload = {
       aps: {
@@ -50,7 +50,7 @@ export async function sendAPNsNotification(
     };
 
     // Determine APNs endpoint (production vs sandbox)
-    const apnsEndpoint = config.production 
+    const apnsEndpoint = config.production
       ? 'https://api.push.apple.com'
       : 'https://api.sandbox.push.apple.com';
 
@@ -71,17 +71,22 @@ export async function sendAPNsNotification(
       body: JSON.stringify(payload),
     });
 
+    const responseText = await response.text();
+    console.log(`📡 [APNs] Response: status=${response.status}, apns-id=${response.headers.get('apns-id')}, body=${responseText}`);
+
     if (response.ok) {
-      console.log(`✅ [APNs] Notification sent successfully`);
-      return true;
+      const apnsId = response.headers.get('apns-id');
+      console.log(`✅ [APNs] Notification sent successfully, apns-id: ${apnsId}`);
+      return { success: true, apnsId: apnsId || undefined };
     } else {
-      const errorText = await response.text();
-      console.error(`❌ [APNs] Failed to send notification: ${response.status} - ${errorText}`);
-      return false;
+      const errorMsg = `${response.status} - ${responseText}`;
+      console.error(`❌ [APNs] Failed to send notification: ${errorMsg}`);
+      return { success: false, error: errorMsg };
     }
   } catch (error) {
-    console.error(`❌ [APNs] Error sending notification:`, error);
-    return false;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`❌ [APNs] Error sending notification:`, errorMsg);
+    return { success: false, error: errorMsg };
   }
 }
 
@@ -92,30 +97,44 @@ export async function sendBatchAPNsNotifications(
   deviceTokens: string[],
   notification: Omit<APNsNotification, 'deviceToken'>,
   config: APNsConfig
-): Promise<{ successful: number; failed: number }> {
+): Promise<{ successful: number; failed: number; errors: string[]; apnsIds: string[] }> {
   console.log(`📱 [APNs] Sending batch notifications to ${deviceTokens.length} devices`);
-  
+  console.log(`📱 [APNs] Config: keyId=${config.keyId}, teamId=${config.teamId}, bundleId=${config.bundleId}, production=${config.production}`);
+
   let successful = 0;
   let failed = 0;
+  const errors: string[] = [];
+  const apnsIds: string[] = [];
 
   // Send notifications in parallel (with reasonable batch size)
   const batchSize = 10;
   for (let i = 0; i < deviceTokens.length; i += batchSize) {
     const batch = deviceTokens.slice(i, i + batchSize);
-    
+
     const results = await Promise.all(
       batch.map(token =>
         sendAPNsNotification({ ...notification, deviceToken: token }, config)
       )
     );
 
-    successful += results.filter(r => r).length;
-    failed += results.filter(r => !r).length;
+    for (const result of results) {
+      if (result.success) {
+        successful++;
+        if (result.apnsId) {
+          apnsIds.push(result.apnsId);
+        }
+      } else {
+        failed++;
+        if (result.error) {
+          errors.push(result.error);
+        }
+      }
+    }
   }
 
-  console.log(`📊 [APNs] Batch complete: ${successful} successful, ${failed} failed`);
-  
-  return { successful, failed };
+  console.log(`📊 [APNs] Batch complete: ${successful} successful, ${failed} failed, apnsIds: ${apnsIds.join(', ')}`);
+
+  return { successful, failed, errors, apnsIds };
 }
 
 /**
@@ -125,20 +144,35 @@ export async function sendBatchAPNsNotifications(
 async function generateAPNsJWT(config: APNsConfig): Promise<string> {
   try {
     console.log('🔐 [APNs] Generating JWT token...');
+    console.log(`🔐 [APNs] Key file length: ${config.keyFile?.length}, starts with: ${config.keyFile?.substring(0, 27)}`);
 
     // Import the private key (PKCS8 format from .p8 file)
-    const privateKey = await jose.importPKCS8(config.keyFile, 'ES256');
+    let privateKey;
+    try {
+      privateKey = await jose.importPKCS8(config.keyFile, 'ES256');
+      console.log('✅ [APNs] Private key imported successfully');
+    } catch (importError) {
+      console.error('❌ [APNs] Failed to import private key:', importError);
+      throw new Error(`Key import failed: ${importError.message}`);
+    }
 
     // Create and sign the JWT
-    const jwt = await new jose.SignJWT({})
-      .setProtectedHeader({
-        alg: 'ES256',
-        kid: config.keyId
-      })
-      .setIssuer(config.teamId)
-      .setIssuedAt()
-      .setExpirationTime('1h') // APNs tokens are valid for up to 1 hour
-      .sign(privateKey);
+    let jwt;
+    try {
+      jwt = await new jose.SignJWT({})
+        .setProtectedHeader({
+          alg: 'ES256',
+          kid: config.keyId
+        })
+        .setIssuer(config.teamId)
+        .setIssuedAt()
+        .setExpirationTime('1h') // APNs tokens are valid for up to 1 hour
+        .sign(privateKey);
+      console.log('✅ [APNs] JWT signed successfully');
+    } catch (signError) {
+      console.error('❌ [APNs] Failed to sign JWT:', signError);
+      throw new Error(`JWT signing failed: ${signError.message}`);
+    }
 
     console.log('✅ [APNs] JWT token generated successfully');
     return jwt;

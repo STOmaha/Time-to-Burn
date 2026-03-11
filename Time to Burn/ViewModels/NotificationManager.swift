@@ -1,6 +1,7 @@
 import Foundation
 @preconcurrency import UserNotifications
 import SwiftUI
+import UIKit
 
 @MainActor
 class NotificationManager: ObservableObject {
@@ -20,11 +21,17 @@ class NotificationManager: ObservableObject {
         print("🔔 [NotificationManager] Requesting notification permission...")
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(
-                options: [.alert, .badge, .sound, .provisional]
+                options: [.alert, .badge, .sound]
             )
             await MainActor.run {
                 self.isAuthorized = granted
                 print("🔔 [NotificationManager] Notification permission result: \(granted)")
+
+                // Register for remote push notifications to get device token
+                if granted {
+                    print("🔔 [NotificationManager] Registering for remote notifications...")
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
             }
             return granted
         } catch {
@@ -320,10 +327,16 @@ class NotificationManager: ObservableObject {
             title: "View UV Data",
             options: [.foreground]
         )
-        
+
+        let startTimerAction = UNNotificationAction(
+            identifier: "START_TIMER",
+            title: "Start Timer",
+            options: [.foreground]
+        )
+
         let uvCategory = UNNotificationCategory(
             identifier: "UV_THRESHOLD_ALERT",
-            actions: [uvAction],
+            actions: [startTimerAction, uvAction],
             intentIdentifiers: [],
             options: []
         )

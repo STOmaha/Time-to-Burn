@@ -52,6 +52,9 @@ serve(async (req) => {
       production: Deno.env.get('APNS_PRODUCTION') === 'true',
     };
 
+    // Debug: Log config (sanitized)
+    console.log(`🔧 [UV Monitor] APNs Config: keyId=${apnsConfig.keyId?.substring(0, 4) || 'MISSING'}..., teamId=${apnsConfig.teamId?.substring(0, 4) || 'MISSING'}..., bundleId=${apnsConfig.bundleId || 'MISSING'}, production=${apnsConfig.production}, keyFileLength=${apnsConfig.keyFile?.length || 0}`);
+
     // Query users with their latest location and preferences
     const { data: users, error: usersError } = await supabase
       .from('user_locations')
@@ -80,6 +83,7 @@ serve(async (req) => {
 
     let notificationsSent = 0;
     let usersProcessed = 0;
+    const debugLog: string[] = [];
 
     // Process each user
     for (const userData of users || []) {
@@ -92,7 +96,14 @@ serve(async (req) => {
 
       usersProcessed++;
 
-      const currentUV = userData.adjusted_uv_index || userData.current_uv_index;
+      const currentUV = userData.adjusted_uv_index ?? userData.current_uv_index;
+
+      // Skip if UV data is NULL (app hasn't synced yet)
+      if (currentUV === null || currentUV === undefined) {
+        console.log(`⚠️  [UV Monitor] Skipping user ${userData.user_id} - UV data is NULL`);
+        continue;
+      }
+
       const threshold = profile.uv_threshold;
       const lastNotified = userData.last_notified_at ? new Date(userData.last_notified_at) : null;
 
@@ -115,6 +126,9 @@ serve(async (req) => {
         profile.smart_intervals_enabled
       );
 
+      console.log(`🔍 [UV Monitor] User ${userData.user_id}: UV=${currentUV}, threshold=${threshold}, shouldNotify=${shouldNotify}`);
+      debugLog.push(`User ${userData.user_id.substring(0, 8)}: UV=${currentUV}, threshold=${threshold}, shouldNotify=${shouldNotify}`);
+
       if (shouldNotify) {
         // Get user's active devices
         const { data: devices, error: devicesError } = await supabase
@@ -124,10 +138,20 @@ serve(async (req) => {
           .eq('is_active', true)
           .eq('platform', 'ios');
 
-        if (devicesError || !devices || devices.length === 0) {
-          console.log(`⚠️  [UV Monitor] No active devices for user ${userData.user_id}`);
+        if (devicesError) {
+          console.log(`❌ [UV Monitor] Device query error for user ${userData.user_id}: ${devicesError.message}`);
+          debugLog.push(`Device error: ${devicesError.message}`);
           continue;
         }
+
+        if (!devices || devices.length === 0) {
+          console.log(`⚠️  [UV Monitor] No active devices for user ${userData.user_id}`);
+          debugLog.push(`No active devices found`);
+          continue;
+        }
+
+        console.log(`📱 [UV Monitor] Found ${devices.length} device(s) for user ${userData.user_id}`);
+        debugLog.push(`Found ${devices.length} device(s)`);
 
         // Determine notification type
         const notificationType = currentUV >= threshold ? 'high_uv' : 'safe_uv';
@@ -137,7 +161,17 @@ serve(async (req) => {
 
         // Send notifications to all user's devices
         const deviceTokens = devices.map(d => d.device_token);
+        console.log(`📤 [UV Monitor] Sending to tokens: ${deviceTokens.map(t => t.substring(0, 8) + '...').join(', ')}`);
+
         const result = await sendBatchAPNsNotifications(deviceTokens, notification, apnsConfig);
+        console.log(`📊 [UV Monitor] APNs result: ${result.successful} successful, ${result.failed} failed`);
+        debugLog.push(`APNs: ${result.successful} sent, ${result.failed} failed`);
+        if (result.apnsIds && result.apnsIds.length > 0) {
+          debugLog.push(`APNs IDs: ${result.apnsIds.join(', ')}`);
+        }
+        if (result.errors && result.errors.length > 0) {
+          debugLog.push(`APNs errors: ${result.errors.join(', ')}`);
+        }
 
         if (result.successful > 0) {
           notificationsSent += result.successful;
@@ -170,6 +204,15 @@ serve(async (req) => {
       usersProcessed,
       notificationsSent,
       timestamp: new Date().toISOString(),
+      debug: debugLog,
+      apnsConfig: {
+        keyId: apnsConfig.keyId?.substring(0, 4) + '...',
+        teamId: apnsConfig.teamId?.substring(0, 4) + '...',
+        bundleId: apnsConfig.bundleId,
+        production: apnsConfig.production,
+        keyFileLength: apnsConfig.keyFile?.length || 0,
+        keyFileStart: apnsConfig.keyFile?.substring(0, 30),
+      },
     };
 
     console.log(`🎉 [UV Monitor] Complete: Processed ${usersProcessed} users, sent ${notificationsSent} notifications`);
