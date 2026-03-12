@@ -71,6 +71,22 @@ class WeatherViewModel: ObservableObject {
     private var isRefreshing = false
     private let minRefreshInterval: TimeInterval = 5 // Minimum 5 seconds between refreshes
 
+    // Background refresh interval with jitter (to prevent thundering herd at scale)
+    private let baseRefreshInterval: TimeInterval = 1800 // 30 minutes base interval
+    private let jitterOffsetKey = "weather_jitter_offset"
+
+    /// Stable per-user jitter offset (0-300 seconds) persisted across app restarts
+    /// This spreads WeatherKit API requests across a 5-minute window to avoid rate limiting
+    private var userJitterOffset: TimeInterval {
+        if let stored = userDefaults.object(forKey: jitterOffsetKey) as? Double, stored > 0 {
+            return stored
+        }
+        // Generate stable random offset (0-300 seconds = 0-5 minutes)
+        let offset = Double.random(in: 0...300)
+        userDefaults.set(offset, forKey: jitterOffsetKey)
+        return offset
+    }
+
     // Weekly forecast caching - only fetch 7-day forecast once per day
     private let weeklyForecastDateKey = "lastWeeklyForecastDate"
     private let weeklyForecastCacheKey = "weeklyForecastCache"
@@ -625,14 +641,20 @@ class WeatherViewModel: ObservableObject {
     private func startBackgroundRefresh() {
         // Stop existing timer if running
         stopBackgroundRefresh()
-        
+
+        // Calculate jittered interval to spread requests across users
+        // This prevents "thundering herd" when many users refresh simultaneously
+        let jitteredInterval = baseRefreshInterval + userJitterOffset
+
         logInfo(.weather, "Starting background refresh timer", data: [
-            "Interval": "30 minutes",
-            "Auto Refresh": "✅ Enabled"
+            "Base Interval": "30 minutes",
+            "Jitter Offset": "\(Int(userJitterOffset)) seconds",
+            "Effective Interval": "\(String(format: "%.1f", jitteredInterval / 60)) minutes",
+            "Auto Refresh": "Enabled"
         ])
-        
-        // Create timer that fires every 30 minutes (1800 seconds) for better UV monitoring
-        backgroundRefreshTimer = Timer.scheduledTimer(withTimeInterval: 1800, repeats: true) { [weak self] _ in
+
+        // Create timer with jittered interval for better UV monitoring at scale
+        backgroundRefreshTimer = Timer.scheduledTimer(withTimeInterval: jitteredInterval, repeats: true) { [weak self] _ in
             logInfo(.weather, "Background refresh triggered")
             Task {
                 await self?.refreshData()

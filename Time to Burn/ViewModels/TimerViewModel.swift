@@ -51,6 +51,7 @@ class TimerViewModel: ObservableObject {
         setupBackgroundDailyReset()
         setupExposureExceededListener()
         setupSunscreenExpiredListener()
+        setupApplySunscreenFromNotificationListener()
         // Don't update shared data until we have real weather data
         // updateSharedData() will be called when dependencies are set
         
@@ -356,13 +357,16 @@ class TimerViewModel: ObservableObject {
               let timeToBurn = userInfo["timeToBurn"] as? Int else {
             return
         }
-        
+
         print("⏰ [TimerViewModel] 🚨 Exposure exceeded due to UV increase: \(previousUV) → \(uvIndex)")
-        
+
         // Trigger haptic feedback
         let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
         impactFeedback.impactOccurred()
-        
+
+        // Notify Watch
+        WatchConnectivityManager.shared.sendExposureExceeded()
+
         // Schedule system notification
         notificationManager.scheduleExposureWarning(
             warningType: .exceeded,
@@ -388,27 +392,30 @@ class TimerViewModel: ObservableObject {
               let reapplyTime = userInfo["reapplyTime"] as? Date else {
             return
         }
-        
+
         print("⏰ [TimerViewModel] 🚨 Sunscreen timer expired! Application: \(applicationTime), Reapply: \(reapplyTime)")
-        
+
         // Trigger multiple haptic feedback for alarm effect
         let impactFeedback = UIImpactFeedbackGenerator(style: .heavy)
         impactFeedback.impactOccurred()
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             impactFeedback.impactOccurred()
         }
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             impactFeedback.impactOccurred()
         }
-        
+
+        // Notify Watch
+        WatchConnectivityManager.shared.sendSunscreenExpired()
+
         // Play alarm sound
         playAlarmSound()
-        
+
         // Show alarm modal
         showSunscreenAlarmModal()
-        
+
         // Schedule system notification as backup
         notificationManager.scheduleSunscreenExpiredAlert()
         
@@ -416,7 +423,22 @@ class TimerViewModel: ObservableObject {
         updateLiveActivity()
         updateSharedData()
     }
-    
+
+    // MARK: - Apply Sunscreen from Notification Handler
+    private func setupApplySunscreenFromNotificationListener() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleApplySunscreenFromNotification),
+            name: Notification.Name("applySunscreenFromNotification"),
+            object: nil
+        )
+    }
+
+    @objc private func handleApplySunscreenFromNotification() {
+        print("⏰ [TimerViewModel] 🧴 Applying sunscreen from notification action")
+        applySunscreen()
+    }
+
     private func playAlarmSound() {
         // Play a custom alarm sound
         AudioServicesPlaySystemSound(1005) // System sound for alarm

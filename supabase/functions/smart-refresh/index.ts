@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { sendAPNsNotification } from '../_shared/apns.ts';
 
 /**
  * Smart Refresh Edge Function
@@ -13,6 +12,12 @@ import { sendAPNsNotification } from '../_shared/apns.ts';
  * - Location staleness
  *
  * Sends SILENT push notifications to wake the app without disturbing the user.
+ *
+ * SCALE OPTIMIZATIONS:
+ * - Wave-based processing (100 users per wave)
+ * - Cursor pagination for memory efficiency
+ * - Delays between waves to prevent overload
+ * - Timeout guard to prevent Edge Function timeout
  */
 
 interface UserData {
@@ -28,10 +33,21 @@ interface UserData {
   smart_intervals_enabled: boolean;
 }
 
+// Wave processing configuration for scale
+const USERS_PER_WAVE = 100;            // Process 100 users per wave
+const WAVE_DELAY_MS = 200;             // 200ms delay between waves
+const MAX_PROCESSING_TIME_MS = 110000; // 110 seconds max
+const NOTIFICATION_DELAY_MS = 25;      // 25ms between silent pushes
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Helper function for delays
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -39,8 +55,10 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+
   try {
-    console.log('🔄 [Smart Refresh] Starting intelligent refresh check...');
+    console.log('🔄 [Smart Refresh] Starting wave-based refresh check...');
 
     // Initialize Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -56,103 +74,102 @@ serve(async (req) => {
       production: Deno.env.get('APNS_PRODUCTION') === 'true',
     };
 
+    // Pre-import jose and generate JWT once for all requests
+    const jose = await import('https://esm.sh/jose@4.15.4');
+    const privateKey = await jose.importPKCS8(apnsConfig.keyFile, 'ES256');
+    const jwt = await new jose.SignJWT({})
+      .setProtectedHeader({ alg: 'ES256', kid: apnsConfig.keyId })
+      .setIssuer(apnsConfig.teamId)
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(privateKey);
+
     // Get current hour to adjust refresh frequency
     const currentHour = new Date().getHours();
     const isDaytime = currentHour >= 6 && currentHour <= 20;
 
     console.log(`🕐 [Smart Refresh] Current hour: ${currentHour}, Daytime: ${isDaytime}`);
 
-    // Query users with their location data and preferences
-    const { data: users, error: usersError } = await supabase
-      .from('user_locations')
-      .select(`
-        user_id,
-        latitude,
-        longitude,
-        current_uv_index,
-        adjusted_uv_index,
-        updated_at,
-        last_notified_at,
-        user_profiles!inner (
-          uv_threshold,
-          notification_enabled,
-          smart_intervals_enabled,
-          location_tracking_enabled
-        )
-      `)
-      .order('updated_at', { ascending: false });
+    let totalRefreshesSent = 0;
+    let totalSkipped = 0;
+    let waveNumber = 0;
+    let lastUserId: string | null = null;
 
-    if (usersError) {
-      throw new Error(`Failed to fetch users: ${usersError.message}`);
-    }
+    // Process users in waves using cursor pagination
+    while (Date.now() - startTime < MAX_PROCESSING_TIME_MS) {
+      waveNumber++;
 
-    console.log(`📊 [Smart Refresh] Found ${users?.length || 0} users to evaluate`);
+      // Fetch next batch of users with cursor pagination
+      let query = supabase
+        .from('user_locations')
+        .select(`
+          user_id,
+          latitude,
+          longitude,
+          current_uv_index,
+          adjusted_uv_index,
+          updated_at,
+          last_notified_at,
+          user_profiles!inner (
+            uv_threshold,
+            notification_enabled,
+            smart_intervals_enabled,
+            location_tracking_enabled
+          )
+        `)
+        .eq('user_profiles.location_tracking_enabled', true)
+        .eq('user_profiles.notification_enabled', true)
+        .order('user_id', { ascending: true })
+        .limit(USERS_PER_WAVE);
 
-    let refreshesSent = 0;
-    let skipped = 0;
-
-    // Process each user
-    for (const userData of users || []) {
-      const profile = userData.user_profiles;
-
-      // Skip if notifications disabled
-      if (!profile.notification_enabled || !profile.location_tracking_enabled) {
-        skipped++;
-        continue;
+      // Cursor pagination
+      if (lastUserId) {
+        query = query.gt('user_id', lastUserId);
       }
 
-      // Calculate if refresh is needed
-      const shouldRefresh = await evaluateRefreshNeed(
-        userData,
-        profile,
-        isDaytime
-      );
+      const { data: users, error: usersError } = await query;
 
-      if (shouldRefresh.needed) {
-        // Get user's devices
-        const { data: devices } = await supabase
-          .from('user_devices')
-          .select('device_token')
-          .eq('user_id', userData.user_id)
-          .eq('is_active', true)
-          .eq('platform', 'ios');
+      if (usersError) {
+        throw new Error(`Failed to fetch users: ${usersError.message}`);
+      }
 
-        if (devices && devices.length > 0) {
-          // Send silent push to each device
-          for (const device of devices) {
-            const success = await sendSilentPush(
-              device.device_token,
-              shouldRefresh.reason,
-              apnsConfig
-            );
+      // No more users to process
+      if (!users || users.length === 0) {
+        console.log(`📊 [Smart Refresh] Wave ${waveNumber}: No more users`);
+        break;
+      }
 
-            if (success) {
-              refreshesSent++;
-            }
-          }
+      console.log(`📊 [Smart Refresh] Wave ${waveNumber}: Processing ${users.length} users...`);
 
-          // Update last_notified_at to prevent rapid re-sends
-          await supabase
-            .from('user_locations')
-            .update({ last_notified_at: new Date().toISOString() })
-            .eq('user_id', userData.user_id);
+      // Process this wave
+      const waveResult = await processUserWave(users, isDaytime, apnsConfig, jwt, supabase);
+      totalRefreshesSent += waveResult.refreshesSent;
+      totalSkipped += waveResult.skipped;
 
-          console.log(`✅ [Smart Refresh] Sent refresh to user ${userData.user_id.substring(0, 8)}... (reason: ${shouldRefresh.reason})`);
-        }
-      } else {
-        skipped++;
+      // Update cursor
+      lastUserId = users[users.length - 1].user_id;
+
+      console.log(`✅ [Smart Refresh] Wave ${waveNumber}: ${waveResult.refreshesSent} sent, ${waveResult.skipped} skipped`);
+
+      // Delay between waves
+      if (users.length === USERS_PER_WAVE) {
+        await delay(WAVE_DELAY_MS);
       }
     }
+
+    const processingTime = Date.now() - startTime;
 
     const response = {
       success: true,
-      refreshesSent,
-      skipped,
+      totalRefreshesSent,
+      totalSkipped,
+      wavesProcessed: waveNumber,
+      processingTimeMs: processingTime,
       isDaytime,
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`🎉 [Smart Refresh] Complete: ${refreshesSent} refreshes sent, ${skipped} skipped`);
+    console.log(`🎉 [Smart Refresh] Complete: ${waveNumber} waves, ${totalRefreshesSent} refreshes, ${totalSkipped} skipped in ${processingTime}ms`);
 
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -169,13 +186,73 @@ serve(async (req) => {
 });
 
 /**
+ * Process a wave of users
+ */
+async function processUserWave(
+  users: any[],
+  isDaytime: boolean,
+  apnsConfig: any,
+  jwt: string,
+  supabase: any
+): Promise<{ refreshesSent: number; skipped: number }> {
+  let refreshesSent = 0;
+  let skipped = 0;
+
+  for (const userData of users) {
+    const profile = userData.user_profiles;
+
+    // Evaluate if refresh is needed
+    const shouldRefresh = evaluateRefreshNeed(userData, profile, isDaytime);
+
+    if (shouldRefresh.needed) {
+      // Get user's devices
+      const { data: devices } = await supabase
+        .from('user_devices')
+        .select('device_token')
+        .eq('user_id', userData.user_id)
+        .eq('is_active', true)
+        .eq('platform', 'ios');
+
+      if (devices && devices.length > 0) {
+        // Send silent push to each device
+        for (const device of devices) {
+          const success = await sendSilentPush(
+            device.device_token,
+            shouldRefresh.reason,
+            apnsConfig,
+            jwt
+          );
+
+          if (success) {
+            refreshesSent++;
+          }
+
+          // Small delay between pushes
+          await delay(NOTIFICATION_DELAY_MS);
+        }
+
+        // Update last_notified_at
+        await supabase
+          .from('user_locations')
+          .update({ last_notified_at: new Date().toISOString() })
+          .eq('user_id', userData.user_id);
+      }
+    } else {
+      skipped++;
+    }
+  }
+
+  return { refreshesSent, skipped };
+}
+
+/**
  * Evaluate if a user needs a data refresh
  */
-async function evaluateRefreshNeed(
+function evaluateRefreshNeed(
   userData: any,
   profile: any,
   isDaytime: boolean
-): Promise<{ needed: boolean; reason: string }> {
+): { needed: boolean; reason: string } {
   const now = Date.now();
   const lastUpdate = new Date(userData.updated_at).getTime();
   const lastNotified = userData.last_notified_at
@@ -188,9 +265,6 @@ async function evaluateRefreshNeed(
   const currentUV = userData.adjusted_uv_index || userData.current_uv_index || 0;
   const threshold = profile.uv_threshold || 6;
   const uvProximity = Math.abs(currentUV - threshold);
-
-  // Debug logging
-  console.log(`  📍 User ${userData.user_id.substring(0, 8)}...: UV=${currentUV}, threshold=${threshold}, proximity=${uvProximity}, minutesSinceUpdate=${minutesSinceUpdate.toFixed(1)}`);
 
   // Rule 1: Don't refresh if we just did (minimum 10 minutes)
   if (minutesSinceNotified < 10) {
@@ -242,7 +316,8 @@ async function evaluateRefreshNeed(
 async function sendSilentPush(
   deviceToken: string,
   reason: string,
-  config: any
+  config: any,
+  jwt: string
 ): Promise<boolean> {
   try {
     // Silent push payload - no alert, just content-available
@@ -255,45 +330,24 @@ async function sendSilentPush(
       timestamp: new Date().toISOString(),
     };
 
-    // Use the existing APNs helper, but we need to modify for silent push
-    // For now, construct the request directly
     const apnsEndpoint = config.production
       ? 'https://api.push.apple.com'
       : 'https://api.sandbox.push.apple.com';
 
     const url = `${apnsEndpoint}/3/device/${deviceToken}`;
 
-    // Import jose for JWT generation
-    const jose = await import('https://esm.sh/jose@4.15.4');
-
-    // Generate JWT
-    const privateKey = await jose.importPKCS8(config.keyFile, 'ES256');
-    const jwt = await new jose.SignJWT({})
-      .setProtectedHeader({ alg: 'ES256', kid: config.keyId })
-      .setIssuer(config.teamId)
-      .setIssuedAt()
-      .setExpirationTime('1h')
-      .sign(privateKey);
-
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'authorization': `bearer ${jwt}`,
         'apns-topic': config.bundleId,
-        'apns-push-type': 'background', // Important: background for silent push
-        'apns-priority': '5', // Low priority for silent push (5 instead of 10)
+        'apns-push-type': 'background',
+        'apns-priority': '5',
       },
       body: JSON.stringify(payload),
     });
 
-    if (response.ok) {
-      console.log(`  ✅ Silent push sent to ${deviceToken.substring(0, 8)}...`);
-      return true;
-    } else {
-      const errorText = await response.text();
-      console.error(`  ❌ Silent push failed: ${response.status} - ${errorText}`);
-      return false;
-    }
+    return response.ok;
   } catch (error) {
     console.error(`  ❌ Silent push error:`, error);
     return false;

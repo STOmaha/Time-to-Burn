@@ -14,6 +14,9 @@ import UserNotifications
 
 @main
 struct Time_to_BurnApp: App {
+    // Connect NotificationDelegate as the UIApplicationDelegate for push notification handling
+    @UIApplicationDelegateAdaptor(NotificationDelegate.self) var appDelegate
+
     @StateObject private var locationManager = LocationManager.shared
     @StateObject private var weatherViewModel: WeatherViewModel
     @StateObject private var notificationManager = NotificationManager.shared
@@ -74,6 +77,9 @@ struct Time_to_BurnApp: App {
 
                         // Set up TimerViewModel dependencies for Live Activity and widget data
                         timerViewModel.setDependencies(locationManager: locationManager, weatherViewModel: weatherViewModel)
+
+                        // Set up Watch Connectivity
+                        WatchConnectivityManager.shared.configure(with: timerViewModel)
 
                         // Weather data will be fetched automatically when location is available
                         logInfo(.app, "Main app interface appeared, weather system active")
@@ -141,6 +147,29 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, UIApplic
             }
         }
 
+        // Handle START_TIMER action from UV threshold alerts
+        if actionIdentifier == "START_TIMER" {
+            print("🔔 [NotificationDelegate] ⏱️ Start Timer action triggered from UV alert")
+            DispatchQueue.main.async {
+                // Start the timer and navigate to Risk Tab
+                NotificationCenter.default.post(name: Notification.Name("startTimerFromNotification"), object: nil)
+                NotificationCenter.default.post(name: Notification.Name("openRiskTab"), object: nil)
+            }
+        }
+
+        // Handle VIEW_UV_DATA action
+        if actionIdentifier == "VIEW_UV_DATA" {
+            print("🔔 [NotificationDelegate] 📊 View UV Data action triggered")
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Notification.Name("openRiskTab"), object: nil)
+            }
+        }
+
+        // Handle UV_DANGER_ALERT category actions (4 options)
+        if categoryIdentifier == "UV_DANGER_ALERT" {
+            handleUVDangerAction(actionIdentifier)
+        }
+
         // Handle push notification types
         if let notificationType = PushNotificationService.NotificationType(rawValue: categoryIdentifier) {
             handlePushNotification(notificationType, actionIdentifier: actionIdentifier)
@@ -182,6 +211,53 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, UIApplic
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: Notification.Name("refreshWeatherData"), object: nil)
             }
+        }
+    }
+
+    // MARK: - UV Danger Alert Action Handler
+    /// Handles the 4 actions from UV_DANGER_ALERT notifications
+    private func handleUVDangerAction(_ actionIdentifier: String) {
+        switch actionIdentifier {
+        case "APPLY_SUNSCREEN_FROM_DANGER":
+            print("🔔 [NotificationDelegate] 🧴 Apply Sunscreen action triggered from UV Danger alert")
+            DispatchQueue.main.async {
+                // Apply sunscreen and navigate to Risk tab
+                NotificationCenter.default.post(name: Notification.Name("applySunscreenFromNotification"), object: nil)
+                NotificationCenter.default.post(name: Notification.Name("openRiskTab"), object: nil)
+            }
+
+        case "START_UV_TIMER":
+            print("🔔 [NotificationDelegate] ⏱️ Start UV Timer action triggered from UV Danger alert")
+            DispatchQueue.main.async {
+                // Start the UV exposure timer and navigate to Risk tab
+                NotificationCenter.default.post(name: Notification.Name("startTimerFromNotification"), object: nil)
+                NotificationCenter.default.post(name: Notification.Name("openRiskTab"), object: nil)
+            }
+
+        case "START_SUNSCREEN_TIMER":
+            print("🔔 [NotificationDelegate] ⏰ Start Sunscreen Timer action triggered from UV Danger alert")
+            DispatchQueue.main.async {
+                // Apply sunscreen (starts 2-hour countdown) and navigate to Risk tab
+                NotificationCenter.default.post(name: Notification.Name("applySunscreenFromNotification"), object: nil)
+                NotificationCenter.default.post(name: Notification.Name("openRiskTab"), object: nil)
+            }
+
+        case "IGNORE_FOR_DAY":
+            print("🔔 [NotificationDelegate] 🔕 Ignore for Day action triggered")
+            // Sync to Supabase to silence notifications for rest of day
+            Task {
+                await SupabaseService.shared.setIgnoreNotificationsForToday()
+            }
+
+        case UNNotificationDefaultActionIdentifier:
+            // User tapped the notification itself (not an action button)
+            print("🔔 [NotificationDelegate] User tapped UV Danger notification")
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Notification.Name("openRiskTab"), object: nil)
+            }
+
+        default:
+            break
         }
     }
 

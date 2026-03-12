@@ -90,33 +90,88 @@ export async function sendAPNsNotification(
   }
 }
 
+// Batch configuration for scale
+const BATCH_SIZE = 50;              // Process 50 devices per batch (up from 10)
+const BATCH_DELAY_MS = 100;         // 100ms delay between batches
+
+// Helper function for delays
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 /**
  * Send notifications to multiple devices
+ * Optimized for scale with larger batches, delays, and JWT reuse
  */
 export async function sendBatchAPNsNotifications(
   deviceTokens: string[],
   notification: Omit<APNsNotification, 'deviceToken'>,
   config: APNsConfig
 ): Promise<{ successful: number; failed: number; errors: string[]; apnsIds: string[] }> {
-  console.log(`📱 [APNs] Sending batch notifications to ${deviceTokens.length} devices`);
-  console.log(`📱 [APNs] Config: keyId=${config.keyId}, teamId=${config.teamId}, bundleId=${config.bundleId}, production=${config.production}`);
+  console.log(`📱 [APNs] Sending batch notifications to ${deviceTokens.length} devices (batch size: ${BATCH_SIZE})`);
 
   let successful = 0;
   let failed = 0;
   const errors: string[] = [];
   const apnsIds: string[] = [];
 
-  // Send notifications in parallel (with reasonable batch size)
-  const batchSize = 10;
-  for (let i = 0; i < deviceTokens.length; i += batchSize) {
-    const batch = deviceTokens.slice(i, i + batchSize);
+  // Pre-generate JWT token once for all requests (reuse for efficiency)
+  const jwtToken = await generateAPNsJWT(config);
 
+  // Determine APNs endpoint
+  const apnsEndpoint = config.production
+    ? 'https://api.push.apple.com'
+    : 'https://api.sandbox.push.apple.com';
+
+  // Construct payload once
+  const payload = JSON.stringify({
+    aps: {
+      alert: {
+        title: notification.title,
+        body: notification.body,
+      },
+      badge: notification.badge ?? 0,
+      sound: notification.sound ?? 'default',
+      category: notification.category,
+      'mutable-content': 1,
+    },
+    ...notification.data,
+  });
+
+  // Send notifications in batches with delays
+  for (let i = 0; i < deviceTokens.length; i += BATCH_SIZE) {
+    const batch = deviceTokens.slice(i, i + BATCH_SIZE);
+
+    // Process batch in parallel
     const results = await Promise.all(
-      batch.map(token =>
-        sendAPNsNotification({ ...notification, deviceToken: token }, config)
-      )
+      batch.map(async (token) => {
+        try {
+          const url = `${apnsEndpoint}/3/device/${token}`;
+
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'authorization': `bearer ${jwtToken}`,
+              'apns-topic': config.bundleId,
+              'apns-push-type': 'alert',
+              'apns-priority': '10',
+            },
+            body: payload,
+          });
+
+          if (response.ok) {
+            return { success: true, apnsId: response.headers.get('apns-id') || undefined };
+          } else {
+            const errorText = await response.text();
+            return { success: false, error: `${response.status} - ${errorText}` };
+          }
+        } catch (error) {
+          return { success: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      })
     );
 
+    // Collect results
     for (const result of results) {
       if (result.success) {
         successful++;
@@ -130,9 +185,14 @@ export async function sendBatchAPNsNotifications(
         }
       }
     }
+
+    // Delay between batches (except for last batch)
+    if (i + BATCH_SIZE < deviceTokens.length) {
+      await delay(BATCH_DELAY_MS);
+    }
   }
 
-  console.log(`📊 [APNs] Batch complete: ${successful} successful, ${failed} failed, apnsIds: ${apnsIds.join(', ')}`);
+  console.log(`📊 [APNs] Batch complete: ${successful} successful, ${failed} failed`);
 
   return { successful, failed, errors, apnsIds };
 }
@@ -236,4 +296,58 @@ export function createSafeUVNotification(
   };
 }
 
+/**
+ * Create UV Danger notification with 4 action options
+ * Category: UV_DANGER_ALERT
+ * Actions: Apply Sunscreen, Start UV Timer, Start Sunscreen Timer, Ignore for Day
+ */
+export function createUVDangerNotification(
+  uvIndex: number,
+  threshold: number,
+  locationName: string,
+  timeToBurnMinutes?: number
+): Omit<APNsNotification, 'deviceToken'> {
+  const burnWarning = timeToBurnMinutes
+    ? ` Time to burn: ${timeToBurnMinutes} minutes.`
+    : '';
 
+  return {
+    title: '☀️ High UV Alert',
+    body: `UV Index is ${uvIndex} in ${locationName}.${burnWarning} Protect yourself!`,
+    badge: 1,
+    sound: 'default',
+    category: 'UV_DANGER_ALERT',
+    data: {
+      type: 'uv_danger',
+      uv_index: uvIndex,
+      threshold: threshold,
+      location: locationName,
+      time_to_burn_minutes: timeToBurnMinutes,
+    },
+  };
+}
+
+/**
+ * Create UV All Clear notification
+ * Sent once when UV drops below threshold after a high UV alert
+ * Category: UV_ALL_CLEAR
+ */
+export function createUVAllClearNotification(
+  uvIndex: number,
+  threshold: number,
+  locationName: string
+): Omit<APNsNotification, 'deviceToken'> {
+  return {
+    title: '✅ UV Levels Safe Now',
+    body: `UV Index has dropped to ${uvIndex} in ${locationName}. Safe to enjoy the outdoors!`,
+    badge: 0,
+    sound: 'default',
+    category: 'UV_ALL_CLEAR',
+    data: {
+      type: 'uv_all_clear',
+      uv_index: uvIndex,
+      threshold: threshold,
+      location: locationName,
+    },
+  };
+}

@@ -519,10 +519,38 @@ class SupabaseService: ObservableObject {
             .update(["is_active": false])
             .eq("device_token", value: token)
             .execute()
-        
+
         print("✅ [SupabaseService] Device token deactivated")
     }
-    
+
+    // MARK: - Daily Notification Control
+
+    /// Set ignored_until_date to today to silence all UV notifications for the day
+    /// Called when user selects "Ignore for Day" from UV Danger notification
+    func setIgnoreNotificationsForToday() async {
+        guard let user = currentUser else {
+            print("⚠️ [SupabaseService] Cannot set ignore: user not authenticated")
+            return
+        }
+
+        // Get today's date in YYYY-MM-DD format
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let today = dateFormatter.string(from: Date())
+
+        do {
+            try await client
+                .from("user_locations")
+                .update(["ignored_until_date": today])
+                .eq("user_id", value: user.id.uuidString)
+                .execute()
+
+            print("✅ [SupabaseService] Notifications ignored until tomorrow (set to \(today))")
+        } catch {
+            print("❌ [SupabaseService] Failed to set ignore: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Location & UV Data Sync
     
     /// Sync location and UV data to Supabase

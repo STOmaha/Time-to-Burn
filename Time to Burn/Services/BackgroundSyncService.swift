@@ -22,9 +22,32 @@ class BackgroundSyncService: ObservableObject {
     
     // Distance threshold for significant location change (5km)
     private let significantDistanceThreshold: Double = 5000 // 5km in meters
-    
+
     // Track if first sync message has been logged to prevent spam
     private var firstSyncLogged = false
+
+    // Jitter to prevent thundering herd (many users syncing simultaneously)
+    private let jitterFactorKey = "sync_jitter_factor"
+
+    /// Stable per-user jitter factor (0-10% of interval) persisted across app restarts
+    /// This spreads Supabase sync requests across time to avoid coordinated spikes
+    private var userSyncJitterFactor: Double {
+        if let stored = UserDefaults.standard.object(forKey: jitterFactorKey) as? Double, stored > 0 {
+            return stored
+        }
+        // Generate stable random factor (0-10%)
+        let factor = Double.random(in: 0...0.10)
+        UserDefaults.standard.set(factor, forKey: jitterFactorKey)
+        return factor
+    }
+
+    /// Add jitter to an interval to spread sync requests across users
+    private func addJitter(to interval: TimeInterval) -> TimeInterval {
+        let jitter = interval * userSyncJitterFactor
+        // Also add small random variance (±30 seconds) per sync
+        let variance = Double.random(in: -30...30)
+        return interval + jitter + variance
+    }
 
     private init() {
         print("🔄 [BackgroundSyncService] Initialized")
@@ -72,28 +95,32 @@ class BackgroundSyncService: ObservableObject {
     }
     
     /// Calculate smart sync interval based on UV proximity to threshold
+    /// Includes jitter to prevent thundering herd at scale
     private func calculateSyncInterval(currentUV: Int, threshold: Int) -> TimeInterval {
         let difference = abs(currentUV - threshold)
-        
-        let interval: TimeInterval
-        
+
+        let baseInterval: TimeInterval
+
         switch difference {
         case 0:
             // At threshold: check every 15 minutes
-            interval = 900
+            baseInterval = 900
         case 1:
             // Very close (±1): check every 30 minutes
-            interval = 1800
+            baseInterval = 1800
         case 2...3:
             // Close (±2-3): check every hour
-            interval = 3600
+            baseInterval = 3600
         default:
             // Far (>3): check every 2 hours
-            interval = 7200
+            baseInterval = 7200
         }
-        
-        recommendedSyncInterval = interval
-        return interval
+
+        // Add user-specific jitter to spread requests across users
+        let jitteredInterval = addJitter(to: baseInterval)
+        recommendedSyncInterval = jitteredInterval
+
+        return jitteredInterval
     }
     
     // MARK: - Sync Methods

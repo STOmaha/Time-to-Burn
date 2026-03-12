@@ -366,14 +366,58 @@ class NotificationManager: ObservableObject {
             intentIdentifiers: [],
             options: []
         )
-        
+
+        // MARK: - UV Danger Alert Category (4 actions)
+        // Sent when UV exceeds threshold - user gets one per day
+        let applySunscreenAction = UNNotificationAction(
+            identifier: "APPLY_SUNSCREEN_FROM_DANGER",
+            title: "Apply Sunscreen",
+            options: [.foreground]
+        )
+
+        let startUVTimerAction = UNNotificationAction(
+            identifier: "START_UV_TIMER",
+            title: "Start UV Timer",
+            options: [.foreground]
+        )
+
+        let startSunscreenTimerAction = UNNotificationAction(
+            identifier: "START_SUNSCREEN_TIMER",
+            title: "Start Sunscreen Timer",
+            options: [.foreground]
+        )
+
+        let ignoreForDayAction = UNNotificationAction(
+            identifier: "IGNORE_FOR_DAY",
+            title: "Ignore for Today",
+            options: [.destructive]
+        )
+
+        let uvDangerCategory = UNNotificationCategory(
+            identifier: "UV_DANGER_ALERT",
+            actions: [applySunscreenAction, startUVTimerAction, startSunscreenTimerAction, ignoreForDayAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
+        // MARK: - UV All Clear Category
+        // Sent when UV drops below threshold after a high UV notification
+        let uvAllClearCategory = UNNotificationCategory(
+            identifier: "UV_ALL_CLEAR",
+            actions: [uvAction],
+            intentIdentifiers: [],
+            options: []
+        )
+
         UNUserNotificationCenter.current().setNotificationCategories([
             sunscreenCategory,
             sunscreenExpiredCategory,
             exposureCategory,
             uvCategory,
             summaryCategory,
-            weatherRefreshCategory
+            weatherRefreshCategory,
+            uvDangerCategory,
+            uvAllClearCategory
         ])
     }
     

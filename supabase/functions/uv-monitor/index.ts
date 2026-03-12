@@ -1,49 +1,112 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { sendBatchAPNsNotifications, createUVThresholdNotification, createSafeUVNotification } from '../_shared/apns.ts';
+import { sendBatchAPNsNotifications, createUVDangerNotification, createUVAllClearNotification } from '../_shared/apns.ts';
 
 /**
  * UV Monitor Edge Function
- * 
- * Scheduled function that runs periodically to:
+ *
+ * NEW DAILY NOTIFICATION FLOW:
  * 1. Check all users with location_tracking_enabled
- * 2. Compare their current UV index against their threshold
- * 3. Send push notifications when UV crosses threshold
- * 4. Implement smart intervals based on UV proximity to threshold
+ * 2. Send ONE "High UV Danger" notification per day when UV exceeds threshold
+ * 3. Send ONE "All Clear" notification per day when UV drops below threshold
+ * 4. Respect "Ignore for Day" user preference (no notifications until tomorrow)
+ *
+ * SCALE OPTIMIZATIONS:
+ * - Wave-based processing (100 users per wave)
+ * - Cursor pagination for memory efficiency
+ * - Delays between waves to prevent overload
+ * - Timeout guard to prevent Edge Function timeout
  */
 
-interface UserLocationData {
-  user_id: string;
-  latitude: number;
-  longitude: number;
-  location_name: string;
-  current_uv_index: number;
-  adjusted_uv_index: number;
-  last_notified_at: string | null;
-  uv_threshold: number;
-  notification_enabled: boolean;
+// Types for daily notification state
+interface DailyNotificationState {
+  highUvNotifiedDate: string | null;  // YYYY-MM-DD format
+  safeUvNotifiedDate: string | null;
+  ignoredUntilDate: string | null;
 }
+
+interface NotificationDecision {
+  shouldNotify: boolean;
+  notificationType: 'high_uv_danger' | 'uv_all_clear' | null;
+  reason: string;
+}
+
+// Wave processing configuration for scale
+const USERS_PER_WAVE = 100;
+const WAVE_DELAY_MS = 200;
+const MAX_PROCESSING_TIME_MS = 110000;
+const NOTIFICATION_DELAY_MS = 50;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Get today's date in YYYY-MM-DD format
+ */
+function getTodayDateString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Evaluate if notification should be sent based on new daily flow
+ */
+function evaluateDailyNotification(
+  currentUV: number,
+  threshold: number,
+  state: DailyNotificationState
+): NotificationDecision {
+  const today = getTodayDateString();
+
+  // Rule 1: If user chose "Ignore for Day", skip ALL notifications
+  if (state.ignoredUntilDate === today) {
+    return { shouldNotify: false, notificationType: null, reason: 'user_ignored_today' };
+  }
+
+  // Rule 2: Check if we should send HIGH UV notification
+  if (currentUV >= threshold) {
+    // Only send if we haven't already notified today
+    if (state.highUvNotifiedDate !== today) {
+      return { shouldNotify: true, notificationType: 'high_uv_danger', reason: 'uv_exceeded_threshold' };
+    }
+    return { shouldNotify: false, notificationType: null, reason: 'already_notified_high_uv_today' };
+  }
+
+  // Rule 3: Check if we should send SAFE UV notification
+  if (currentUV < threshold) {
+    // Only send "all clear" if:
+    // a) We sent a high UV notification earlier today
+    // b) We haven't already sent an all-clear today
+    if (state.highUvNotifiedDate === today && state.safeUvNotifiedDate !== today) {
+      return { shouldNotify: true, notificationType: 'uv_all_clear', reason: 'uv_dropped_below_threshold' };
+    }
+    return { shouldNotify: false, notificationType: null, reason: 'no_action_needed' };
+  }
+
+  return { shouldNotify: false, notificationType: null, reason: 'no_action_needed' };
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  try {
-    console.log('🌤️  [UV Monitor] Starting UV monitoring check...');
+  const startTime = Date.now();
+  const today = getTodayDateString();
 
-    // Initialize Supabase client
+  try {
+    console.log('🌤️  [UV Monitor] Starting daily notification check...');
+    console.log(`📅 [UV Monitor] Today: ${today}`);
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get APNs configuration
     const apnsConfig = {
       keyId: Deno.env.get('APNS_KEY_ID')!,
       teamId: Deno.env.get('APNS_TEAM_ID')!,
@@ -52,170 +115,92 @@ serve(async (req) => {
       production: Deno.env.get('APNS_PRODUCTION') === 'true',
     };
 
-    // Debug: Log config (sanitized)
-    console.log(`🔧 [UV Monitor] APNs Config: keyId=${apnsConfig.keyId?.substring(0, 4) || 'MISSING'}..., teamId=${apnsConfig.teamId?.substring(0, 4) || 'MISSING'}..., bundleId=${apnsConfig.bundleId || 'MISSING'}, production=${apnsConfig.production}, keyFileLength=${apnsConfig.keyFile?.length || 0}`);
+    console.log(`🔧 [UV Monitor] APNs Config: keyId=${apnsConfig.keyId?.substring(0, 4) || 'MISSING'}..., production=${apnsConfig.production}`);
 
-    // Query users with their latest location and preferences
-    const { data: users, error: usersError } = await supabase
-      .from('user_locations')
-      .select(`
-        user_id,
-        latitude,
-        longitude,
-        location_name,
-        current_uv_index,
-        adjusted_uv_index,
-        last_notified_at,
-        user_profiles!inner (
-          uv_threshold,
-          notification_enabled,
-          smart_intervals_enabled,
-          location_tracking_enabled
-        )
-      `)
-      .order('updated_at', { ascending: false });
-
-    if (usersError) {
-      throw new Error(`Failed to fetch users: ${usersError.message}`);
-    }
-
-    console.log(`📊 [UV Monitor] Found ${users?.length || 0} user locations to check`);
-
-    let notificationsSent = 0;
-    let usersProcessed = 0;
+    let totalProcessed = 0;
+    let highUvNotificationsSent = 0;
+    let allClearNotificationsSent = 0;
+    let waveNumber = 0;
+    let lastUserId: string | null = null;
     const debugLog: string[] = [];
 
-    // Process each user
-    for (const userData of users || []) {
-      const profile = userData.user_profiles;
-      
-      // Skip if user has disabled tracking or notifications
-      if (!profile.location_tracking_enabled || !profile.notification_enabled) {
-        continue;
+    // Process users in waves
+    while (Date.now() - startTime < MAX_PROCESSING_TIME_MS) {
+      waveNumber++;
+
+      // Query includes new daily notification state columns
+      let query = supabase
+        .from('user_locations')
+        .select(`
+          user_id,
+          latitude,
+          longitude,
+          location_name,
+          current_uv_index,
+          adjusted_uv_index,
+          high_uv_notified_date,
+          safe_uv_notified_date,
+          ignored_until_date,
+          user_profiles!inner (
+            uv_threshold,
+            notification_enabled,
+            smart_intervals_enabled,
+            location_tracking_enabled
+          )
+        `)
+        .eq('user_profiles.location_tracking_enabled', true)
+        .eq('user_profiles.notification_enabled', true)
+        .order('user_id', { ascending: true })
+        .limit(USERS_PER_WAVE);
+
+      if (lastUserId) {
+        query = query.gt('user_id', lastUserId);
       }
 
-      usersProcessed++;
+      const { data: users, error: usersError } = await query;
 
-      const currentUV = userData.adjusted_uv_index ?? userData.current_uv_index;
-
-      // Skip if UV data is NULL (app hasn't synced yet)
-      if (currentUV === null || currentUV === undefined) {
-        console.log(`⚠️  [UV Monitor] Skipping user ${userData.user_id} - UV data is NULL`);
-        continue;
+      if (usersError) {
+        throw new Error(`Failed to fetch users: ${usersError.message}`);
       }
 
-      const threshold = profile.uv_threshold;
-      const lastNotified = userData.last_notified_at ? new Date(userData.last_notified_at) : null;
-
-      // Check if enough time has passed since last notification (rate limiting)
-      const hoursSinceLastNotification = lastNotified
-        ? (Date.now() - lastNotified.getTime()) / (1000 * 60 * 60)
-        : Infinity;
-
-      // Require at least 1 hour between notifications
-      if (hoursSinceLastNotification < 1) {
-        console.log(`⏭️  [UV Monitor] Skipping user ${userData.user_id} - notified ${hoursSinceLastNotification.toFixed(1)}h ago`);
-        continue;
+      if (!users || users.length === 0) {
+        console.log(`📊 [UV Monitor] Wave ${waveNumber}: No more users`);
+        break;
       }
 
-      // Determine if notification should be sent
-      const shouldNotify = await checkIfShouldNotify(
-        currentUV,
-        threshold,
-        lastNotified,
-        profile.smart_intervals_enabled
-      );
+      console.log(`📊 [UV Monitor] Wave ${waveNumber}: Processing ${users.length} users...`);
 
-      console.log(`🔍 [UV Monitor] User ${userData.user_id}: UV=${currentUV}, threshold=${threshold}, shouldNotify=${shouldNotify}`);
-      debugLog.push(`User ${userData.user_id.substring(0, 8)}: UV=${currentUV}, threshold=${threshold}, shouldNotify=${shouldNotify}`);
+      // Process wave
+      const waveResult = await processUserWave(users, apnsConfig, supabase, debugLog, today);
+      totalProcessed += waveResult.processed;
+      highUvNotificationsSent += waveResult.highUvSent;
+      allClearNotificationsSent += waveResult.allClearSent;
 
-      if (shouldNotify) {
-        // Get user's active devices
-        const { data: devices, error: devicesError } = await supabase
-          .from('user_devices')
-          .select('device_token')
-          .eq('user_id', userData.user_id)
-          .eq('is_active', true)
-          .eq('platform', 'ios');
+      lastUserId = users[users.length - 1].user_id;
 
-        if (devicesError) {
-          console.log(`❌ [UV Monitor] Device query error for user ${userData.user_id}: ${devicesError.message}`);
-          debugLog.push(`Device error: ${devicesError.message}`);
-          continue;
-        }
+      console.log(`✅ [UV Monitor] Wave ${waveNumber}: processed=${waveResult.processed}, highUV=${waveResult.highUvSent}, allClear=${waveResult.allClearSent}`);
 
-        if (!devices || devices.length === 0) {
-          console.log(`⚠️  [UV Monitor] No active devices for user ${userData.user_id}`);
-          debugLog.push(`No active devices found`);
-          continue;
-        }
-
-        console.log(`📱 [UV Monitor] Found ${devices.length} device(s) for user ${userData.user_id}`);
-        debugLog.push(`Found ${devices.length} device(s)`);
-
-        // Determine notification type
-        const notificationType = currentUV >= threshold ? 'high_uv' : 'safe_uv';
-        const notification = currentUV >= threshold
-          ? createUVThresholdNotification(currentUV, threshold, userData.location_name || 'your location')
-          : createSafeUVNotification(currentUV, threshold, userData.location_name || 'your location');
-
-        // Send notifications to all user's devices
-        const deviceTokens = devices.map(d => d.device_token);
-        console.log(`📤 [UV Monitor] Sending to tokens: ${deviceTokens.map(t => t.substring(0, 8) + '...').join(', ')}`);
-
-        const result = await sendBatchAPNsNotifications(deviceTokens, notification, apnsConfig);
-        console.log(`📊 [UV Monitor] APNs result: ${result.successful} successful, ${result.failed} failed`);
-        debugLog.push(`APNs: ${result.successful} sent, ${result.failed} failed`);
-        if (result.apnsIds && result.apnsIds.length > 0) {
-          debugLog.push(`APNs IDs: ${result.apnsIds.join(', ')}`);
-        }
-        if (result.errors && result.errors.length > 0) {
-          debugLog.push(`APNs errors: ${result.errors.join(', ')}`);
-        }
-
-        if (result.successful > 0) {
-          notificationsSent += result.successful;
-
-          // Log notification
-          await supabase.from('notification_logs').insert({
-            user_id: userData.user_id,
-            notification_type: notificationType,
-            uv_index: currentUV,
-            threshold: threshold,
-            latitude: userData.latitude,
-            longitude: userData.longitude,
-          });
-
-          // Update last_notified_at
-          await supabase
-            .from('user_locations')
-            .update({ last_notified_at: new Date().toISOString() })
-            .eq('user_id', userData.user_id)
-            .order('updated_at', { ascending: false })
-            .limit(1);
-
-          console.log(`✅ [UV Monitor] Notified user ${userData.user_id}: UV ${currentUV} vs threshold ${threshold}`);
-        }
+      if (users.length === USERS_PER_WAVE) {
+        await delay(WAVE_DELAY_MS);
       }
     }
+
+    const processingTime = Date.now() - startTime;
 
     const response = {
       success: true,
-      usersProcessed,
-      notificationsSent,
+      totalProcessed,
+      highUvNotificationsSent,
+      allClearNotificationsSent,
+      totalNotificationsSent: highUvNotificationsSent + allClearNotificationsSent,
+      wavesProcessed: waveNumber,
+      processingTimeMs: processingTime,
+      date: today,
       timestamp: new Date().toISOString(),
-      debug: debugLog,
-      apnsConfig: {
-        keyId: apnsConfig.keyId?.substring(0, 4) + '...',
-        teamId: apnsConfig.teamId?.substring(0, 4) + '...',
-        bundleId: apnsConfig.bundleId,
-        production: apnsConfig.production,
-        keyFileLength: apnsConfig.keyFile?.length || 0,
-        keyFileStart: apnsConfig.keyFile?.substring(0, 30),
-      },
+      debug: debugLog.slice(-50),
     };
 
-    console.log(`🎉 [UV Monitor] Complete: Processed ${usersProcessed} users, sent ${notificationsSent} notifications`);
+    console.log(`🎉 [UV Monitor] Complete: ${totalProcessed} users, ${highUvNotificationsSent} high UV, ${allClearNotificationsSent} all-clear in ${processingTime}ms`);
 
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -232,56 +217,120 @@ serve(async (req) => {
 });
 
 /**
- * Determine if notification should be sent based on UV levels and timing
+ * Process a wave of users with new daily notification logic
  */
-async function checkIfShouldNotify(
-  currentUV: number,
-  threshold: number,
-  lastNotified: Date | null,
-  smartIntervalsEnabled: boolean
-): Promise<boolean> {
-  // Always notify if UV crosses threshold (either way)
-  const crossedThreshold = currentUV >= threshold;
-  const wasAboveThreshold = lastNotified !== null; // Simplified - in production, track previous UV state
+async function processUserWave(
+  users: any[],
+  apnsConfig: any,
+  supabase: any,
+  debugLog: string[],
+  today: string
+): Promise<{ processed: number; highUvSent: number; allClearSent: number }> {
+  let processed = 0;
+  let highUvSent = 0;
+  let allClearSent = 0;
 
-  // If this is the first check or threshold was crossed, notify
-  if (!lastNotified || crossedThreshold !== wasAboveThreshold) {
-    return true;
+  const notificationsToSend: Array<{
+    userId: string;
+    tokens: string[];
+    notification: any;
+    notificationType: 'high_uv_danger' | 'uv_all_clear';
+    currentUV: number;
+    threshold: number;
+  }> = [];
+
+  for (const userData of users) {
+    const profile = userData.user_profiles;
+    processed++;
+
+    const currentUV = userData.adjusted_uv_index ?? userData.current_uv_index;
+
+    // Skip if UV data is NULL
+    if (currentUV === null || currentUV === undefined) {
+      continue;
+    }
+
+    const threshold = profile.uv_threshold;
+
+    // Build daily notification state from database columns
+    const state: DailyNotificationState = {
+      highUvNotifiedDate: userData.high_uv_notified_date,
+      safeUvNotifiedDate: userData.safe_uv_notified_date,
+      ignoredUntilDate: userData.ignored_until_date,
+    };
+
+    // Evaluate using new daily flow logic
+    const decision = evaluateDailyNotification(currentUV, threshold, state);
+
+    console.log(`🔍 [UV Monitor] User ${userData.user_id.substring(0, 8)}: UV=${currentUV}, threshold=${threshold}, decision=${decision.reason}`);
+
+    if (decision.shouldNotify && decision.notificationType) {
+      // Get user's active devices
+      const { data: devices, error: devicesError } = await supabase
+        .from('user_devices')
+        .select('device_token')
+        .eq('user_id', userData.user_id)
+        .eq('is_active', true)
+        .eq('platform', 'ios');
+
+      if (devicesError || !devices || devices.length === 0) {
+        continue;
+      }
+
+      // Create appropriate notification
+      const notification = decision.notificationType === 'high_uv_danger'
+        ? createUVDangerNotification(currentUV, threshold, userData.location_name || 'your location')
+        : createUVAllClearNotification(currentUV, threshold, userData.location_name || 'your location');
+
+      notificationsToSend.push({
+        userId: userData.user_id,
+        tokens: devices.map((d: any) => d.device_token),
+        notification,
+        notificationType: decision.notificationType,
+        currentUV,
+        threshold,
+      });
+    }
   }
 
-  // Smart intervals: check more frequently when near threshold
-  if (smartIntervalsEnabled) {
-    const difference = Math.abs(currentUV - threshold);
-    const hoursSinceLastCheck = lastNotified
-      ? (Date.now() - lastNotified.getTime()) / (1000 * 60 * 60)
-      : Infinity;
+  // Send notifications with staggered delays
+  for (const item of notificationsToSend) {
+    const result = await sendBatchAPNsNotifications(item.tokens, item.notification, apnsConfig);
 
-    // At threshold or ±1: check every 1 hour
-    if (difference <= 1 && hoursSinceLastCheck >= 1) {
-      return true;
+    if (result.successful > 0) {
+      if (item.notificationType === 'high_uv_danger') {
+        highUvSent += result.successful;
+
+        // Update high_uv_notified_date to today
+        await supabase
+          .from('user_locations')
+          .update({ high_uv_notified_date: today })
+          .eq('user_id', item.userId);
+
+        debugLog.push(`HIGH UV: ${item.userId.substring(0, 8)} UV=${item.currentUV}`);
+      } else {
+        allClearSent += result.successful;
+
+        // Update safe_uv_notified_date to today
+        await supabase
+          .from('user_locations')
+          .update({ safe_uv_notified_date: today })
+          .eq('user_id', item.userId);
+
+        debugLog.push(`ALL CLEAR: ${item.userId.substring(0, 8)} UV=${item.currentUV}`);
+      }
+
+      // Log notification
+      await supabase.from('notification_logs').insert({
+        user_id: item.userId,
+        notification_type: item.notificationType,
+        uv_index: item.currentUV,
+        threshold: item.threshold,
+      });
     }
 
-    // ±2-3: check every 2 hours
-    if (difference <= 3 && hoursSinceLastCheck >= 2) {
-      return true;
-    }
-
-    // Far from threshold: check every 4 hours
-    if (hoursSinceLastCheck >= 4) {
-      return true;
-    }
-  } else {
-    // Without smart intervals, check every 2 hours
-    const hoursSinceLastCheck = lastNotified
-      ? (Date.now() - lastNotified.getTime()) / (1000 * 60 * 60)
-      : Infinity;
-      
-    if (hoursSinceLastCheck >= 2) {
-      return true;
-    }
+    await delay(NOTIFICATION_DELAY_MS);
   }
 
-  return false;
+  return { processed, highUvSent, allClearSent };
 }
-
-
